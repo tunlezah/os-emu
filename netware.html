@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Novell NetWare 4.11 — IntranetWare (Simulation)</title>
+  <meta name="description" content="An interactive front-end simulation of a Novell NetWare 4.11 / IntranetWare server console. No real networking — a museum exhibit in the browser.">
+  <link rel="stylesheet" href="css/netware.css">
+</head>
+<body>
+  <div id="crt">
+    <div id="screen"></div>
+  </div>
+
+  <noscript>
+    <p style="color:#0f0;font-family:monospace;padding:20px">
+      This NetWare 4.11 simulation requires JavaScript.
+    </p>
+  </noscript>
+
+  <!-- ===== core layer ===== -->
+  <script src="js/core/namespace.js"></script>
+  <script src="js/core/state.js"></script>
+  <script src="js/core/settings.js"></script>
+  <script src="js/core/audio.js"></script>
+  <script src="js/core/theme.js"></script>
+
+  <!-- ===== data layer ===== -->
+  <script src="js/data/serverinfo.js"></script>
+  <script src="js/data/modules.js"></script>
+  <script src="js/data/volumes.js"></script>
+  <script src="js/data/nds.js"></script>
+  <script src="js/data/users.js"></script>
+  <script src="js/data/logs.js"></script>
+  <script src="js/data/help.js"></script>
+
+  <!-- ===== system layer ===== -->
+  <script src="js/system/monitor-engine.js"></script>
+  <script src="js/system/wm.js"></script>
+  <script src="js/system/tui.js"></script>
+  <script src="js/system/boot.js"></script>
+  <script src="js/system/login.js"></script>
+  <script src="js/system/console.js"></script>
+  <script src="js/system/commands.js"></script>
+  <script src="js/system/menubar.js"></script>
+  <script src="js/system/statusbar.js"></script>
+
+  <!-- ===== applications ===== -->
+  <script src="js/apps/monitor.js"></script>
+  <script src="js/apps/netadmin.js"></script>
+  <script src="js/apps/syscon.js"></script>
+  <script src="js/apps/filer.js"></script>
+  <script src="js/apps/connections.js"></script>
+  <script src="js/apps/pconsole.js"></script>
+  <script src="js/apps/netmap.js"></script>
+  <script src="js/apps/graphs.js"></script>
+  <script src="js/apps/logs.js"></script>
+  <script src="js/apps/help.js"></script>
+  <script src="js/apps/about.js"></script>
+  <script src="js/apps/tools.js"></script>
+
+  <!-- ===== bootstrap ===== -->
+  <script src="js/main.js"></script>
+</body>
+</html>
