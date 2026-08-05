@@ -29,6 +29,7 @@ You can also open any exhibit's `.html` file directly; each one is fully standal
 | 2001 | **Mac OS X 10.0 “Cheetah”** | Apple | [`cheetah.html`](cheetah.html) | First-generation Aqua: lickable buttons, the original Dock, Unix underneath |
 | 2001 | **IBM OS/2 Warp 4.52** | IBM | [`os2warp.html`](os2warp.html) | Boot Manager, CONFIG.SYS and the object-oriented Workplace Shell |
 | 2023 | **IBM z/OS 3.1** | IBM | [`zos.html`](zos.html) | A 3270 terminal on a living mainframe: IPL, VTAM logon, TSO/ISPF, the editor, JCL, JES2, SDSF, REXX, USS and the MVS operator console — uniquely in this museum, not a memory but a description of next Tuesday |
+| 2025 | **SymbOS 4.0** | Prodatron / SymbiosiS | [`symbos.html`](symbos.html) | A Win9x-grade multitasking desktop on a 4 MHz Z80: pick your machine (CPC, MSX2, Spectrum Next, PCW), then run SymAmp chiptunes, a windowed raycaster and a file copy at once — all accounted for in 16K banks. Not a memory either: the real thing is free at symbos.de |
 
 ## ✨ How the exhibits are built
 
