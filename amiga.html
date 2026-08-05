@@ -1,0 +1,3514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AmigaOS 3.1 — Workbench 3.1</title>
+<meta name="description" content="A single-file, in-browser simulation of AmigaOS 3.1 / Workbench 3.1. Hold the right mouse button for menus. Nothing real runs.">
+<style>
+/* ============================================================
+   AmigaOS 3.1 / Workbench 3.1 — self-contained simulation
+   No external resources. Works from file://.
+   The four Workbench colours are CSS variables so the Palette
+   preferences editor can change them live.
+   ============================================================ */
+:root{
+  --c0:#aaaaaa;   /* 0: grey  — background        */
+  --c1:#000000;   /* 1: black — text/detail       */
+  --c2:#ffffff;   /* 2: white — bright/bevel      */
+  --c3:#6688bb;   /* 3: blue  — fill/selection    */
+  --tz:"Topaz","TopazPlus","PxPlus IBM VGA8","Px437 IBM VGA8","Lucida Console","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  background:#000;
+  font-family:var(--tz);
+  font-size:14px;
+  color:var(--c1);
+  user-select:none;
+  -webkit-user-select:none;
+  cursor:default;
+  overflow:hidden;
+}
+/* PAL-ish stage: wide and slightly squat, centred, letterboxed */
+#stage{
+  position:absolute;
+  inset:0;
+  margin:auto;
+  background:#000;
+  overflow:hidden;
+}
+b,strong{font-weight:bold}
+.tz{font-family:var(--tz)}
+
+/* ---------- bevels (light from top-left) ---------- */
+.bev-out{border-style:solid;border-width:2px;border-color:var(--c2) var(--c1) var(--c1) var(--c2)}
+.bev-in {border-style:solid;border-width:2px;border-color:var(--c1) var(--c2) var(--c2) var(--c1)}
+
+/* ============================================================
+   SCREENS — full-size, stack like a deck, drag down to reveal
+   ============================================================ */
+.screen{
+  position:absolute;
+  left:0;right:0;
+  height:100%;
+  background:var(--c0);
+  overflow:hidden;
+  box-shadow:0 -2px 0 #000;
+}
+.screen .sbody{
+  position:absolute;
+  left:0;right:0;top:22px;bottom:0;
+  overflow:hidden;
+}
+/* screen title bar */
+.stitle{
+  position:absolute;
+  left:0;right:0;top:0;
+  height:22px;
+  background:var(--c0);
+  color:var(--c1);
+  border-bottom:2px solid var(--c1);
+  display:flex;
+  align-items:stretch;
+  white-space:nowrap;
+  overflow:hidden;
+  z-index:50;
+}
+.screen.active > .stitle{background:var(--c2);color:var(--c1)}
+.stitle .stxt{
+  flex:1;
+  padding:3px 8px 0 8px;
+  font-size:14px;
+  overflow:hidden;
+  text-overflow:clip;
+}
+.stitle .smem{padding:3px 10px 0 0;font-size:14px}
+/* screen depth gadget, far right */
+.sdepth{
+  width:24px;
+  border-left:2px solid var(--c1);
+  position:relative;
+  flex:none;
+  background:inherit;
+}
+.sdepth:active{filter:invert(1)}
+.gadget-depth-art{position:absolute;inset:0}
+
+/* ============================================================
+   WINDOWS — Intuition chrome
+   ============================================================ */
+.win{
+  position:absolute;
+  background:var(--c0);
+  border:2px solid;
+  border-color:var(--c2) var(--c1) var(--c1) var(--c2);
+  box-shadow:1px 1px 0 rgba(0,0,0,.4);
+  display:flex;
+  flex-direction:column;
+  min-width:120px;
+  min-height:60px;
+}
+.wtitle{
+  height:20px;
+  flex:none;
+  display:flex;
+  align-items:stretch;
+  background:var(--c0);
+  color:var(--c1);
+  border-bottom:2px solid var(--c1);
+  overflow:hidden;
+}
+.win.active > .wtitle{background:var(--c3);color:var(--c2)}
+.wtitle .wtxt{
+  flex:1;
+  padding:2px 6px 0 4px;
+  font-size:14px;
+  overflow:hidden;
+  white-space:nowrap;
+  cursor:default;
+}
+/* gadgets */
+.gad{
+  width:22px;
+  flex:none;
+  position:relative;
+  cursor:default;
+}
+.gad svg{position:absolute;inset:0;width:100%;height:100%}
+.gclose{border-right:2px solid var(--c1)}
+.gzoom,.gdepth{border-left:2px solid var(--c1)}
+.gad:active{filter:invert(1)}
+.wbody{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  background:var(--c0);
+}
+.wbody.scrollable{overflow:auto;scrollbar-width:thin}
+/* sizing gadget bottom-right */
+.gsize{
+  position:absolute;
+  right:0;bottom:0;
+  width:18px;height:18px;
+  cursor:nwse-resize;
+  z-index:5;
+}
+.gsize svg{width:100%;height:100%}
+/* window border right/bottom thick zone for authentic feel */
+.win.hasresize .wbody{margin-right:0}
+
+/* ============================================================
+   MENUS — right mouse button strip in the screen title bar
+   ============================================================ */
+.menustrip{
+  position:absolute;
+  left:0;right:0;top:0;
+  height:22px;
+  background:var(--c2);
+  color:var(--c1);
+  border-bottom:2px solid var(--c1);
+  display:none;
+  z-index:400;
+  white-space:nowrap;
+}
+.menustrip.open{display:block}
+.mtitle{
+  display:inline-block;
+  padding:3px 12px 0 12px;
+  height:20px;
+  font-size:14px;
+}
+.mtitle.hot{background:var(--c1);color:var(--c2)}
+.mpanel{
+  position:absolute;
+  top:22px;
+  background:var(--c2);
+  color:var(--c1);
+  border:2px solid var(--c1);
+  min-width:180px;
+  z-index:401;
+  padding:0;
+}
+.mitem{
+  padding:3px 26px 3px 10px;
+  font-size:14px;
+  position:relative;
+  white-space:nowrap;
+}
+.mitem .amk{float:right;margin-left:18px}
+.mitem.hot{background:var(--c1);color:var(--c2)}
+.mitem.ghost{color:var(--c2);text-shadow:1px 1px 0 #888;pointer-events:auto}
+.mitem.checked::before{content:"✓";position:absolute;left:1px;top:3px;font-size:12px}
+.msep{border-top:1px solid var(--c1);margin:2px 0}
+.msub{position:absolute;left:100%;top:-2px;background:var(--c2);border:2px solid var(--c1);min-width:120px;display:none}
+.mitem.hassub::after{content:"»";position:absolute;right:6px}
+.mitem.hassub.hot > .msub{display:block}
+/* Amiga key glyph */
+.amk{font-size:12px}
+.amk::before{content:"";display:inline-block;width:13px;height:11px;margin-right:3px;vertical-align:-1px;
+  background:
+    linear-gradient(135deg,transparent 46%,currentColor 46%,currentColor 54%,transparent 54%),
+    linear-gradient(45deg,transparent 46%,currentColor 46%,currentColor 54%,transparent 54%);
+  border:1.5px solid currentColor;border-radius:2px}
+
+/* ============================================================
+   ICONS — two-state, snapshot, drag
+   ============================================================ */
+.icon{
+  position:absolute;
+  width:90px;
+  text-align:center;
+  z-index:1;
+}
+.icon .iimg{
+  display:inline-block;
+  width:56px;height:42px;
+  position:relative;
+}
+.icon .iimg svg{width:100%;height:100%}
+.icon .ilbl{
+  display:inline-block;
+  font-size:13px;
+  padding:0 2px;
+  color:var(--icontext,var(--c1));
+  max-width:100px;
+  overflow:hidden;
+  white-space:nowrap;
+  line-height:15px;
+}
+.icon.sel .ilbl{background:var(--c1);color:var(--c2)}
+.icon.sel .iimg{filter:invert(1) hue-rotate(180deg)}
+.icon.ghosted{opacity:.5}
+/* drag ghost */
+#dragghost{position:fixed;pointer-events:none;z-index:900;opacity:.6;display:none}
+/* rubber band */
+#rubber{
+  position:absolute;
+  border:1px dashed var(--c1);
+  background:transparent;
+  display:none;
+  z-index:200;
+  pointer-events:none;
+}
+/* icon view-by-name rows */
+.listrow{font-size:13px;padding:1px 6px;white-space:pre}
+.listrow.sel{background:var(--c3);color:var(--c2)}
+
+/* ============================================================
+   REQUESTERS
+   ============================================================ */
+.req .wbody{padding:12px 14px}
+.reqtext{font-size:14px;margin-bottom:14px;white-space:pre-wrap;line-height:1.5}
+.reqbtns{display:flex;gap:14px;justify-content:space-between}
+.btn{
+  display:inline-block;
+  background:var(--c0);
+  color:var(--c1);
+  border:2px solid;
+  border-color:var(--c2) var(--c1) var(--c1) var(--c2);
+  padding:3px 14px;
+  font:14px var(--tz);
+  cursor:default;
+  white-space:nowrap;
+}
+.btn:active{border-color:var(--c1) var(--c2) var(--c2) var(--c1);background:var(--c3);color:var(--c2)}
+/* string gadget (text input) */
+.sgad{
+  background:var(--c0);
+  border:2px solid;
+  border-color:var(--c1) var(--c2) var(--c2) var(--c1);
+  font:14px var(--tz);
+  color:var(--c1);
+  padding:2px 5px;
+  outline:none;
+}
+.sgad:focus{background:var(--c2)}
+select.sgad,textarea.sgad{cursor:default}
+/* checkbox gadget */
+.ckb{display:inline-block;width:26px;height:18px;border:2px solid;border-color:var(--c1) var(--c2) var(--c2) var(--c1);background:var(--c0);position:relative;vertical-align:middle}
+.ckb.on::after{content:"✓";position:absolute;left:6px;top:-1px;font-weight:bold}
+/* cycle gadget */
+.cyc{position:relative;padding-left:26px}
+.cyc::before{content:"↻";position:absolute;left:6px}
+
+/* ============================================================
+   SHELL / console windows
+   ============================================================ */
+.conbody{
+  background:var(--c0);
+  color:var(--c1);
+  font:14px/17px var(--tz);
+  padding:2px 4px;
+  overflow-y:auto;
+  height:100%;
+  white-space:pre-wrap;
+  word-break:break-all;
+  cursor:text;
+}
+.conbody .cur{background:var(--c3);color:var(--c2)}
+
+/* ============================================================
+   GURU MEDITATION
+   ============================================================ */
+#guru{
+  position:absolute;inset:0;
+  background:#000;
+  z-index:2000;
+  display:none;
+  cursor:default;
+}
+#guru .alert{
+  position:absolute;left:0;right:0;top:0;
+  padding:18px 0 14px 0;
+  text-align:center;
+  color:#f00;
+  font:bold 18px/1.9 var(--tz);
+  border:6px solid #f00;
+  animation:guruflash 1.1s steps(1) infinite;
+}
+@keyframes guruflash{50%{border-color:#000}}
+
+/* ============================================================
+   BOOT / Kickstart
+   ============================================================ */
+#boot{
+  position:absolute;inset:0;
+  background:#000;
+  z-index:1500;
+  overflow:hidden;
+}
+#kick{
+  position:absolute;inset:0;
+  background:#fff;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+#bootseq{
+  position:absolute;inset:0;
+  background:#000;
+  color:#ccc;
+  font:14px/18px var(--tz);
+  padding:10px 14px;
+  display:none;
+  white-space:pre-wrap;
+}
+/* CRT overlay (optional, default off) */
+#crt{
+  position:absolute;inset:0;
+  pointer-events:none;
+  z-index:3000;
+  display:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);
+}
+#crt.on{display:block}
+#crt::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,transparent 62%,rgba(0,0,0,.28) 100%)}
+
+/* misc app styling */
+.padbody{padding:10px}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lbl{font-size:14px}
+canvas{image-rendering:pixelated}
+.paintcursor{cursor:crosshair}
+.helpguide a,.guidebtn{
+  display:inline-block;
+  background:var(--c0);
+  border:2px solid;
+  border-color:var(--c2) var(--c1) var(--c1) var(--c2);
+  color:var(--c1);
+  text-decoration:none;
+  padding:0 6px;
+  margin:0 2px;
+  cursor:default;
+}
+.guidebtn:active{border-color:var(--c1) var(--c2) var(--c2) var(--c1)}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="dragghost"></div>
+<div id="crt"></div>
+<script>
+"use strict";
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+const $=(s,el)=>(el||document).querySelector(s);
+const mk=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pad=(n,w)=>String(n).padStart(w," ");
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const commas=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,",");
+const stage=$("#stage");
+
+/* Era-flavoured date formatting: DD-MMM-YY  HH:MM:SS */
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function adosDate(d){
+  d=d instanceof Date?d:new Date(d);
+  return String(d.getDate()).padStart(2,"0")+"-"+MONTHS[d.getMonth()]+"-"+String(d.getFullYear()%100).padStart(2,"0");
+}
+function adosTime(d){
+  d=d instanceof Date?d:new Date(d);
+  return [d.getHours(),d.getMinutes(),d.getSeconds()].map(x=>String(x).padStart(2,"0")).join(":");
+}
+
+/* ============================================================
+   STATE MANAGER — localStorage persistence.
+   "Save" prefs persist; "Use" prefs live only until reboot.
+   RAM: never persists (cleared on reboot by design).
+   ============================================================ */
+const State={
+  KEY:"amigaos31_museum",
+  data:null,
+  load(){
+    try{ this.data=JSON.parse(localStorage.getItem(this.KEY))||{}; }
+    catch(e){ this.data={}; }
+    this.data.prefs   = this.data.prefs   || {};
+    this.data.icons   = this.data.icons   || {};   /* snapshot positions by path */
+    this.data.leftout = this.data.leftout || [];   /* Leave Out paths */
+    this.data.wins    = this.data.wins    || {};   /* window snapshots by path */
+    this.data.files   = this.data.files   || null; /* user FS overlay */
+    this.data.shellHist = this.data.shellHist || [];
+    return this.data;
+  },
+  save(){
+    try{ localStorage.setItem(this.KEY,JSON.stringify(this.data)); }catch(e){}
+  },
+  /* prefs: {saved:{...}} persisted, plus a runtime "use" overlay */
+  useOverlay:{},
+  getPref(app,def){
+    const saved=this.data.prefs[app];
+    const use=this.useOverlay[app];
+    return Object.assign({},def,saved||{},use||{});
+  },
+  usePref(app,val){ this.useOverlay[app]=Object.assign({},this.useOverlay[app]||{},val); },
+  savePref(app,val){
+    this.data.prefs[app]=Object.assign({},this.data.prefs[app]||{},val);
+    delete this.useOverlay[app];
+    this.save();
+  }
+};
+State.load();
+
+/* ============================================================
+   SOUND MANAGER — Paula-flavoured Web Audio synthesis.
+   Everything generated in code; toggle via Prefs → Sound.
+   ============================================================ */
+const Sound={
+  ctx:null, enabled:true,
+  init(){
+    if(this.ctx)return this.ctx;
+    try{ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+    return this.ctx;
+  },
+  on(){ const p=State.getPref("sound",{enabled:true}); return p.enabled!==false; },
+  /* one-pole lowpassed square blip — generic Paula-ish voice */
+  tone(freq,dur,vol,type,when){
+    if(!this.on()||!this.init())return;
+    const c=this.ctx,t=(when||c.currentTime);
+    const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
+    o.type=type||"square";o.frequency.value=freq;
+    f.type="lowpass";f.frequency.value=3200;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.linearRampToValueAtTime(vol||.12,t+.008);
+    g.gain.exponentialRampToValueAtTime(.0001,t+(dur||.15));
+    o.connect(f);f.connect(g);g.connect(c.destination);
+    o.start(t);o.stop(t+(dur||.15)+.05);
+  },
+  noise(dur,vol,fc){
+    if(!this.on()||!this.init())return;
+    const c=this.ctx,t=c.currentTime,n=c.sampleRate*(dur||.1);
+    const buf=c.createBuffer(1,n,c.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+    const s=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter();
+    s.buffer=buf;f.type="bandpass";f.frequency.value=fc||900;f.Q.value=.7;
+    g.gain.value=vol||.1;
+    s.connect(f);f.connect(g);g.connect(c.destination);s.start(t);
+  },
+  floppyClick(){ this.noise(.03,.08,1400); },
+  floppyGrind(times){
+    times=times||6;
+    for(let i=0;i<times;i++)setTimeout(()=>this.noise(.05,.07,700+Math.random()*500),i*160);
+  },
+  diskInsert(){ this.noise(.09,.14,500); setTimeout(()=>this.noise(.05,.1,1200),90); },
+  beep(){ this.tone(880,.14,.14,"square"); },
+  boom(){ /* boing demo floor hit */
+    if(!this.on()||!this.init())return;
+    const c=this.ctx,t=c.currentTime;
+    const o=c.createOscillator(),g=c.createGain();
+    o.type="sine";o.frequency.setValueAtTime(160,t);
+    o.frequency.exponentialRampToValueAtTime(38,t+.28);
+    g.gain.setValueAtTime(.5,t);
+    g.gain.exponentialRampToValueAtTime(.001,t+.5);
+    o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.55);
+    this.noise(.1,.2,180);
+  },
+  keyclick(){ this.tone(2400,.015,.02,"square"); }
+};
+/* browsers require a gesture before audio — arm on first interaction */
+window.addEventListener("pointerdown",()=>Sound.init(),{once:true});
+window.addEventListener("keydown",()=>Sound.init(),{once:true});
+
+/* ============================================================
+   MEMORY ILLUSION — chip/fast figures that breathe
+   ============================================================ */
+const Memory={
+  chipTotal:2*1024*1024, fastTotal:8*1024*1024,
+  chipUsed:713_728, fastUsed:1_892_352,
+  claims:new Map(), _n:0,
+  alloc(chip,fast){
+    const id=++this._n;
+    this.claims.set(id,[chip|0,fast|0]);
+    this.chipUsed+=chip|0; this.fastUsed+=fast|0;
+    Titlebars.refresh(); return id;
+  },
+  free(id){
+    const c=this.claims.get(id);
+    if(!c)return;
+    this.claims.delete(id);
+    this.chipUsed-=c[0]; this.fastUsed-=c[1];
+    Titlebars.refresh();
+  },
+  chipFree(){ return Math.max(0,this.chipTotal-this.chipUsed); },
+  fastFree(){ return Math.max(0,this.fastTotal-this.fastUsed); }
+};
+/* tiny random breathing so the figures live */
+setInterval(()=>{
+  Memory.chipUsed=clamp(Memory.chipUsed+((Math.random()*4096)|0)-2048,600000,Memory.chipTotal-65536);
+  Memory.fastUsed=clamp(Memory.fastUsed+((Math.random()*8192)|0)-4096,1500000,Memory.fastTotal-262144);
+  Titlebars.refresh();
+},2600);
+
+/* ============================================================
+   TASK LIST ILLUSION — for Status / multitasking flavour
+   ============================================================ */
+const Tasks={
+  list:[
+    {n:1,name:"Workbench",pri:1},
+  ],
+  _n:1,
+  add(name,pri){ const t={n:++this._n,name,pri:pri||0};this.list.push(t);return t; },
+  remove(t){ const i=this.list.indexOf(t); if(i>=0)this.list.splice(i,1); }
+};
+/* ============================================================
+   VIRTUAL AmigaDOS — volumes, drawers, files, assigns, RAM:
+   Node: {t:"d"|"f", name, size, date, prot, comment, tool,
+          kind (icon style), tooltypes[], text (file body),
+          noicon (visible only with Show All Files), c:{children}}
+   ============================================================ */
+const FS={ volumes:{}, assigns:{}, };
+function N(t,name,opts){
+  return Object.assign({t,name,size:t==="d"?0:990,date:"1993-08-10",prot:"----rwed",
+    comment:"",kind:t==="d"?"drawer":"project",tooltypes:[],c:t==="d"?{}:undefined},opts||{});
+}
+function addc(parent,node){ parent.c[node.name.toLowerCase()]=node; return node; }
+/* journal a user-created file so it survives reload (RAM: excluded) */
+function journalFile(dirPath,node){
+  if(!dirPath||/^ram/i.test(dirPath))return;
+  State.data.files=State.data.files||[];
+  State.data.files.push({dir:dirPath,t:node.t,name:node.name,
+    props:{size:node.size,kind:node.kind,date:node.date,text:node.text,
+           tool:node.tool,customIcon:node.customIcon,pngData:node.pngData}});
+  State.save();
+}
+
+function buildFS(){
+  const D=(n,o)=>N("d",n,o), F=(n,o)=>N("f",n,o);
+  /* ---------- SYS: (Workbench3.1) ---------- */
+  const sys=D("Workbench3.1",{kind:"disk",date:"1994-04-30"});
+  sys.volKind="hd"; sys.capacity=124_000_000; sys.used=31_204_352;
+
+  const mkcmds=(names,dir,kind,sz)=>names.forEach((nm,i)=>addc(dir,F(nm,{
+    kind:kind||"tool",size:(sz||1200)+((nm.length*371)%4096),prot:"----rwed",
+    date:"1993-0"+(1+(i%9))+"-"+String(3+(i%25)).padStart(2,"0"),noicon:true})));
+
+  const c=addc(sys,D("C",{noicon:true}));
+  mkcmds(["AddBuffers","Assign","Avail","Break","ChangeTaskPri","ConClip","Copy","CPU","Date","Delete","Dir","DiskChange","Ed","Edit","Eval","Execute","Filenote","IconX","Info","Install","IPrefs","Join","List","LoadWB","Lock","MagTape","MakeDir","MakeLink","Mount","Protect","Relabel","RemRAD","Rename","RequestChoice","RequestFile","Run","Search","SetClock","SetDate","SetFont","SetKeyboard","SetPatch","Sort","Status","Type","Version","Wait","Which","Why"],c,"tool",900);
+
+  const devs=addc(sys,D("Devs",{noicon:true}));
+  addc(devs,F("system-configuration",{noicon:true,size:232,date:"1992-11-30"}));
+  const dosdrv=addc(devs,D("DOSDrivers"));
+  ["PC0","PIPE","AUX"].forEach(n=>addc(dosdrv,F(n,{kind:"project",size:120})));
+  const keymaps=addc(devs,D("Keymaps"));
+  ["d","gb","f","i","s","usa2"].forEach(n=>addc(keymaps,F(n,{noicon:true,size:1836})));
+  const monitors=addc(devs,D("Monitors"));
+  ["Multiscan","PAL","NTSC","DblPAL","DblNTSC"].forEach(n=>addc(monitors,F(n,{kind:"tool",size:412})));
+  ["clipboard.device","printer.device","serial.device","parallel.device","narrator.device"]
+    .forEach(n=>addc(devs,F(n,{noicon:true,size:5000+n.length*173})));
+
+  const l=addc(sys,D("L",{noicon:true}));
+  ["Port-Handler","Queue-Handler","CrossDOSFileSystem","FastFileSystem","Aux-Handler"]
+    .forEach(n=>addc(l,F(n,{noicon:true,size:3200+n.length*97})));
+
+  const libs=addc(sys,D("Libs",{noicon:true}));
+  ["asl.library","commodities.library","datatypes.library","diskfont.library","iffparse.library","locale.library","mathieeedoubbas.library","rexxsyslib.library","translator.library","version.library","amigaguide.library"]
+    .forEach(n=>addc(libs,F(n,{noicon:true,size:9000+n.length*211})));
+
+  const s=addc(sys,D("S",{noicon:true}));
+  addc(s,F("Startup-Sequence",{noicon:true,size:1163,prot:"----rw-d",date:"1994-04-30",text:STARTUP_SEQ}));
+  addc(s,F("User-Startup",{noicon:true,size:184,text:"; User-Startup\n; Commands here run at the end of the boot.\nAssign WORK: DH1:\n"}));
+  addc(s,F("Shell-Startup",{noicon:true,size:251,text:"; Shell-Startup\nAlias Cls Echo *\"*E[0;0H*E[J*\"\nPrompt \"%N.%S> \"\n"}));
+
+  const prefsD=addc(sys,D("Prefs",{kind:"drawer"}));
+  const envarc=addc(prefsD,D("Env-Archive",{noicon:true}));
+  const envsys=addc(envarc,D("Sys",{noicon:true}));
+  ["palette.prefs","pointer.prefs","screenmode.prefs","font.prefs","wbpattern.prefs","input.prefs","locale.prefs","sound.prefs","serial.prefs","printer.prefs","overscan.prefs","icontrol.prefs"]
+    .forEach(n=>addc(envsys,F(n,{noicon:true,size:120+n.length*7})));
+  ["Palette","Pointer","ScreenMode","Font","WBPattern","Input","Locale","Time","Sound","Overscan","IControl","Printer","Serial"]
+    .forEach(n=>addc(prefsD,F(n,{kind:"prefs",size:22000+n.length*301,tool:"prefs:"+n})));
+
+  const tools=addc(sys,D("Tools"));
+  addc(tools,F("Calculator",{kind:"tool",size:11288,tool:"calculator"}));
+  addc(tools,F("KeyShow",{kind:"tool",size:9640,tool:"keyshow"}));
+  addc(tools,F("IconEdit",{kind:"tool",size:44160,tool:"iconedit"}));
+  addc(tools,F("Exchange",{kind:"tool",size:14708,tool:"exchange"}));
+  addc(tools,F("Lacer",{kind:"tool",size:3400}));
+  addc(tools,F("PrepCard",{kind:"tool",size:19556}));
+  const commod=addc(tools,D("Commodities"));
+  [["Blanker",7420],["ClickToFront",4212],["FKey",10788],["AutoPoint",3596],["NoCapsLock",3232],["CrossDOS",5960]]
+    .forEach(([n,sz])=>addc(commod,F(n,{kind:"tool",size:sz,tool:"commodity:"+n})));
+
+  const utils=addc(sys,D("Utilities"));
+  addc(utils,F("Clock",{kind:"tool",size:13060,tool:"clock"}));
+  addc(utils,F("MultiView",{kind:"tool",size:24360,tool:"multiview"}));
+  addc(utils,F("Say",{kind:"tool",size:9868,tool:"say"}));
+  addc(utils,F("More",{kind:"tool",size:11764}));
+
+  const system=addc(sys,D("System"));
+  addc(system,F("Shell",{kind:"tool",size:1024,tool:"shell"}));
+  addc(system,F("Format",{kind:"tool",size:19972,tool:"format"}));
+  addc(system,F("DiskCopy",{kind:"tool",size:14824,tool:"diskcopy"}));
+  addc(system,F("FixFonts",{kind:"tool",size:6788}));
+  addc(system,F("NoFastMem",{kind:"tool",size:1092}));
+  addc(system,F("RexxMast",{kind:"tool",size:6144}));
+
+  addc(sys,D("WBStartup"));
+  addc(sys,D("Expansion"));
+  const fonts=addc(sys,D("Fonts",{noicon:true}));
+  ["topaz.font","diamond.font","emerald.font","garnet.font","opal.font","ruby.font","sapphire.font","times.font","helvetica.font","courier.font"]
+    .forEach(n=>addc(fonts,F(n,{noicon:true,size:264})));
+
+  const trash=addc(sys,D("Trashcan",{kind:"trash",date:"1994-04-30"}));
+
+  addc(sys,F("ReadMe",{kind:"project",size:1642,date:"1994-05-02",tool:"multiview",text:README_TEXT}));
+  addc(sys,F("Workbench.guide",{kind:"project",size:4820,date:"1994-05-02",tool:"multiview",guide:true}));
+  addc(sys,F("Disk",{noicon:true,size:0,prot:"----rwed"}));
+
+  /* ---------- Work (DH1:) ---------- */
+  const work=D("Work",{kind:"disk",date:"1994-03-14"});
+  work.volKind="hd"; work.capacity=213_000_000; work.used=87_556_096;
+  const projects=addc(work,D("Projects"));
+  addc(projects,F("Letter.txt",{kind:"project",size:1204,date:"1994-02-27",tool:"multiview",
+    text:"Dear Sirs,\n\nFurther to your advertisement in Amiga Format (March issue),\nI should like to order one (1) A1200 accelerator board with\n68030 processor and FPU, plus 4 MB of Fast RAM.\n\nMy machine is an Amiga 1200 with a 120 MB hard drive, and\nI can confirm the trapdoor expansion slot is unoccupied.\n\nYours faithfully,\nA. User\n"}));
+  addc(projects,F("Shopping.txt",{kind:"project",size:238,date:"1994-04-11",tool:"multiview",
+    text:"Fish disks 900-1000\nBlank DD floppies (x50)\nKindwords ribbon\nMouse mat\nTV modulator lead\nJoystick (the good kind)\n"}));
+  const paintD=addc(work,D("Paintings"));
+  addc(paintD,F("KingTut.pic",{kind:"project",size:40312,date:"1993-12-08",tool:"paint"}));
+  addc(paintD,F("Boing.pic",{kind:"project",size:22876,date:"1994-01-15",tool:"paint"}));
+  const demos=addc(work,D("Demos"));
+  addc(demos,F("Boing",{kind:"tool",size:33472,date:"1993-07-22",tool:"boing"}));
+  addc(demos,F("Tracker",{kind:"tool",size:51200,date:"1994-02-02",tool:"tracker"}));
+  addc(work,F("Paint",{kind:"paint",size:181624,date:"1993-11-19",tool:"paint"}));
+  addc(work,D("Trashcan",{kind:"trash"}));
+
+  /* ---------- RAM DISK ---------- */
+  const ram=D("Ram Disk",{kind:"ram",date:adosDate(new Date())});
+  ram.volKind="ram";
+  const envd=addc(ram,D("Env",{noicon:true}));
+  addc(envd,D("Sys",{noicon:true}));
+  addc(ram,D("T",{noicon:true}));
+  addc(ram,D("Clipboards",{noicon:true}));
+
+  FS.volumes={ "workbench3.1":sys, "work":work, "ram disk":ram };
+  FS.assigns={
+    "sys":"Workbench3.1:", "c":"Workbench3.1:C", "devs":"Workbench3.1:Devs",
+    "l":"Workbench3.1:L", "libs":"Workbench3.1:Libs", "s":"Workbench3.1:S",
+    "env":"Ram Disk:Env", "envarc":"Workbench3.1:Prefs/Env-Archive",
+    "t":"Ram Disk:T", "fonts":"Workbench3.1:Fonts", "clips":"Ram Disk:Clipboards",
+    "work":"Work:", "ram":"Ram Disk:", "dh0":"Workbench3.1:", "dh1":"Work:"
+  };
+}
+
+/* resolve "SYS:Tools/Calculator" → node (or null). Returns {node,parent,volume}. */
+function resolvePath(path,cwd){
+  if(!path)return null;
+  path=path.trim();
+  let vol=null,rest=path;
+  const ci=path.indexOf(":");
+  if(ci>=0){
+    let vname=path.slice(0,ci).toLowerCase();
+    rest=path.slice(ci+1);
+    let hops=0;
+    while(FS.assigns[vname]&&hops++<8){
+      const tgt=FS.assigns[vname];
+      const ti=tgt.indexOf(":");
+      const trest=tgt.slice(ti+1);
+      rest=trest?(trest.replace(/\/+$/,"")+(rest?"/"+rest:"")):rest;
+      vname=tgt.slice(0,ti).toLowerCase();
+    }
+    vol=FS.volumes[vname];
+    if(!vol)return {missing:path.slice(0,ci)+":"};
+  }else{
+    const r=resolvePath(cwd||"SYS:");
+    if(!r||!r.node)return null;
+    vol=r.volume;
+    rest=(r.sub?r.sub+"/":"")+rest;
+  }
+  let node=vol,parent=null,sub="";
+  for(const seg of rest.split("/")){
+    if(!seg)continue;
+    if(seg==".."){ /* parent hop: re-walk */
+      const parts=sub.split("/").filter(Boolean); parts.pop();
+      sub=parts.join("/");
+      node=vol;parent=null;
+      for(const s2 of parts){ parent=node; node=node.c&&node.c[s2.toLowerCase()]; if(!node)return null; }
+      continue;
+    }
+    if(!node.c)return null;
+    parent=node;
+    node=node.c[seg.toLowerCase()];
+    if(!node)return null;
+    sub=sub?(sub+"/"+seg):seg;
+  }
+  return {node,parent,volume:vol,sub};
+}
+function volDisplayName(vol){ return vol===FS.volumes["ram disk"]?"Ram Disk":vol.name; }
+function pathOf(vol,sub){ return volDisplayName(vol)+":"+(sub||""); }
+function childList(node,showAll){
+  if(!node.c)return [];
+  const arr=Object.values(node.c).filter(n=>showAll||!n.noicon);
+  arr.sort((a,b)=>(a.t===b.t?a.name.localeCompare(b.name):(a.t==="d"?-1:1)));
+  return arr;
+}
+
+const STARTUP_SEQ=`; \$VER: Startup-Sequence 40.3 (28.4.94)
+; Startup-Sequence for hard drive systems
+
+C:SetPatch QUIET
+C:Version >NIL:
+C:AddBuffers >NIL: DF0: 15
+FailAt 21
+
+C:MakeDir RAM:T RAM:Clipboards RAM:ENV RAM:ENV/Sys
+C:Copy >NIL: ENVARC: RAM:ENV ALL NOREQ
+
+Resident >NIL: C:Assign PURE
+Resident >NIL: C:Execute PURE
+
+Assign >NIL: ENV: RAM:ENV
+Assign >NIL: T: RAM:T
+Assign >NIL: CLIPS: RAM:Clipboards
+Assign >NIL: REXX: S:
+
+BindDrivers
+C:Mount >NIL: DEVS:DOSDrivers/~(#?.info)
+
+SetEnv Workbench \$Workbench
+SetEnv Kickstart \$Kickstart
+UnSet Workbench
+UnSet Kickstart
+
+C:IPrefs
+
+Resident Execute REMOVE
+Resident Assign REMOVE
+
+If EXISTS S:User-Startup
+  Execute S:User-Startup
+EndIf
+
+LoadWB
+EndCLI >NIL:
+`;
+
+const README_TEXT=`Welcome to your new Workbench!
+==============================
+
+This is a simulation of AmigaOS 3.1 running Workbench 3.1,
+as it shipped in 1994 for the Amiga 1200 and 4000.
+
+A few things every Amiga owner knows:
+
+ * THE RIGHT MOUSE BUTTON IS THE MENU BUTTON. Hold it down
+   and the screen title bar becomes the menu strip. Move over
+   a menu, slide down to an item, and RELEASE to select.
+   (No right button? Tap F10 for sticky menus.)
+
+ * Drag the screen's title bar DOWNWARD to pull the whole
+   Workbench screen down and reveal any screen behind it.
+   Try it after opening Paint or the Boing demo.
+
+ * Drawers, not folders. Requesters, not dialogs. Gadgets,
+   not widgets. The close gadget is top LEFT; the depth
+   gadget (front/back) is top RIGHT. This is the Way.
+
+ * The Ram Disk is always there, and its contents vanish
+   on reboot. Try it. We know you will.
+
+ * Open System/Shell and type DIR, AVAIL, STATUS or SAY.
+   Snapshot an icon. Check Icons -> Information... for
+   Tool Types. Force a Guru (there is a way).
+
+Double-click Workbench.guide for the full manual.
+
+-- The Management, 1994
+`;
+/* ============================================================
+   INTUITION — screens, windows, gadgets, requesters
+   ============================================================ */
+const SVGNS="http://www.w3.org/2000/svg";
+function gadArt(kind){
+  /* original Intuition-style gadget imagery, drawn in code */
+  const s=`<svg viewBox="0 0 22 20" preserveAspectRatio="none">`;
+  const bev=`<rect x="1" y="1" width="20" height="18" fill="none" stroke="currentColor" stroke-width="0" />`;
+  if(kind==="close")
+    return s+`<rect x="7" y="6" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2"/><rect x="10" y="9" width="2" height="2" fill="currentColor"/></svg>`;
+  if(kind==="zoom")
+    return s+`<rect x="4" y="4" width="14" height="12" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="4" width="8" height="6" fill="currentColor"/></svg>`;
+  if(kind==="depth")
+    return s+`<rect x="3" y="3" width="11" height="9" fill="var(--c0)" stroke="currentColor" stroke-width="2"/><rect x="8" y="8" width="11" height="9" fill="var(--c2)" stroke="currentColor" stroke-width="2"/></svg>`;
+  if(kind==="sdepth")
+    return `<svg viewBox="0 0 24 22" preserveAspectRatio="none"><rect x="3" y="3" width="12" height="10" fill="var(--c0)" stroke="currentColor" stroke-width="2"/><rect x="9" y="9" width="12" height="10" fill="var(--c2)" stroke="currentColor" stroke-width="2"/></svg>`;
+  if(kind==="size")
+    return `<svg viewBox="0 0 18 18"><path d="M16 2 L16 16 L2 16 Z" fill="var(--c0)" stroke="currentColor" stroke-width="2"/><path d="M16 8 L16 16 L8 16 Z" fill="currentColor"/></svg>`;
+  return s+`</svg>`;
+}
+
+/* ---------------- Screens ---------------- */
+const Screens={
+  list:[], byId:{},
+  create(id,title,opts){
+    opts=opts||{};
+    const el=mk("div","screen");
+    el.dataset.sid=id;
+    const st=mk("div","stitle");
+    const stxt=mk("span","stxt",esc(title));
+    st.appendChild(stxt);
+    let smem=null;
+    if(opts.mem){ smem=mk("span","smem"); st.appendChild(smem); }
+    const sd=mk("div","sdepth",gadArt("sdepth"));
+    st.appendChild(sd);
+    el.appendChild(st);
+    const body=mk("div","sbody");
+    el.appendChild(body);
+    if(opts.css)Object.assign(el.style,opts.css);
+    stage.appendChild(el);
+    const scr={id,el,title,stxt,smem,body,st,top:0,wins:[],menu:opts.menu||null,palette:opts.palette||null,onclose:opts.onclose||null,app:opts.app||null};
+    this.list.push(scr); this.byId[id]=scr;
+    sd.addEventListener("mousedown",e=>{e.stopPropagation();});
+    sd.addEventListener("click",e=>{e.stopPropagation();this.cycle();});
+    /* drag screen down by its title bar */
+    st.addEventListener("mousedown",e=>{
+      if(e.button!==0||e.target===sd||sd.contains(e.target))return;
+      this.toFront(scr);
+      const startY=e.clientY, startTop=scr.top;
+      const move=ev=>{ this.setTop(scr,startTop+(ev.clientY-startY)); };
+      const up=()=>{window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);};
+      window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
+      e.preventDefault();
+    });
+    el.addEventListener("mousedown",()=>{ if(this.front()!==scr)this.toFront(scr); },true);
+    this.restack();
+    return scr;
+  },
+  setTop(scr,px){
+    scr.top=clamp(px,0,stage.clientHeight-24);
+    scr.el.style.top=scr.top+"px";
+    scr.el.style.height=(stage.clientHeight)+"px";
+  },
+  remove(scr){
+    const i=this.list.indexOf(scr);
+    if(i>=0)this.list.splice(i,1);
+    delete this.byId[scr.id];
+    scr.el.remove();
+    this.restack();
+    Menus.close();
+  },
+  front(){ return this.list[this.list.length-1]; },
+  toFront(scr){
+    const i=this.list.indexOf(scr);
+    if(i<0)return;
+    this.list.splice(i,1); this.list.push(scr);
+    this.restack();
+  },
+  toBack(scr){
+    const i=this.list.indexOf(scr);
+    if(i<0)return;
+    this.list.splice(i,1); this.list.unshift(scr);
+    this.restack();
+  },
+  cycle(){ /* front screen goes to back */
+    const f=this.front();
+    if(f)this.toBack(f);
+  },
+  restack(){
+    this.list.forEach((s,i)=>{
+      s.el.style.zIndex=10+i*10;
+      s.el.classList.toggle("active",i===this.list.length-1);
+      s.el.style.top=s.top+"px";
+    });
+    Titlebars.refresh();
+  }
+};
+window.addEventListener("resize",()=>Screens.list.forEach(s=>Screens.setTop(s,s.top)));
+
+/* title bar text + memory readout */
+const Titlebars={
+  refresh(){
+    const wb=Screens.byId["wb"];
+    if(wb&&wb.smem){
+      wb.smem.textContent="Graphics mem "+commas(Memory.chipFree())+"  Other mem "+commas(Memory.fastFree());
+    }
+  }
+};
+
+/* ---------------- Windows ---------------- */
+let WINSEQ=0;
+const Windows={
+  active:null,
+  create(scr,opts){
+    opts=opts||{};
+    const el=mk("div","win");
+    el.style.left=(opts.x!=null?opts.x:40+(WINSEQ%6)*26)+"px";
+    el.style.top=(opts.y!=null?opts.y:30+(WINSEQ%6)*22)+"px";
+    el.style.width=(opts.w||420)+"px";
+    el.style.height=(opts.h||240)+"px";
+    el.style.zIndex=100+(++WINSEQ);
+    const tb=mk("div","wtitle");
+    let gclose=null;
+    if(opts.close!==false){
+      gclose=mk("div","gad gclose",gadArt("close"));
+      tb.appendChild(gclose);
+    }
+    const wtxt=mk("span","wtxt",esc(opts.title||""));
+    tb.appendChild(wtxt);
+    let gzoom=null,gdepth=null;
+    if(opts.zoom!==false){ gzoom=mk("div","gad gzoom",gadArt("zoom")); tb.appendChild(gzoom); }
+    gdepth=mk("div","gad gdepth",gadArt("depth")); tb.appendChild(gdepth);
+    el.appendChild(tb);
+    const body=mk("div","wbody"+(opts.scroll?" scrollable":""));
+    el.appendChild(body);
+    let gsize=null;
+    if(opts.resize){
+      gsize=mk("div","gsize",gadArt("size"));
+      el.appendChild(gsize);
+      el.classList.add("hasresize");
+    }
+    scr.body.appendChild(el);
+    const win={el,tb,wtxt,body,scr,opts,zoomed:false,memid:Memory.alloc(opts.chip||18000,opts.fast||42000)};
+    scr.wins.push(win);
+    /* activate + drag */
+    el.addEventListener("mousedown",()=>this.activate(win),true);
+    tb.addEventListener("mousedown",e=>{
+      if(e.button!==0)return;
+      if(e.target.closest(".gad"))return;
+      const sx=e.clientX,sy=e.clientY,ox=el.offsetLeft,oy=el.offsetTop;
+      const move=ev=>{
+        el.style.left=clamp(ox+ev.clientX-sx,-el.offsetWidth+60,scr.body.clientWidth-30)+"px";
+        el.style.top=clamp(oy+ev.clientY-sy,0,scr.body.clientHeight-20)+"px";
+      };
+      const up=()=>{window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);};
+      window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
+      e.preventDefault();
+    });
+    if(gclose)gclose.addEventListener("click",e=>{e.stopPropagation();this.close(win);});
+    gdepth.addEventListener("click",e=>{
+      e.stopPropagation();
+      /* depth gadget: if frontmost among siblings, push to back; else bring to front */
+      const zs=scr.wins.map(w=>+w.el.style.zIndex);
+      const mx=Math.max(...zs), mn=Math.min(...zs);
+      if(+el.style.zIndex===mx&&scr.wins.length>1){ el.style.zIndex=mn-1; this.activate(this.topWin(scr)); }
+      else { el.style.zIndex=100+(++WINSEQ); this.activate(win); }
+    });
+    if(gzoom)gzoom.addEventListener("click",e=>{
+      e.stopPropagation();
+      if(!win.zoomed){
+        win.prevBox=[el.offsetLeft,el.offsetTop,el.offsetWidth,el.offsetHeight];
+        el.style.left="0px";el.style.top="0px";
+        el.style.width=Math.min(scr.body.clientWidth,760)+"px";
+        el.style.height=Math.min(scr.body.clientHeight,520)+"px";
+        win.zoomed=true;
+      }else{
+        const b=win.prevBox||[60,40,420,240];
+        el.style.left=b[0]+"px";el.style.top=b[1]+"px";
+        el.style.width=b[2]+"px";el.style.height=b[3]+"px";
+        win.zoomed=false;
+      }
+      if(opts.onresize)opts.onresize(win);
+    });
+    if(gsize)gsize.addEventListener("mousedown",e=>{
+      if(e.button!==0)return;
+      e.stopPropagation();e.preventDefault();
+      const sx=e.clientX,sy=e.clientY,ow=el.offsetWidth,oh=el.offsetHeight;
+      const move=ev=>{
+        el.style.width=clamp(ow+ev.clientX-sx,opts.minw||140,1400)+"px";
+        el.style.height=clamp(oh+ev.clientY-sy,opts.minh||70,1000)+"px";
+        if(opts.onresize)opts.onresize(win);
+      };
+      const up=()=>{window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);};
+      window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
+    });
+    this.activate(win);
+    return win;
+  },
+  topWin(scr){
+    let best=null;
+    for(const w of scr.wins)if(!best||+w.el.style.zIndex>+best.el.style.zIndex)best=w;
+    return best;
+  },
+  activate(win){
+    if(this.active===win)return;
+    if(this.active)this.active.el.classList.remove("active");
+    this.active=win;
+    if(win){
+      win.el.classList.add("active");
+      if(!win._depthClick)win.el.style.zIndex=100+(++WINSEQ);
+      Menus.setContext(win.opts.menu?win:null);
+    }
+  },
+  close(win){
+    if(!win||win.closed)return;
+    win.closed=true;
+    Memory.free(win.memid);
+    const i=win.scr.wins.indexOf(win);
+    if(i>=0)win.scr.wins.splice(i,1);
+    win.el.remove();
+    if(this.active===win){ this.active=null; this.activate(this.topWin(win.scr)); }
+    if(win.opts.onclose)win.opts.onclose(win);
+  },
+  setTitle(win,t){ win.wtxt.textContent=t; }
+};
+
+/* ---------------- Requesters ---------------- */
+function requester(scr,title,text,buttons,cb,opts){
+  opts=opts||{};
+  Sound.beep&&opts.beep!==false&&Sound.floppyClick();
+  const w=Windows.create(scr,{title:title||"System Request",x:opts.x!=null?opts.x:Math.max(10,(scr.body.clientWidth-380)/2),
+    y:opts.y!=null?opts.y:60,w:opts.w||380,h:10,zoom:false,resize:false,close:false,chip:4000,fast:9000});
+  w.el.classList.add("req");
+  const t=mk("div","reqtext",esc(text));
+  w.body.appendChild(t);
+  if(opts.input!=null){
+    const inp=mk("input","sgad");
+    inp.type="text";inp.value=opts.input;inp.style.width="100%";inp.style.marginBottom="12px";
+    inp.addEventListener("keydown",e=>{
+      e.stopPropagation();
+      if(e.key==="Enter"){ finish(0); }
+      if(e.key==="Escape"){ finish(buttons.length-1); }
+    });
+    w.body.appendChild(inp);
+    setTimeout(()=>{inp.focus();inp.select();},30);
+    w.inputEl=inp;
+  }
+  const bb=mk("div","reqbtns");
+  const finish=(i)=>{
+    const val=w.inputEl?w.inputEl.value:undefined;
+    Windows.close(w);
+    if(cb)cb(i,val);
+  };
+  buttons.forEach((b,i)=>{
+    const btn=mk("span","btn",esc(b));
+    btn.addEventListener("click",()=>finish(i));
+    bb.appendChild(btn);
+  });
+  w.body.appendChild(bb);
+  /* size to content */
+  setTimeout(()=>{ w.el.style.height=(w.body.scrollHeight+30)+"px"; },0);
+  return w;
+}
+function sysRequest(text,buttons,cb){
+  const wb=Screens.byId["wb"];
+  Screens.toFront(wb);
+  return requester(wb,"System Request",text,buttons||["Retry","Cancel"],cb);
+}
+/* ============================================================
+   MENU SYSTEM — hold RIGHT mouse button; strip replaces the
+   screen title bar; release over an item selects it.
+   F10 = sticky fallback for trackpads (click to select).
+   Menu spec: [{title,items:[{t,key,cmd,ghost,check,sub:[...]},"-"]}]
+   ============================================================ */
+const Menus={
+  open:false, sticky:false, strip:null, scr:null, ctxWin:null,
+  hotTitle:-1, hotItem:null, spec:null,
+  setContext(win){ this.ctxWin=win; },
+  specFor(scr){
+    /* active window's menu wins if it lives on this screen */
+    const aw=Windows.active;
+    if(aw&&!aw.closed&&aw.scr===scr&&aw.opts.menu)return aw.opts.menu;
+    return scr.menu;
+  },
+  show(sticky){
+    const scr=Screens.front();
+    if(!scr)return;
+    const spec=this.specFor(scr);
+    if(!spec)return;
+    this.hide();
+    this.scr=scr; this.spec=spec; this.sticky=!!sticky; this.open=true;
+    const strip=mk("div","menustrip open");
+    spec.forEach((m,i)=>{
+      const t=mk("span","mtitle",esc(m.title));
+      t.dataset.mi=i;
+      strip.appendChild(t);
+    });
+    scr.el.appendChild(strip);
+    this.strip=strip;
+    this.hotTitle=-1;
+  },
+  hide(){
+    if(this.strip){this.strip.remove();this.strip=null;}
+    this.open=false; this.sticky=false; this.hotTitle=-1; this.hotItem=null;
+    this.panel&&this.panel.remove(); this.panel=null;
+  },
+  close(){ this.hide(); },
+  openPanel(i){
+    if(this.hotTitle===i)return;
+    this.panel&&this.panel.remove(); this.panel=null;
+    this.hotTitle=i;
+    [...this.strip.querySelectorAll(".mtitle")].forEach((t,j)=>t.classList.toggle("hot",j===i));
+    if(i<0)return;
+    const m=this.spec[i];
+    const p=mk("div","mpanel");
+    const build=(items,into)=>{
+      items.forEach(it=>{
+        if(it==="-"){ into.appendChild(mk("div","msep")); return; }
+        const el=mk("div","mitem"+(it.ghost?" ghost":"")+(it.checkFn&&it.checkFn()?" checked":"")+(it.sub?" hassub":""));
+        el.appendChild(mk("span",null,esc(it.t)));
+        if(it.key)el.appendChild(mk("span","amk",esc(it.key)));
+        el._item=it;
+        if(it.sub){
+          const sp=mk("div","msub");
+          build(it.sub,sp);
+          el.appendChild(sp);
+        }
+        into.appendChild(el);
+      });
+    };
+    build(m.items,p);
+    const tEl=this.strip.querySelectorAll(".mtitle")[i];
+    p.style.left=Math.min(tEl.offsetLeft,this.scr.el.clientWidth-200)+"px";
+    this.scr.el.appendChild(p);
+    this.panel=p;
+  },
+  track(x,y){
+    if(!this.open)return;
+    const el=document.elementFromPoint(x,y);
+    if(!el)return;
+    const t=el.closest&&el.closest(".mtitle");
+    if(t&&this.strip.contains(t)){ this.openPanel(+t.dataset.mi); this.setHotItem(null); return; }
+    const it=el.closest&&el.closest(".mitem");
+    if(it&&this.panel&&this.panel.contains(it)){ this.setHotItem(it); return; }
+    if(!this.panel||!(el.closest&&el.closest(".mpanel"))){ /* off-menu: keep last panel open */ }
+  },
+  setHotItem(el){
+    if(this.hotItem===el)return;
+    if(this.hotItem)this.hotItem.classList.remove("hot");
+    /* keep parent of submenu hot */
+    this.panel&&[...this.panel.querySelectorAll(".mitem.hot")].forEach(x=>{
+      if(el&&x.contains(el))return;
+      x.classList.remove("hot");
+    });
+    this.hotItem=el;
+    if(el){
+      el.classList.add("hot");
+      let p=el.parentElement&&el.parentElement.closest&&el.parentElement.closest(".mitem.hassub");
+      while(p){ p.classList.add("hot"); p=p.parentElement.closest(".mitem.hassub"); }
+    }
+  },
+  selectHot(){
+    const el=this.hotItem;
+    this.hide();
+    if(!el)return;
+    const it=el._item;
+    if(!it||it.ghost||it.sub)return;
+    if(it.cmd){ try{ it.cmd(); }catch(e){ console.error(e); } }
+  }
+};
+
+/* --- right mouse button interception --- */
+window.addEventListener("contextmenu",e=>e.preventDefault());
+window.addEventListener("mousedown",e=>{
+  if(e.button===2){
+    if(Boot.running)return;
+    Menus.show(false);
+    Menus.track(e.clientX,e.clientY);
+    e.preventDefault();
+  }else if(e.button===0&&Menus.open&&Menus.sticky){
+    /* sticky mode: left click selects */
+    Menus.track(e.clientX,e.clientY);
+    if(Menus.hotItem){ Menus.selectHot(); }
+    else if(!e.target.closest(".menustrip")&&!e.target.closest(".mpanel")) Menus.hide();
+    e.stopPropagation();e.preventDefault();
+  }
+},true);
+window.addEventListener("mousemove",e=>{ if(Menus.open)Menus.track(e.clientX,e.clientY); },true);
+window.addEventListener("mouseup",e=>{
+  if(e.button===2&&Menus.open&&!Menus.sticky){
+    Menus.selectHot();
+    e.preventDefault();
+  }
+},true);
+window.addEventListener("keydown",e=>{
+  if(e.key==="F10"){
+    e.preventDefault();
+    if(Menus.open)Menus.hide(); else Menus.show(true);
+  }
+  /* Left-Amiga+M analog: Alt+M cycles screens */
+  if(e.altKey&&(e.key==="m"||e.key==="M")){ e.preventDefault(); Screens.cycle(); }
+  if(e.altKey&&(e.key==="n"||e.key==="N")){ e.preventDefault(); const wb=Screens.byId["wb"]; wb&&Screens.toFront(wb); }
+},true);
+/* ============================================================
+   ICON ARTWORK — original, bevel-edged, limited-palette,
+   drawn entirely in code (inline SVG). Two-state via CSS.
+   ============================================================ */
+const IconArt={
+  svg(kind,customPix){
+    const B='stroke="#000" stroke-width="1"';
+    const bev=(x,y,w,h,fill)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" ${B}/>`+
+      `<path d="M${x} ${y+h} L${x} ${y} L${x+w} ${y}" fill="none" stroke="#fff" stroke-width="1.5"/>`+
+      `<path d="M${x+w} ${y} L${x+w} ${y+h} L${x} ${y+h}" fill="none" stroke="#000" stroke-width="1.5"/>`;
+    let inner="";
+    switch(kind){
+      case "disk": case "ram":
+        inner=bev(6,6,44,30,"var(--c2)")+
+          `<rect x="12" y="6" width="22" height="12" fill="var(--c3)" ${B}/>`+
+          `<rect x="26" y="8" width="6" height="8" fill="var(--c2)" ${B}/>`+
+          `<rect x="12" y="24" width="32" height="10" fill="var(--c0)" ${B}/>`+
+          (kind==="ram"?`<text x="28" y="33" font-size="9" text-anchor="middle" fill="#000" font-family="monospace" font-weight="bold">RAM</text>`:``);
+        break;
+      case "drawer":
+        inner=bev(4,12,48,26,"var(--c0)")+
+          `<rect x="8" y="16" width="40" height="8" fill="var(--c2)" ${B}/>`+
+          `<rect x="22" y="18" width="12" height="4" fill="var(--c3)" ${B}/>`+
+          `<rect x="8" y="27" width="40" height="8" fill="var(--c2)" ${B}/>`+
+          `<rect x="22" y="29" width="12" height="4" fill="var(--c3)" ${B}/>`;
+        break;
+      case "tool":
+        inner=bev(8,8,40,28,"var(--c3)")+
+          `<rect x="13" y="13" width="30" height="12" fill="var(--c2)" ${B}/>`+
+          `<path d="M18 30 h20 v3 h-20 z" fill="var(--c0)" ${B}/>`+
+          `<circle cx="20" cy="19" r="2.4" fill="var(--c3)"/><circle cx="28" cy="19" r="2.4" fill="var(--c3)"/><circle cx="36" cy="19" r="2.4" fill="var(--c3)"/>`;
+        break;
+      case "project":
+        inner=`<path d="M12 4 h24 l8 8 v28 h-32 z" fill="var(--c2)" ${B}/>`+
+          `<path d="M36 4 l8 8 h-8 z" fill="var(--c0)" ${B}/>`+
+          `<rect x="17" y="16" width="22" height="2" fill="var(--c3)"/>`+
+          `<rect x="17" y="21" width="22" height="2" fill="var(--c3)"/>`+
+          `<rect x="17" y="26" width="14" height="2" fill="var(--c3)"/>`+
+          `<rect x="17" y="31" width="18" height="2" fill="var(--c3)"/>`;
+        break;
+      case "trash":
+        inner=`<rect x="14" y="14" width="28" height="26" fill="var(--c0)" ${B}/>`+
+          `<path d="M14 14 h28" stroke="#fff" stroke-width="1.5"/>`+
+          `<rect x="10" y="9" width="36" height="6" fill="var(--c2)" ${B}/>`+
+          `<rect x="23" y="5" width="10" height="5" fill="var(--c2)" ${B}/>`+
+          `<rect x="20" y="19" width="3" height="16" fill="var(--c1)"/>`+
+          `<rect x="27" y="19" width="3" height="16" fill="var(--c1)"/>`+
+          `<rect x="34" y="19" width="3" height="16" fill="var(--c1)"/>`;
+        break;
+      case "prefs":
+        inner=bev(8,8,40,28,"var(--c2)")+
+          `<circle cx="20" cy="22" r="7" fill="var(--c0)" ${B}/>`+
+          `<rect x="18" y="16" width="4" height="7" fill="var(--c3)"/>`+
+          `<rect x="31" y="14" width="12" height="4" fill="var(--c3)" ${B}/>`+
+          `<rect x="31" y="21" width="12" height="4" fill="var(--c0)" ${B}/>`+
+          `<rect x="31" y="28" width="12" height="4" fill="var(--c1)"/>`;
+        break;
+      case "paint":
+        inner=bev(6,8,44,28,"var(--c2)")+
+          `<circle cx="18" cy="18" r="4" fill="#d22"/><circle cx="28" cy="16" r="4" fill="#2a2"/>`+
+          `<circle cx="38" cy="18" r="4" fill="var(--c3)"/><circle cx="23" cy="27" r="4" fill="#dd0"/>`+
+          `<path d="M33 31 l10 -10 l3 3 l-10 10 z" fill="var(--c0)" ${B}/>`;
+        break;
+      case "guide":
+        inner=`<path d="M10 6 h36 v34 h-36 z" fill="var(--c2)" ${B}/>`+
+          `<path d="M28 6 v34" stroke="#000"/>`+
+          `<rect x="14" y="12" width="10" height="2" fill="var(--c3)"/><rect x="14" y="17" width="10" height="2" fill="var(--c1)"/>`+
+          `<rect x="32" y="12" width="10" height="2" fill="var(--c1)"/><rect x="32" y="17" width="10" height="2" fill="var(--c3)"/>`;
+        break;
+      default:
+        inner=bev(10,8,36,30,"var(--c2)");
+    }
+    if(customPix)inner=customPix;
+    return `<svg viewBox="0 0 56 44">${inner}</svg>`;
+  }
+};
+
+/* ============================================================
+   WORKBENCH — disks, drawers, icons, windows
+   ============================================================ */
+const WB={
+  backdrop:null, selection:new Set(),
+  keyOf(vol,sub,name){ return pathOf(vol,sub?sub+"/"+name:name); },
+
+  init(scr){
+    this.scr=scr;
+    this.backdrop=scr.body;
+    this.backdrop.classList.add("wbback");
+    this.applyPattern();
+    /* rubber-band select on backdrop */
+    this.rubber=mk("div"); this.rubber.id="rubber";
+    this.backdrop.appendChild(this.rubber);
+    this.bindRubber(this.backdrop,this.backdrop);
+    /* disk icons */
+    this.diskIcons();
+    this.restoreLeftOut();
+    this.backdrop.addEventListener("mousedown",e=>{
+      if(e.target===this.backdrop&&e.button===0)this.clearSel();
+    });
+  },
+  applyPattern(){
+    const p=State.getPref("wbpattern",{grid:null});
+    if(p.grid){
+      const cnv=document.createElement("canvas");cnv.width=8;cnv.height=8;
+      const cx=cnv.getContext("2d");
+      const cols=[getComputedStyle(document.documentElement).getPropertyValue("--c0"),
+                  getComputedStyle(document.documentElement).getPropertyValue("--c1"),
+                  getComputedStyle(document.documentElement).getPropertyValue("--c2"),
+                  getComputedStyle(document.documentElement).getPropertyValue("--c3")];
+      for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+        cx.fillStyle=cols[p.grid[y*8+x]||0];cx.fillRect(x,y,1,1);
+      }
+      this.backdrop.style.backgroundImage=`url(${cnv.toDataURL()})`;
+      this.backdrop.style.backgroundSize="16px 16px";
+    }else{
+      this.backdrop.style.backgroundImage="";
+    }
+  },
+
+  diskIcons(){
+    const defs=[
+      ["Workbench3.1","workbench3.1",30],
+      ["Work","work",130],
+      ["Ram Disk","ram disk",230],
+    ];
+    defs.forEach(([label,volkey],i)=>{
+      const vol=FS.volumes[volkey];
+      const key=volDisplayName(vol)+":";
+      const snap=State.data.icons[key];
+      const ic=this.makeIcon({
+        label:label==="Ram Disk"?"Ram Disk":label,
+        kind:vol.kind==="disk"?(volkey==="ram disk"?"ram":"disk"):vol.kind,
+        x:snap?snap.x:this.backdrop.clientWidth-110,
+        y:snap?snap.y:24+i*84,
+        vol,sub:"",node:vol,isDisk:true,key
+      });
+      if(!snap){ ic.el.style.left=(Math.max(600,this.backdrop.clientWidth-110))+"px"; }
+      this.backdrop.appendChild(ic.el);
+    });
+  },
+
+  makeIcon(o){
+    const el=mk("div","icon");
+    const kind=o.node&&o.node.kind||o.kind||"project";
+    const custom=o.node&&o.node.customIcon;
+    el.appendChild(mk("span","iimg",IconArt.svg(kind,custom)));
+    el.appendChild(mk("br"));
+    el.appendChild(mk("span","ilbl",esc(o.label)));
+    el.style.left=(o.x||10)+"px";
+    el.style.top=(o.y||10)+"px";
+    const ic={el,label:o.label,kind,vol:o.vol,sub:o.sub,node:o.node,isDisk:!!o.isDisk,key:o.key,win:o.win||null,leftout:o.leftout||false};
+    el._icon=ic;
+    this.bindIcon(ic);
+    return ic;
+  },
+
+  /* --------- drawer/disk windows --------- */
+  openWins:{},
+  openNode(vol,sub,node,fromIcon){
+    const path=pathOf(vol,sub);
+    if(node.t==="d"){
+      if(this.openWins[path]&&!this.openWins[path].closed){
+        Windows.activate(this.openWins[path]); return;
+      }
+      Sound.floppyClick();
+      const snap=State.data.wins[path]||{};
+      const isDisk=node===vol;
+      const title=isDisk?volDisplayName(vol):node.name;
+      const win=Windows.create(this.scr,{
+        title:title,
+        x:snap.x!=null?snap.x:40+Object.keys(this.openWins).length*30,
+        y:snap.y!=null?snap.y:36+Object.keys(this.openWins).length*26,
+        w:snap.w||460,h:snap.h||250,
+        resize:true,scroll:false,
+        menu:WBMENU,
+        chip:9000,fast:26000,
+        onclose:()=>{ delete this.openWins[path]; }
+      });
+      win.wbPath=path; win.wbVol=vol; win.wbSub=sub; win.wbNode=node;
+      win.viewBy=snap.viewBy||"icon"; win.showAll=!!snap.showAll;
+      this.openWins[path]=win;
+      this.populate(win);
+      this.bindRubber(win.body,win.body);
+      win.body.addEventListener("mousedown",e=>{
+        if(e.button===0&&(e.target===win.body||e.target.classList.contains("iconpane")))this.clearSel();
+      });
+      return win;
+    }
+    /* file/tool: dispatch */
+    this.launch(vol,sub,node);
+  },
+
+  populate(win){
+    win.body.innerHTML="";
+    const node=win.wbNode, vol=win.wbVol, sub=win.wbSub;
+    const kids=childList(node,win.showAll);
+    if(win.viewBy!=="icon"){
+      const pane=mk("div","wbody scrollable");
+      pane.style.cssText="position:absolute;inset:0;background:var(--c2);overflow:auto";
+      const sorted=kids.slice();
+      if(win.viewBy==="size")sorted.sort((a,b)=>(b.size||0)-(a.size||0));
+      if(win.viewBy==="date")sorted.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+      sorted.forEach(k=>{
+        const row=mk("div","listrow",
+          esc(k.name.padEnd(24).slice(0,24))+" "+
+          (k.t==="d"?"Drawer":pad(commas(k.size||0),9))+"  "+
+          esc(k.prot||"----rwed")+"  "+esc(adosDate(k.date)));
+        row.addEventListener("dblclick",()=>this.openNode(vol,sub?sub+"/"+k.name:k.name,k));
+        row.addEventListener("mousedown",()=>{ pane.querySelectorAll(".listrow.sel").forEach(r=>r.classList.remove("sel")); row.classList.add("sel"); });
+        pane.appendChild(row);
+      });
+      win.body.appendChild(pane);
+      return;
+    }
+    const pane=mk("div","iconpane");
+    pane.style.cssText="position:absolute;inset:0;overflow:auto";
+    win.body.appendChild(pane);
+    let ix=8,iy=6;
+    kids.forEach(k=>{
+      const kpath=this.keyOf(vol,sub,k.name);
+      if(State.data.leftout.includes(kpath))return; /* lives on the backdrop */
+      const snap=State.data.icons[kpath];
+      const ic=this.makeIcon({
+        label:k.name,node:k,vol,sub:sub?sub+"/"+k.name:k.name,key:kpath,win,
+        x:snap?snap.x:ix, y:snap?snap.y:iy
+      });
+      ic.sub=sub; ic.childName=k.name;
+      if(k.noicon)ic.el.classList.add("ghosted");
+      pane.appendChild(ic.el);
+      if(!snap){ ix+=96; if(ix>Math.max(300,win.el.offsetWidth-100)){ix=8;iy+=76;} }
+    });
+  },
+
+  refreshWindowFor(vol,sub){
+    const path=pathOf(vol,sub);
+    const w=this.openWins[path];
+    if(w&&!w.closed)this.populate(w);
+  },
+  refreshAll(){
+    Object.values(this.openWins).forEach(w=>{ if(!w.closed)this.populate(w); });
+  },
+
+  restoreLeftOut(){
+    State.data.leftout.forEach(p=>{
+      const r=resolvePath(p);
+      if(!r||!r.node)return;
+      const snap=State.data.icons[p]||{};
+      const ic=this.makeIcon({label:r.node.name,node:r.node,vol:r.volume,sub:r.sub,key:p,
+        x:snap.x!=null?snap.x:400+Math.random()*80,y:snap.y!=null?snap.y:300,leftout:true});
+      this.backdrop.appendChild(ic.el);
+    });
+  },
+
+  launch(vol,sub,node){
+    const tool=node.tool||"";
+    Sound.floppyGrind(3);
+    if(tool.startsWith("prefs:"))return Prefs.open(tool.slice(6));
+    if(tool.startsWith("commodity:"))return Exchange.launchCommodity(tool.slice(10));
+    switch(tool){
+      case "shell": return Shell.open();
+      case "calculator": return Apps.calculator();
+      case "clock": return Apps.clock();
+      case "multiview": return Apps.multiview(node,pathOf(vol,sub));
+      case "say": return Apps.say();
+      case "keyshow": return Apps.keyshow();
+      case "iconedit": return Apps.iconedit();
+      case "exchange": return Exchange.open();
+      case "format": return Apps.format();
+      case "diskcopy": return Apps.diskcopy();
+      case "paint": return Paint.open(node.pngData?node:null);
+      case "boing": return Boing.open();
+      case "tracker": return Tracker.open();
+    }
+    if(node.text!=null)return Apps.multiview(node,pathOf(vol,sub));
+    /* unknown tool: authentic complaint */
+    sysRequest('Unable to open your tool\n"'+node.name+'"',["Ok"]);
+  }
+};
+/* ============================================================
+   ICON INTERACTION — select, double-click, drag, rubber-band
+   ============================================================ */
+Object.assign(WB,{
+  clearSel(){ this.selection.forEach(ic=>ic.el.classList.remove("sel")); this.selection.clear(); },
+  select(ic,add){
+    if(!add)this.clearSel();
+    this.selection.add(ic); ic.el.classList.add("sel");
+  },
+  bindIcon(ic){
+    let lastClick=0;
+    ic.el.addEventListener("mousedown",e=>{
+      if(e.button!==0)return;
+      e.stopPropagation();
+      if(!this.selection.has(ic))this.select(ic,e.shiftKey);
+      else if(e.shiftKey){ this.selection.delete(ic); ic.el.classList.remove("sel"); return; }
+      const now=Date.now();
+      if(now-lastClick<450){ lastClick=0; this.openIcon(ic); return; }
+      lastClick=now;
+      /* drag with ghost outline */
+      const sx=e.clientX,sy=e.clientY;
+      const parent=ic.el.parentElement;
+      const ox=ic.el.offsetLeft,oy=ic.el.offsetTop;
+      let dragging=false;
+      const ghost=$("#dragghost");
+      const move=ev=>{
+        const dx=ev.clientX-sx,dy=ev.clientY-sy;
+        if(!dragging&&Math.abs(dx)+Math.abs(dy)>5){
+          dragging=true;
+          ghost.innerHTML=ic.el.innerHTML;
+          ghost.className="icon";ghost.id="dragghost";
+          ghost.style.display="block";
+        }
+        if(dragging){
+          ghost.style.left=(ev.clientX-28)+"px";
+          ghost.style.top=(ev.clientY-24)+"px";
+        }
+      };
+      const up=ev=>{
+        window.removeEventListener("mousemove",move);
+        window.removeEventListener("mouseup",up);
+        ghost.style.display="none";
+        if(!dragging)return;
+        const dropEl=document.elementFromPoint(ev.clientX,ev.clientY);
+        /* drop on backdrop = move icon there (implicit Leave Out for drawer items) */
+        const dropWin=dropEl&&dropEl.closest&&dropEl.closest(".win");
+        const dropIcon=dropEl&&dropEl.closest&&dropEl.closest(".icon");
+        if(dropIcon&&dropIcon._icon&&dropIcon._icon.kind==="trash"&&dropIcon._icon!==ic){
+          this.trashIcon(ic); return;
+        }
+        if(!dropWin&&dropEl&&(dropEl===this.backdrop||this.backdrop.contains(dropEl))&&!ic.isDisk&&parent!==this.backdrop){
+          /* dragged out of a drawer window onto the backdrop */
+          this.leaveOut(ic,ev.clientX,ev.clientY);
+          return;
+        }
+        /* plain move within same container */
+        const r=parent.getBoundingClientRect();
+        ic.el.style.left=clamp(ox+ev.clientX-sx, -20, r.width-40)+"px";
+        ic.el.style.top =clamp(oy+ev.clientY-sy, 0, Math.max(60,r.height-40))+"px";
+      };
+      window.addEventListener("mousemove",move);
+      window.addEventListener("mouseup",up);
+      e.preventDefault();
+    });
+  },
+  openIcon(ic){
+    Sound.floppyClick();
+    if(ic.isDisk)return this.openNode(ic.vol,"",ic.vol);
+    const sub=ic.win?(ic.win.wbSub?ic.win.wbSub+"/"+ic.node.name:ic.node.name):ic.sub;
+    this.openNode(ic.vol,sub,ic.node);
+  },
+  bindRubber(zone,coordEl){
+    zone.addEventListener("mousedown",e=>{
+      if(e.button!==0)return;
+      if(e.target.closest(".icon")||e.target.closest(".win")&&zone===this.backdrop)return;
+      if(e.target!==zone&&!e.target.classList.contains("iconpane"))return;
+      const r=coordEl.getBoundingClientRect();
+      const sx=e.clientX-r.left,sy=e.clientY-r.top;
+      const band=this.rubber;
+      coordEl.appendChild(band);
+      let moved=false;
+      const move=ev=>{
+        const cx=ev.clientX-r.left,cy=ev.clientY-r.top;
+        moved=true;
+        band.style.display="block";
+        band.style.left=Math.min(sx,cx)+"px"; band.style.top=Math.min(sy,cy)+"px";
+        band.style.width=Math.abs(cx-sx)+"px"; band.style.height=Math.abs(cy-sy)+"px";
+      };
+      const up=ev=>{
+        window.removeEventListener("mousemove",move);
+        window.removeEventListener("mouseup",up);
+        if(moved){
+          const bx=band.offsetLeft,by=band.offsetTop,bw=band.offsetWidth,bh=band.offsetHeight;
+          this.clearSel();
+          coordEl.querySelectorAll(".icon").forEach(el=>{
+            const ic=el._icon; if(!ic)return;
+            const x=el.offsetLeft+28,y=el.offsetTop+24;
+            if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh)this.select(ic,true);
+          });
+        }
+        band.style.display="none";
+      };
+      window.addEventListener("mousemove",move);
+      window.addEventListener("mouseup",up);
+    });
+  },
+
+  /* --------- menu operations --------- */
+  selArray(){ return [...this.selection]; },
+  snapshotIcons(){
+    this.selArray().forEach(ic=>{
+      State.data.icons[ic.key]={x:ic.el.offsetLeft,y:ic.el.offsetTop};
+    });
+    State.save();
+  },
+  unsnapshotIcons(){
+    this.selArray().forEach(ic=>{ delete State.data.icons[ic.key]; });
+    State.save();
+  },
+  snapshotWindow(all){
+    const wins=all?Object.values(this.openWins):[Windows.active].filter(w=>w&&w.wbPath);
+    wins.forEach(w=>{
+      if(!w||w.closed||!w.wbPath)return;
+      State.data.wins[w.wbPath]={x:w.el.offsetLeft,y:w.el.offsetTop,w:w.el.offsetWidth,h:w.el.offsetHeight,viewBy:w.viewBy,showAll:w.showAll};
+    });
+    State.save();
+  },
+  leaveOut(ic,cx,cy){
+    if(ic.isDisk)return;
+    const p=ic.key;
+    if(!State.data.leftout.includes(p))State.data.leftout.push(p);
+    State.data.icons[p]={x:(cx||300)-28-this.backdrop.getBoundingClientRect().left,
+                         y:(cy||200)-24-this.backdrop.getBoundingClientRect().top};
+    State.save();
+    this.clearSel();
+    if(ic.win)this.populate(ic.win); else ic.el.remove();
+    const snap=State.data.icons[p];
+    const nic=this.makeIcon({label:ic.label,node:ic.node,vol:ic.vol,sub:ic.sub,key:p,x:snap.x,y:snap.y,leftout:true});
+    this.backdrop.appendChild(nic.el);
+  },
+  putAway(){
+    this.selArray().forEach(ic=>{
+      if(!ic.leftout)return;
+      const i=State.data.leftout.indexOf(ic.key);
+      if(i>=0)State.data.leftout.splice(i,1);
+      delete State.data.icons[ic.key];
+      ic.el.remove();
+    });
+    State.save(); this.clearSel(); this.refreshAll();
+  },
+  trashIcon(ic){
+    if(ic.isDisk){ Sound.beep(); return; }
+    const r=resolvePath(ic.key);
+    if(!r||!r.parent)return;
+    const trash=(ic.vol.c["trashcan"]);
+    delete r.parent.c[ic.node.name.toLowerCase()];
+    if(trash&&trash.c)trash.c[ic.node.name.toLowerCase()]=ic.node;
+    const li=State.data.leftout.indexOf(ic.key);
+    if(li>=0){State.data.leftout.splice(li,1);ic.el.remove();}
+    State.save(); this.clearSel(); this.refreshAll();
+  },
+  deleteSel(){
+    const sel=this.selArray().filter(ic=>!ic.isDisk);
+    if(!sel.length)return;
+    requester(this.scr,"Workbench Request",
+      "Warning: you cannot get back what you delete.\nOK to delete "+sel.length+" object(s)?",
+      ["Ok","Cancel"],(i)=>{
+        if(i!==0)return;
+        sel.forEach(ic=>{
+          const r=resolvePath(ic.key);
+          if(r&&r.parent)delete r.parent.c[ic.node.name.toLowerCase()];
+          const li=State.data.leftout.indexOf(ic.key);
+          if(li>=0){State.data.leftout.splice(li,1);ic.el.remove();}
+        });
+        State.save(); this.clearSel(); this.refreshAll();
+      });
+  },
+  renameSel(){
+    const ic=this.selArray()[0]; if(!ic||ic.isDisk)return;
+    requester(this.scr,"Rename","Enter a new name for '"+ic.node.name+"'.",["Ok","Cancel"],(i,val)=>{
+      if(i!==0||!val)return;
+      const r=resolvePath(ic.key);
+      if(r&&r.parent){
+        delete r.parent.c[ic.node.name.toLowerCase()];
+        ic.node.name=val.trim();
+        r.parent.c[val.trim().toLowerCase()]=ic.node;
+      }
+      this.refreshAll();
+    },{input:ic.node.name});
+  },
+  emptyTrash(){
+    const win=Windows.active;
+    let vol=(win&&win.wbVol)||FS.volumes["workbench3.1"];
+    const sel=this.selArray()[0];
+    if(sel&&sel.kind==="trash")vol=sel.vol;
+    const trash=vol.c&&vol.c["trashcan"];
+    if(trash&&trash.c){ trash.c={}; Sound.noise(.2,.12,600); }
+    this.refreshAll();
+  },
+  cleanUp(){
+    const win=Windows.active;
+    const pane=win&&win.wbPath?win.body.querySelector(".iconpane"):this.backdrop;
+    if(!pane)return;
+    let x=8,y=6;
+    pane.querySelectorAll(".icon").forEach(el=>{
+      el.style.left=x+"px";el.style.top=y+"px";
+      x+=96;
+      const w=pane===this.backdrop?pane.clientWidth-140:Math.max(300,pane.clientWidth-100);
+      if(x>w){x=8;y+=78;}
+    });
+  },
+  selectContents(){
+    const win=Windows.active;
+    if(!win||!win.wbPath)return;
+    this.clearSel();
+    win.body.querySelectorAll(".icon").forEach(el=>{ if(el._icon)this.select(el._icon,true); });
+  },
+  newDrawer(){
+    const win=Windows.active;
+    if(!win||!win.wbNode)return sysRequest("Select a disk or drawer window first.",["Ok"]);
+    requester(this.scr,"New Drawer","Enter a name for the new drawer.",["Ok","Cancel"],(i,val)=>{
+      if(i!==0||!val)return;
+      const nd=addc(win.wbNode,N("d",val.trim(),{date:adosDate(new Date())}));
+      journalFile(win.wbPath,nd);
+      State.save(); this.populate(win);
+    },{input:"Unnamed1"});
+  },
+  openParent(){
+    const win=Windows.active;
+    if(!win||!win.wbPath)return;
+    if(!win.wbSub)return; /* disk root has no parent window */
+    const parts=win.wbSub.split("/");parts.pop();
+    const psub=parts.join("/");
+    const r=resolvePath(pathOf(win.wbVol,psub));
+    if(r&&r.node)this.openNode(win.wbVol,psub,r.node);
+  },
+  infoRequester(){
+    const ic=this.selArray()[0];
+    if(!ic)return sysRequest("No icon selected.",["Ok"]);
+    const n=ic.node;
+    const win=Windows.create(this.scr,{title:pathOf(ic.vol,ic.isDisk?"":ic.key.split(":")[1])+" Info",
+      x:90,y:40,w:470,h:360,resize:false,chip:8000,fast:16000});
+    const prot=n.prot||"----rwed";
+    const bits="hspa rwed".replace(" ","");
+    const boxes="hspa".split("").concat("rwed".split(""));
+    let html='<div style="padding:10px;font-size:13px">';
+    html+='<div style="display:flex;gap:14px;margin-bottom:8px"><span class="iimg" style="width:56px;height:44px;display:inline-block">'+IconArt.svg(n.kind,n.customIcon)+"</span>";
+    html+='<div><b>'+esc(n.name)+"</b><br>"+(n.t==="d"?"Drawer":(n.tool?"Tool":"Project"))+
+      "<br>Size: "+(n.t==="d"?"----":commas(n.size)+" bytes")+"<br>Last Changed: "+esc(adosDate(n.date))+"</div></div>";
+    html+='<div class="row"><span class="lbl">Stack:</span> <input class="sgad" id="inf_stack" style="width:90px" value="'+(n.stack||4096)+'"></div>';
+    html+='<div class="row"><span class="lbl">Protection:</span> ';
+    boxes.forEach((b,i)=>{
+      const on=prot[i]!=="-";
+      html+='<span style="margin-right:6px"><span class="ckb'+(on?" on":"")+'" data-bit="'+i+'"></span> '+b+"</span>";
+    });
+    html+="</div>";
+    html+='<div class="row"><span class="lbl">Comment:</span> <input class="sgad" id="inf_com" style="flex:1" value="'+esc(n.comment||"")+'"></div>';
+    html+='<div class="lbl">Tool Types:</div><textarea class="sgad" id="inf_tt" style="width:100%;height:70px;resize:none">'+esc((n.tooltypes||[]).join("\n"))+"</textarea>";
+    html+='<div class="reqbtns" style="margin-top:10px"><span class="btn" id="inf_save">Save</span><span class="btn" id="inf_cancel">Cancel</span></div></div>';
+    win.body.innerHTML=html;
+    win.body.querySelectorAll(".ckb").forEach(ck=>ck.addEventListener("click",()=>ck.classList.toggle("on")));
+    $("#inf_save",win.body).addEventListener("click",()=>{
+      let p="";
+      win.body.querySelectorAll(".ckb").forEach((ck,i)=>{ p+=ck.classList.contains("on")?"hsparwed"[i]:"-"; });
+      n.prot=p;
+      n.comment=$("#inf_com",win.body).value;
+      n.stack=parseInt($("#inf_stack",win.body).value)||4096;
+      n.tooltypes=$("#inf_tt",win.body).value.split("\n").map(s=>s.trim()).filter(Boolean);
+      State.save(); Windows.close(win);
+    });
+    $("#inf_cancel",win.body).addEventListener("click",()=>Windows.close(win));
+  },
+  executeCommand(){
+    requester(this.scr,"Execute a File","Enter Command and its Arguments:",["Ok","Cancel"],(i,val)=>{
+      if(i!==0||!val)return;
+      const sh=Shell.open();
+      Shell.exec(sh,val);
+    },{input:State.data.lastCmd||"",w:440});
+  },
+  insertVolumeRequest(volname,retry){
+    sysRequest("Please insert volume\n"+volname+"\nin any drive",["Retry","Cancel"],(i)=>{
+      if(i===0)this.insertVolumeRequest(volname,true);
+    });
+  },
+  about(){
+    requester(this.scr,"About",
+      "Workbench  version 40.42\nCopyright © 1985-1994\nCommodore-Amiga, Inc.\nAll Rights Reserved.\n\n(Museum simulation — nothing here is real,\nleast of all the Fast RAM.)",
+      ["Ok"],null,{w:400});
+  },
+  quit(){
+    requester(this.scr,"Workbench Request","Do you really want to quit Workbench?",["Ok","Cancel"],(i)=>{
+      if(i===0)sysRequest("Workbench cannot quit:\nthis is a museum exhibit and the\ndoors are locked from the outside.",["Ok"]);
+    });
+  },
+  lastMessage(){
+    sysRequest(WB._lastMsg||"No errors.",["Ok"]);
+  }
+});
+
+/* ============================================================
+   WORKBENCH MENUS — the real 3.1 tree
+   ============================================================ */
+function viewByCheck(mode){ return ()=>{ const w=Windows.active; return w&&w.wbPath&&w.viewBy===mode; }; }
+function showCheck(all){ return ()=>{ const w=Windows.active; return w&&w.wbPath&&(!!w.showAll)===all; }; }
+const WBMENU=[
+  {title:"Workbench",items:[
+    {t:"Backdrop",key:"B",cmd:()=>sysRequest("The Workbench window is already\na backdrop in this simulation.",["Ok"])},
+    {t:"Execute Command...",key:"E",cmd:()=>WB.executeCommand()},
+    {t:"Redraw All",cmd:()=>{WB.refreshAll();}},
+    {t:"Update All",cmd:()=>{WB.refreshAll();}},
+    {t:"Last Message",cmd:()=>WB.lastMessage()},
+    {t:"About...",key:"?",cmd:()=>WB.about()},
+    {t:"Quit...",key:"Q",cmd:()=>WB.quit()},
+  ]},
+  {title:"Window",items:[
+    {t:"New Drawer",key:"N",cmd:()=>WB.newDrawer()},
+    {t:"Open Parent",key:"K",cmd:()=>WB.openParent()},
+    {t:"Close",cmd:()=>{const w=Windows.active;if(w&&w.opts.close!==false)Windows.close(w);}},
+    {t:"Update",cmd:()=>{const w=Windows.active;if(w&&w.wbPath)WB.populate(w);}},
+    {t:"Select Contents",key:"A",cmd:()=>WB.selectContents()},
+    {t:"Clean Up",key:".",cmd:()=>WB.cleanUp()},
+    "-",
+    {t:"Snapshot",sub:[
+      {t:"Window",cmd:()=>WB.snapshotWindow(false)},
+      {t:"All",cmd:()=>{WB.snapshotWindow(false);WB.snapshotIcons();}},
+    ]},
+    {t:"Show",sub:[
+      {t:"Only Icons",checkFn:showCheck(false),cmd:()=>{const w=Windows.active;if(w&&w.wbPath){w.showAll=false;WB.populate(w);}}},
+      {t:"All Files",checkFn:showCheck(true),cmd:()=>{const w=Windows.active;if(w&&w.wbPath){w.showAll=true;WB.populate(w);}}},
+    ]},
+    {t:"View By",sub:[
+      {t:"Icon",checkFn:viewByCheck("icon"),cmd:()=>{const w=Windows.active;if(w&&w.wbPath){w.viewBy="icon";WB.populate(w);}}},
+      {t:"Name",checkFn:viewByCheck("name"),cmd:()=>{const w=Windows.active;if(w&&w.wbPath){w.viewBy="name";WB.populate(w);}}},
+      {t:"Date",checkFn:viewByCheck("date"),cmd:()=>{const w=Windows.active;if(w&&w.wbPath){w.viewBy="date";WB.populate(w);}}},
+      {t:"Size",checkFn:viewByCheck("size"),cmd:()=>{const w=Windows.active;if(w&&w.wbPath){w.viewBy="size";WB.populate(w);}}},
+    ]},
+  ]},
+  {title:"Icons",items:[
+    {t:"Open",key:"O",cmd:()=>{const ic=WB.selArray()[0];if(ic)WB.openIcon(ic);}},
+    {t:"Copy",key:"C",cmd:()=>{
+      WB.selArray().forEach(ic=>{
+        if(ic.isDisk)return;
+        const r=resolvePath(ic.key);
+        if(!r||!r.parent)return;
+        const cp=JSON.parse(JSON.stringify(ic.node));
+        cp.name="Copy_of_"+cp.name;
+        r.parent.c[cp.name.toLowerCase()]=cp;
+      });
+      State.save();WB.refreshAll();
+    }},
+    {t:"Rename...",key:"R",cmd:()=>WB.renameSel()},
+    {t:"Information...",key:"I",cmd:()=>WB.infoRequester()},
+    "-",
+    {t:"Snapshot",key:"S",cmd:()=>WB.snapshotIcons()},
+    {t:"UnSnapshot",key:"U",cmd:()=>WB.unsnapshotIcons()},
+    {t:"Leave Out",key:"L",cmd:()=>{WB.selArray().forEach(ic=>WB.leaveOut(ic));}},
+    {t:"Put Away",key:"P",cmd:()=>WB.putAway()},
+    "-",
+    {t:"Delete...",cmd:()=>WB.deleteSel()},
+    {t:"Format Disk...",cmd:()=>Apps.format()},
+    {t:"Empty Trash",cmd:()=>WB.emptyTrash()},
+  ]},
+  {title:"Tools",items:[
+    {t:"ResetWB",cmd:()=>{WB.refreshAll();Sound.floppyClick();}},
+  ]},
+];
+/* ============================================================
+   AmigaShell — console window + AmigaDOS command parser
+   ============================================================ */
+const Shell={
+  count:0,
+  open(){
+    const n=++this.count;
+    const scr=Screens.byId["wb"];
+    const win=Windows.create(scr,{title:"AmigaShell",x:30+n*20,y:30+n*16,w:600,h:300,
+      resize:true,menu:WBMENU,chip:14000,fast:38000,
+      onclose:()=>{ Tasks.remove(sh.task); }});
+    const body=mk("div","conbody");
+    win.body.appendChild(body);
+    const sh={win,body,n,cwd:"SYS:",hist:State.data.shellHist.slice(),hi:-1,line:"",task:Tasks.add("Shell "+n+" [CLI "+n+"]",0)};
+    win.shell=sh;
+    this.print(sh,"New Shell process "+n+"\n");
+    this.prompt(sh);
+    body.addEventListener("mousedown",()=>Windows.activate(win));
+    win.el.addEventListener("keydown",e=>this.key(sh,e));
+    win.el.tabIndex=-1;
+    setTimeout(()=>win.el.focus(),30);
+    win.el.addEventListener("mousedown",()=>setTimeout(()=>win.el.focus(),0));
+    return sh;
+  },
+  print(sh,txt){
+    sh.body.insertBefore(document.createTextNode(txt),sh.curEl||null);
+    sh.body.scrollTop=sh.body.scrollHeight;
+  },
+  prompt(sh){
+    sh.promptStr=sh.n+"."+sh.cwd+"> ";
+    this.print(sh,sh.promptStr);
+    sh.lineNode=document.createTextNode("");
+    sh.body.appendChild(sh.lineNode);
+    sh.curEl=mk("span","cur"," ");
+    sh.body.appendChild(sh.curEl);
+    sh.line="";
+    sh.body.scrollTop=sh.body.scrollHeight;
+  },
+  key(sh,e){
+    if(e.altKey||e.metaKey)return;
+    if(e.ctrlKey&&(e.key==="c"||e.key==="C")){ this.print(sh,"***Break\n");this.endLine(sh);this.prompt(sh);e.preventDefault();return; }
+    if(e.key==="F10")return;
+    e.stopPropagation();
+    if(e.key==="Enter"){
+      e.preventDefault();
+      const line=sh.line;
+      this.endLine(sh);
+      this.print(sh,"\n");
+      if(line.trim()){
+        sh.hist.push(line);
+        State.data.shellHist=sh.hist.slice(-40); State.save();
+      }
+      sh.hi=-1;
+      this.exec(sh,line);
+      return;
+    }
+    if(e.key==="Backspace"){ sh.line=sh.line.slice(0,-1); }
+    else if(e.key==="ArrowUp"){ if(sh.hist.length){ sh.hi=sh.hi<0?sh.hist.length-1:Math.max(0,sh.hi-1); sh.line=sh.hist[sh.hi]||""; } }
+    else if(e.key==="ArrowDown"){ if(sh.hi>=0){ sh.hi=Math.min(sh.hist.length,sh.hi+1); sh.line=sh.hist[sh.hi]||""; } }
+    else if(e.key.length===1&&!e.ctrlKey){ sh.line+=e.key; Sound.keyclick(); }
+    else return;
+    e.preventDefault();
+    sh.lineNode.nodeValue=sh.line;
+    sh.body.scrollTop=sh.body.scrollHeight;
+  },
+  endLine(sh){
+    if(sh.curEl){sh.curEl.remove();sh.curEl=null;}
+    sh.lineNode=null;
+  },
+  exec(sh,line){
+    State.data.lastCmd=line;
+    const done=()=>{ if(!sh.win.closed)this.prompt(sh); };
+    try{ if(this.run(sh,line)===false)return; }
+    catch(err){ this.print(sh,err.message+"\n"); }
+    done();
+  },
+  /* returns false if the command manages its own prompt (async) */
+  run(sh,line){
+    line=line.trim();
+    if(!line)return;
+    const m=line.match(/^(\S+)\s*(.*)$/);
+    const cmd=m[1].toLowerCase(), args=m[2];
+    const P=t=>this.print(sh,t);
+    const fail=n=>P((n||line.split(/\s/)[0])+": "+(FS.lastErr||"object not found")+"\n");
+    switch(cmd){
+      case "dir": return this.cmdDir(sh,args);
+      case "list": return this.cmdList(sh,args);
+      case "cd": return this.cmdCD(sh,args);
+      case "makedir": case "md":{
+        if(!args)return P("No name given\n");
+        const parts=args.split("/");const nm=parts.pop();
+        const base=parts.length?parts.join("/"):"";
+        const r=resolvePath(base||sh.cwd, sh.cwd);
+        if(!r||!r.node||r.node.t!=="d")return P("MakeDir: can't create "+args+"\n");
+        const nd=addc(r.node,N("d",nm,{date:adosDate(new Date()),noicon:false}));
+        journalFile(pathOf(r.volume,r.sub),nd);
+        State.save();WB.refreshAll();return;
+      }
+      case "delete":{
+        const r=resolvePath(args,sh.cwd);
+        if(!r||!r.node||!r.parent)return P("Delete: object not found\n");
+        delete r.parent.c[r.node.name.toLowerCase()];
+        P("   "+args+"  Deleted\n");State.save();WB.refreshAll();return;
+      }
+      case "rename":{
+        const a=args.split(/\s+(?:as\s+)?/i);
+        const r=resolvePath(a[0],sh.cwd);
+        if(!r||!r.node||!r.parent||!a[1])return P("Rename: object not found\n");
+        delete r.parent.c[r.node.name.toLowerCase()];
+        r.node.name=a[1].split("/").pop();
+        r.parent.c[r.node.name.toLowerCase()]=r.node;
+        State.save();WB.refreshAll();return;
+      }
+      case "copy":{
+        const a=args.split(/\s+(?:to\s+)?/i);
+        const src=resolvePath(a[0],sh.cwd), dst=resolvePath(a[1]||"",sh.cwd);
+        if(!src||!src.node)return P("Copy: object not found\n");
+        if(!dst||!dst.node||dst.node.t!=="d")return P("Copy: destination not found\n");
+        const cp=JSON.parse(JSON.stringify(src.node));
+        dst.node.c[cp.name.toLowerCase()]=cp;
+        journalFile(pathOf(dst.volume,dst.sub),cp);
+        State.save();WB.refreshAll();return;
+      }
+      case "type":{
+        const r=resolvePath(args,sh.cwd);
+        if(!r||!r.node)return P("Type: object not found\n");
+        P((r.node.text!=null?r.node.text:"(binary file)\n"));return;
+      }
+      case "ed": case "edit":{
+        const r=resolvePath(args,sh.cwd);
+        Apps.ed(r&&r.node?r.node:null,args,sh.cwd);return;
+      }
+      case "avail":{
+        const cf=Memory.chipFree(),ff=Memory.fastFree();
+        P("Type   Available     In-Use    Maximum    Largest\n");
+        P("chip "+pad(commas(cf),11)+pad(commas(Memory.chipUsed),11)+pad(commas(Memory.chipTotal),11)+pad(commas((cf*0.87)|0),11)+"\n");
+        P("fast "+pad(commas(ff),11)+pad(commas(Memory.fastUsed),11)+pad(commas(Memory.fastTotal),11)+pad(commas((ff*0.92)|0),11)+"\n");
+        P("total"+pad(commas(cf+ff),11)+pad(commas(Memory.chipUsed+Memory.fastUsed),11)+pad(commas(Memory.chipTotal+Memory.fastTotal),11)+pad(commas((ff*0.92)|0),11)+"\n");
+        return;
+      }
+      case "assign":{
+        if(!args){
+          P("Volumes:\n");
+          Object.values(FS.volumes).forEach(v=>P(volDisplayName(v)+" [Mounted]\n"));
+          P("\nDirectories:\n");
+          Object.entries(FS.assigns).forEach(([k,v])=>{
+            if(["dh0","dh1","ram","work"].includes(k))return;
+            P(k.toUpperCase().padEnd(16)+v+"\n");
+          });
+          P("\nDevices:\nPIPE AUX RAM CON\nDF0 DH0 DH1 PRT SER PAR\n");
+          return;
+        }
+        const a=args.split(/\s+/);
+        if(a[0]&&a[1]){FS.assigns[a[0].replace(/:$/,"").toLowerCase()]=a[1];return;}
+        return;
+      }
+      case "info":{
+        P("Mounted disks:\nUnit      Size    Used    Free Full Errs   Status   Name\n");
+        const row=(u,v)=>{
+          const size=v.capacity||2*1024*1024;
+          const used=v.volKind==="ram"?("used" in v?v.used:81920):v.used;
+          const free=size-used;
+          P(u.padEnd(6)+pad(size>=1e6?((size/1048576)|0)+"M":((size/1024)|0)+"K",6)+
+            pad(commas((used/512)|0),8)+pad(commas((free/512)|0),8)+
+            pad((used/size*100)|0,4)+"%"+pad(0,5)+"  Read/Write  "+volDisplayName(v)+"\n");
+        };
+        row("DH0:",FS.volumes["workbench3.1"]);
+        row("DH1:",FS.volumes["work"]);
+        const ram=FS.volumes["ram disk"];ram.capacity=Memory.fastTotal;ram.used=131072;
+        row("RAM:",ram);
+        return;
+      }
+      case "status":{
+        P("Process  1: Loaded as command: Workbench\n");
+        Tasks.list.forEach(t=>{ if(t.n>1)P("Process "+pad(t.n,2)+": Loaded as command: "+t.name+"\n"); });
+        return;
+      }
+      case "run":{
+        if(!args){P("Run: no command\n");return;}
+        const t=Tasks.add(args.split(/\s+/)[0],0);
+        P("[CLI "+t.n+"]\n");
+        /* a Run-launched counter task, visibly multitasking */
+        if(/^count/i.test(args)){
+          let i=0;
+          const iv=setInterval(()=>{
+            if(sh.win.closed){clearInterval(iv);Tasks.remove(t);return;}
+            this.print(sh,"\rBackground count: "+(++i)+"\n");
+            if(i>=parseInt(args.split(/\s+/)[1])||i>=30){clearInterval(iv);Tasks.remove(t);}
+          },1000);
+        }else{
+          setTimeout(()=>{ this.run(sh,args); Tasks.remove(t); },50);
+        }
+        return;
+      }
+      case "version": P("Kickstart 40.68, Workbench 40.42\n");return;
+      case "date":{
+        const d=new Date();
+        P(DAYS[d.getDay()]+" "+adosDate(d)+" "+adosTime(d)+"\n");return;
+      }
+      case "echo": P(args.replace(/^"(.*)"$/,"$1")+"\n");return;
+      case "execute":{
+        const r=resolvePath(args,sh.cwd);
+        if(!r||!r.node||r.node.text==null)return P("Execute: can't open "+args+"\n");
+        r.node.text.split("\n").forEach(l=>{
+          l=l.trim();
+          if(l&&!l.startsWith(";"))P("> "+l+"\n");
+        });
+        return;
+      }
+      case "wait":{
+        const secs=parseFloat(args)||1;
+        setTimeout(()=>{ if(!sh.win.closed)this.prompt(sh); },Math.min(secs,30)*1000);
+        return false;
+      }
+      case "why": P("The last command did not set a return code\n");return;
+      case "fault":{
+        const codes={103:"insufficient free store",205:"object not found",212:"object not of required type",218:"device (or volume) is not mounted",221:"disk is full",226:"no disk in drive"};
+        const n=parseInt(args)||205;
+        P("Fault "+n+": "+(codes[n]||"Error not documented")+"\n");return;
+      }
+      case "loadwb": P("Workbench is already loaded.\n");return;
+      case "endshell": case "endcli":{
+        this.print(sh,"\n");
+        setTimeout(()=>Windows.close(sh.win),120);
+        return false;
+      }
+      case "say": return this.cmdSay(sh,args);
+      case "cls": sh.body.textContent="";return;
+      case "guru": case "meditate":
+        setTimeout(()=>Guru.trigger("00000003.00C0FFEE"),400);
+        P("Software failure imminent. It has been an honour.\n");return;
+      case "mount": P("Mount: all simulated devices are already mounted\n");return;
+      case "setclock": P("SetClock: battery backed up clock is a museum piece\n");return;
+      case "which":{
+        const r=resolvePath("C:"+args);
+        P(r&&r.node?"Workbench3.1:C/"+r.node.name+"\n":"Which: "+args+" not found\n");return;
+      }
+      case "eval":{
+        try{
+          if(/^[\d\s+\-*/().%]+$/.test(args))P(String(Function('"use strict";return('+args+')')())+"\n");
+          else P("Eval: bad expression\n");
+        }catch(e){P("Eval: bad expression\n");}
+        return;
+      }
+      case "protect":{
+        const a=args.split(/\s+/);
+        const r=resolvePath(a[0],sh.cwd);
+        if(!r||!r.node)return P("Protect: object not found\n");
+        if(a[1])r.node.prot=("--------"+a[1].toLowerCase()).slice(-8);
+        return;
+      }
+      case "filenote":{
+        const mm=args.match(/^(\S+)\s+"?([^"]*)"?$/);
+        const r=mm&&resolvePath(mm[1],sh.cwd);
+        if(!r||!r.node)return P("Filenote: object not found\n");
+        r.node.comment=mm[2]||"";State.save();return;
+      }
+      case "install": P("Install: specified volume is a hard drive (and imaginary)\n");return;
+      case "relabel": P("Relabel: not permitted in the museum\n");return;
+      case "break": P("Break: process not found\n");return;
+      case "setpatch": P("SetPatch 40.16 already installed\n");return;
+      case "iprefs": return;
+      case "prompt": return;
+      default:{
+        /* maybe it's a path to something runnable */
+        const r=resolvePath(args?line:cmd,sh.cwd)||resolvePath(cmd,sh.cwd)||resolvePath("C:"+cmd);
+        if(r&&r.node){
+          if(r.node.t==="d"){ P(cmd+": object not of required type\n"); return; }
+          if(r.node.tool){ WB.launch(r.volume,r.sub,r.node); return; }
+          P(cmd+": file is not executable\n");return;
+        }
+        P(cmd+": Unknown command\n");
+        return;
+      }
+    }
+  },
+  cmdCD(sh,args){
+    if(!args){ this.print(sh,sh.cwd+"\n"); return; }
+    let target=args;
+    if(args==="/"){ /* parent */
+      const i=sh.cwd.indexOf(":");
+      const parts=sh.cwd.slice(i+1).split("/").filter(Boolean);parts.pop();
+      target=sh.cwd.slice(0,i+1)+parts.join("/");
+    }
+    const r=resolvePath(target,sh.cwd);
+    if(r&&r.missing){ WB.insertVolumeRequest(r.missing); return; }
+    if(!r||!r.node||r.node.t!=="d"){ this.print(sh,"CD: can't find "+args+"\n"); return; }
+    sh.cwd=pathOf(r.volume,r.sub);
+  },
+  cmdDir(sh,args){
+    const r=resolvePath(args||sh.cwd,sh.cwd);
+    if(!r||!r.node||r.node.t!=="d")return this.print(sh,"Dir: can't find "+(args||sh.cwd)+"\n");
+    const kids=childList(r.node,true);
+    const dirs=kids.filter(k=>k.t==="d"),files=kids.filter(k=>k.t!=="d");
+    let out="";
+    dirs.forEach(d=>out+="  "+d.name+" (dir)\n");
+    /* files two-column */
+    const names=files.map(f=>"  "+f.name);
+    for(let i=0;i<names.length;i+=2)
+      out+=(names[i].padEnd(34))+(names[i+1]||"")+"\n";
+    this.print(sh,out||"  (empty)\n");
+  },
+  cmdList(sh,args){
+    const r=resolvePath(args||sh.cwd,sh.cwd);
+    if(!r||!r.node)return this.print(sh,"List: can't find "+(args||sh.cwd)+"\n");
+    const kids=r.node.t==="d"?childList(r.node,true):[r.node];
+    this.print(sh,"Directory \""+(args||sh.cwd)+"\" on "+DAYS[new Date().getDay()].toLowerCase()+" "+adosDate(new Date())+"\n");
+    let files=0,dirs=0,bytes=0;
+    kids.forEach(k=>{
+      const nm=k.name.padEnd(24).slice(0,24);
+      const sz=k.t==="d"?"   Dir":pad(commas(k.size||0),6);
+      this.print(sh,nm+" "+sz+" "+(k.prot||"----rwed")+" "+adosDate(k.date)+" "+adosTime(new Date(2015,1,1))+
+        (k.comment?"\n: "+k.comment:"")+"\n");
+      if(k.t==="d")dirs++;else{files++;bytes+=k.size||0;}
+    });
+    this.print(sh,files+" files - "+dirs+" directories - "+commas(bytes)+" bytes used\n");
+  },
+  cmdSay(sh,args){
+    const text=args||"hello, I am the amiga speech synthesizer";
+    Apps.speakRobot(text);
+    this.print(sh,"\n");
+  }
+};
+/* ============================================================
+   APPLICATIONS — Tools, Utilities, System
+   ============================================================ */
+const Apps={
+  /* ---------------- Calculator ---------------- */
+  calculator(){
+    const scr=Screens.byId["wb"];
+    const win=Windows.create(scr,{title:"Calculator",x:120,y:60,w:230,h:270,resize:false,chip:6000,fast:12000,
+      menu:[{title:"Project",items:[{t:"Clear Entry",cmd:()=>upd("0",true)},{t:"Quit",key:"Q",cmd:()=>Windows.close(win)}]}]});
+    const t=Tasks.add("Calculator",0);
+    win.opts.onclose=()=>Tasks.remove(t);
+    let disp="0",acc=null,op=null,fresh=true;
+    const d=mk("div",null);
+    d.style.cssText="margin:8px;padding:4px 8px;text-align:right;font:18px var(--tz);background:var(--c0)";
+    d.className="bev-in";
+    const grid=mk("div");
+    grid.style.cssText="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 8px";
+    const upd=(v,reset)=>{ disp=v; if(reset){acc=null;op=null;fresh=true;} d.textContent=disp; };
+    const press=k=>{
+      Sound.keyclick();
+      if(k>="0"&&k<="9"){ disp=fresh?k:(disp+k).slice(0,12); fresh=false; }
+      else if(k==="."){ if(fresh){disp="0.";fresh=false;} else if(!disp.includes("."))disp+="."; }
+      else if(k==="CA"){ disp="0";acc=null;op=null;fresh=true; }
+      else if(k==="CE"){ disp="0";fresh=true; }
+      else if(k==="«"){ disp=disp.length>1?disp.slice(0,-1):"0"; }
+      else if(k==="±"){ disp=String(-parseFloat(disp)); }
+      else if(["+","-","×","÷","="].includes(k)){
+        const v=parseFloat(disp);
+        if(op&&acc!=null&&!fresh){
+          let r=op==="+"?acc+v:op==="-"?acc-v:op==="×"?acc*v:(v===0?NaN:acc/v);
+          if(!isFinite(r)||isNaN(r)){ Sound.beep(); upd("0",true); return; }
+          r=Math.round(r*1e8)/1e8;
+          disp=String(r);acc=r;
+        }else acc=v;
+        op=k==="="?null:k;
+        fresh=true;
+      }
+      d.textContent=disp;
+    };
+    ["CA","CE","«","÷","7","8","9","×","4","5","6","-","1","2","3","+","0",".","±","="].forEach(k=>{
+      const b=mk("span","btn",esc(k));
+      b.style.textAlign="center";
+      b.addEventListener("click",()=>press(k));
+      grid.appendChild(b);
+    });
+    win.body.append(d,grid);
+    d.textContent=disp;
+  },
+
+  /* ---------------- Clock ---------------- */
+  clock(){
+    const scr=Screens.byId["wb"];
+    let mode=State.getPref("clock",{mode:"analog"}).mode;
+    const win=Windows.create(scr,{title:"Clock",x:420,y:50,w:200,h:200,resize:true,chip:5000,fast:9000,
+      menu:[{title:"Project",items:[{t:"Quit",key:"Q",cmd:()=>Windows.close(win)}]},
+            {title:"Type",items:[
+              {t:"Analog",checkFn:()=>mode==="analog",cmd:()=>{mode="analog";State.usePref("clock",{mode});}},
+              {t:"Digital",checkFn:()=>mode==="digital",cmd:()=>{mode="digital";State.usePref("clock",{mode});}}]},
+            {title:"Alarm",items:[{t:"Set...",cmd:()=>sysRequest("The alarm clock is asleep.",["Ok"])}]}],
+      onresize:()=>size()});
+    const t=Tasks.add("Clock",5);
+    const cnv=document.createElement("canvas");
+    cnv.style.cssText="position:absolute;inset:0;width:100%;height:100%";
+    win.body.appendChild(cnv);
+    const size=()=>{ cnv.width=win.body.clientWidth; cnv.height=win.body.clientHeight; };
+    size();
+    const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    const iv=setInterval(()=>{
+      if(win.closed){clearInterval(iv);Tasks.remove(t);return;}
+      const g=cnv.getContext("2d"),w=cnv.width,h=cnv.height,now=new Date();
+      g.fillStyle=css("--c0");g.fillRect(0,0,w,h);
+      if(mode==="digital"){
+        g.fillStyle=css("--c1");
+        g.font="bold "+Math.max(14,(w/6)|0)+"px monospace";
+        g.textAlign="center";g.textBaseline="middle";
+        g.fillText(adosTime(now),w/2,h/2);
+        return;
+      }
+      const cx=w/2,cy=h/2,r=Math.min(w,h)/2-8;
+      g.strokeStyle=css("--c1");g.fillStyle=css("--c2");
+      g.beginPath();g.arc(cx,cy,r,0,7);g.fill();g.stroke();
+      g.fillStyle=css("--c1");
+      for(let i=0;i<12;i++){
+        const a=i/12*Math.PI*2;
+        g.fillRect(cx+Math.sin(a)*(r-6)-1.5,cy-Math.cos(a)*(r-6)-1.5,3,3);
+      }
+      const hand=(val,len,wd,col)=>{
+        const a=val*Math.PI*2;
+        g.strokeStyle=col;g.lineWidth=wd;
+        g.beginPath();g.moveTo(cx,cy);
+        g.lineTo(cx+Math.sin(a)*len,cy-Math.cos(a)*len);g.stroke();
+      };
+      hand((now.getHours()%12+now.getMinutes()/60)/12,r*.5,3,css("--c1"));
+      hand(now.getMinutes()/60,r*.75,2,css("--c1"));
+      hand(now.getSeconds()/60,r*.8,1,css("--c3"));
+    },250);
+  },
+
+  /* ---------------- MultiView / AmigaGuide ---------------- */
+  multiview(node,path){
+    const scr=Screens.byId["wb"];
+    const win=Windows.create(scr,{title:"MultiView"+(node?": "+node.name:""),x:70,y:40,w:560,h:360,resize:true,chip:9000,fast:30000,
+      menu:[{title:"Project",items:[
+        {t:"Open...",key:"O",cmd:()=>sysRequest("Use Workbench to open another\nproject icon.",["Ok"])},
+        {t:"About...",cmd:()=>sysRequest("MultiView 40.7\nUses datatypes to display anything.\n(Simulated datatypes: text, guide.)",["Ok"])},
+        {t:"Quit",key:"Q",cmd:()=>Windows.close(win)}]}]});
+    const t=Tasks.add("MultiView",0);
+    win.opts.onclose=()=>Tasks.remove(t);
+    const body=mk("div","conbody helpguide");
+    body.style.background="var(--c0)";
+    win.body.appendChild(body);
+    if(node&&node.guide)this.renderGuide(body,"main");
+    else body.textContent=node&&node.text!=null?node.text:"(MultiView could not identify the datatype of this file.)";
+  },
+  GUIDE:{
+    main:{title:"Workbench.guide",text:"@{b}Welcome to Workbench 3.1@{ub}\n\nThis AmigaGuide document covers the basics.\nSelect a button to jump to a node.\n\n  @{link intro} What is Workbench? @{elink}\n  @{link mouse} The Mouse and Menus @{elink}\n  @{link icons} Icons and Drawers  @{elink}\n  @{link shell} The Shell           @{elink}\n  @{link screens} Screens           @{elink}\n"},
+    intro:{title:"What is Workbench?",text:"Workbench is the Amiga's graphical face: disks on a\nbackdrop, drawers inside them, and tools and projects\ninside those. It has multitasked preemptively since 1985\nand would like you to know it.\n\n@{link main} Contents @{elink}"},
+    mouse:{title:"The Mouse and Menus",text:"The LEFT button selects and drags.\nThe RIGHT button is the MENU button: hold it and the\nscreen title bar becomes the menu strip. Slide down a\nmenu and RELEASE over an item to choose it.\n\nKeyboard shortcuts use the Amiga keys, shown in the\nmenus with the key glyph.\n\n@{link main} Contents @{elink}"},
+    icons:{title:"Icons and Drawers",text:"Icons have two images: normal and selected.\nDrag them; the system remembers nothing until you\nchoose Icons -> Snapshot. Leave Out puts a file's icon\non the backdrop; Put Away sends it home.\n\nInformation... shows protection bits (hspa rwed), the\ncomment, and the Tool Types list of KEY=VALUE strings.\n\n@{link main} Contents @{elink}"},
+    shell:{title:"The Shell",text:"Open System/Shell. Try:\n\n  Dir SYS:\n  List S:\n  Avail\n  Status\n  Say I am sorry Dave\n  Version\n\nEndShell closes it again.\n\n@{link main} Contents @{elink}"},
+    screens:{title:"Screens",text:"Applications may open whole SCREENS, each with its own\npalette. Drag the title bar of a screen DOWNWARD to pull\nit down and see the screen behind. The gadget at the far\nright of the screen bar sends it behind (Alt+M too).\n\nOpen Work:Paint or Work:Demos/Boing, then drag the\nWorkbench screen down. Welcome home.\n\n@{link main} Contents @{elink}"},
+  },
+  renderGuide(body,nodeId){
+    const nd=this.GUIDE[nodeId]||this.GUIDE.main;
+    body.innerHTML="";
+    const head=mk("div",null,"<b>"+esc(nd.title)+"</b>\n\n");
+    body.appendChild(head);
+    let txt=nd.text;
+    txt=esc(txt)
+      .replace(/@\{b\}/g,"<b>").replace(/@\{ub\}/g,"</b>")
+      .replace(/@\{link (\w+)\}([^@]*)@\{elink\}/g,(_,id,label)=>'<span class="guidebtn" data-node="'+id+'">'+label.trim()+"</span>");
+    const div=mk("div",null,txt);
+    body.appendChild(div);
+    body.querySelectorAll(".guidebtn").forEach(b=>b.addEventListener("click",()=>{
+      Sound.keyclick(); this.renderGuide(body,b.dataset.node);
+    }));
+  },
+
+  /* ---------------- Ed (text editor) ---------------- */
+  ed(node,name,cwd){
+    const scr=Screens.byId["wb"];
+    const isNew=!node;
+    if(isNew&&name){ node=N("f",name.split("/").pop(),{text:"",size:0,kind:"project",date:adosDate(new Date())}); }
+    const win=Windows.create(scr,{title:"Ed 2.10: "+(node?node.name:"(new)"),x:100,y:60,w:560,h:340,resize:true,chip:8000,fast:24000,
+      menu:[{title:"Project",items:[
+        {t:"Save",key:"S",cmd:()=>save()},
+        {t:"Save & Exit",key:"X",cmd:()=>{save();Windows.close(win);}},
+        {t:"Quit",key:"Q",cmd:()=>Windows.close(win)}]},
+        {title:"Edit",items:[{t:"Select All",cmd:()=>ta.select()}]}]});
+    const t=Tasks.add("Ed",0);
+    win.opts.onclose=()=>Tasks.remove(t);
+    const ta=mk("textarea","sgad");
+    ta.style.cssText="position:absolute;inset:4px;resize:none;background:var(--c0);border:0;font:14px/17px var(--tz);white-space:pre;outline:none";
+    ta.value=node&&node.text!=null?node.text:"";
+    ta.spellcheck=false;
+    ta.addEventListener("keydown",e=>e.stopPropagation());
+    win.body.appendChild(ta);
+    const save=()=>{
+      if(!node){ sysRequest("No file name.",["Ok"]); return; }
+      node.text=ta.value; node.size=ta.value.length;
+      node.date=adosDate(new Date());
+      if(isNew&&name){
+        const parts=name.split("/");parts.pop();
+        const r=resolvePath(parts.length?parts.join("/"):(cwd||"RAM:"),cwd||"RAM:");
+        if(r&&r.node&&r.node.t==="d"){ r.node.c[node.name.toLowerCase()]=node; journalFile(pathOf(r.volume,r.sub),node); WB.refreshAll(); }
+      }
+      State.save();
+      Windows.setTitle(win,"Ed 2.10: "+node.name);
+    };
+    setTimeout(()=>ta.focus(),50);
+  },
+
+  /* ---------------- Say ---------------- */
+  speakRobot(text){
+    try{
+      if(window.speechSynthesis){
+        const u=new SpeechSynthesisUtterance(text);
+        u.pitch=0.1; u.rate=0.85;
+        const vs=speechSynthesis.getVoices();
+        const v=vs.find(v=>/en/i.test(v.lang));
+        if(v)u.voice=v;
+        speechSynthesis.speak(u);
+        return u;
+      }
+    }catch(e){}
+    /* fallback: buzzy Paula formant babble */
+    const words=text.split(/\s+/).length;
+    for(let i=0;i<words*3;i++)
+      setTimeout(()=>Sound.tone(90+Math.random()*140,.09,.1,"sawtooth"),i*110);
+    return null;
+  },
+  say(){
+    const scr=Screens.byId["wb"];
+    const win=Windows.create(scr,{title:"Say",x:180,y:120,w:380,h:190,resize:false,chip:7000,fast:14000});
+    const t=Tasks.add("Say",0);
+    win.opts.onclose=()=>{Tasks.remove(t);try{speechSynthesis&&speechSynthesis.cancel();}catch(e){}};
+    const face=mk("div");
+    face.style.cssText="width:70px;height:70px;margin:8px auto 2px;background:var(--c2);border:2px solid var(--c1);position:relative";
+    face.innerHTML='<div style="position:absolute;left:14px;top:16px;width:10px;height:10px;background:var(--c1)"></div>'+
+      '<div style="position:absolute;right:14px;top:16px;width:10px;height:10px;background:var(--c1)"></div>'+
+      '<div id="saymouth" style="position:absolute;left:18px;right:18px;bottom:14px;height:6px;background:var(--c3)"></div>';
+    const row=mk("div","row");row.style.margin="8px";
+    const inp=mk("input","sgad");inp.type="text";inp.style.flex="1";
+    inp.value="Hello. I am the Amiga computer.";
+    inp.addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Enter")go();});
+    const btn=mk("span","btn","Say");
+    const go=()=>{
+      this.speakRobot(inp.value);
+      const mouth=$("#saymouth",win.body);
+      let n=0;
+      const iv=setInterval(()=>{
+        mouth.style.height=(4+Math.random()*16)+"px";
+        if(++n>inp.value.length/2+8||win.closed){clearInterval(iv);mouth.style.height="6px";}
+      },90);
+    };
+    btn.addEventListener("click",go);
+    row.append(inp,btn);
+    win.body.append(face,row);
+  },
+
+  /* ---------------- KeyShow ---------------- */
+  keyshow(){
+    const scr=Screens.byId["wb"];
+    const win=Windows.create(scr,{title:"KeyShow — usa1",x:60,y:80,w:640,h:230,resize:false,chip:6000,fast:11000});
+    const t=Tasks.add("KeyShow",0);
+    win.opts.onclose=()=>Tasks.remove(t);
+    const rows=["` 1 2 3 4 5 6 7 8 9 0 - = \\","Q W E R T Y U I O P [ ]","A S D F G H J K L ; ' Ret","Shift Z X C V B N M , . / Shift","Alt A ␣␣␣␣␣␣ Space ␣␣␣␣␣␣ A Alt"];
+    const pane=mk("div");pane.style.cssText="padding:10px;text-align:center";
+    rows.forEach(r=>{
+      const line=mk("div");line.style.margin="3px 0";
+      r.split(" ").forEach(k=>{
+        const b=mk("span","btn",esc(k==="␣␣␣␣␣␣"?"":k));
+        b.style.cssText+="min-width:30px;text-align:center;margin:1px;padding:2px 6px;font-size:12px";
+        line.appendChild(b);
+      });
+      pane.appendChild(line);
+    });
+    const tip=mk("div",null,"Press keys to see them light up. 'A' keys are the Amiga keys.");
+    tip.style.cssText="font-size:12px;margin-top:6px;text-align:center";
+    pane.appendChild(tip);
+    win.body.appendChild(pane);
+    const hl=e=>{
+      const k=e.key.length===1?e.key.toUpperCase():e.key.replace("Enter","Ret").replace(" ","Space");
+      pane.querySelectorAll(".btn").forEach(b=>{
+        if(b.textContent===k){ b.style.background="var(--c3)";setTimeout(()=>b.style.background="",180); }
+      });
+    };
+    window.addEventListener("keydown",hl);
+    win.opts.onclose=()=>{window.removeEventListener("keydown",hl);Tasks.remove(t);};
+  },
+
+  /* ---------------- Format / DiskCopy flavour ---------------- */
+  format(){
+    const scr=Screens.byId["wb"];
+    requester(scr,"Format","Select the volume to format:\n\n  DF0: (no disk present)\n  RAM: (Ram Disk)",["Format","Cancel"],(i)=>{
+      if(i!==0)return;
+      requester(scr,"Format","OK to format volume RAM DISK?\nAll data will be lost!",["Format","Cancel"],(j)=>{
+        if(j!==0)return;
+        const ram=FS.volumes["ram disk"];
+        Object.keys(ram.c).forEach(k=>{ if(!["env","t","clipboards"].includes(k))delete ram.c[k]; });
+        Sound.floppyGrind(10);
+        WB.refreshAll();
+        setTimeout(()=>sysRequest("Volume RAM DISK formatted.\n(Verifying was skipped. It always is.)",["Ok"]),1700);
+      });
+    });
+  },
+  diskcopy(){
+    const scr=Screens.byId["wb"];
+    requester(scr,"DiskCopy","Insert the FROM disk (source)\nin any drive.",["Continue","Cancel"],(i)=>{
+      if(i!==0)return;
+      Sound.diskInsert();
+      requester(scr,"DiskCopy","No disk present in df0:\n(This museum's floppy drive is\npurely decorative.)",["Retry","Cancel"],(j)=>{
+        if(j===0)Apps.diskcopy();
+      });
+    });
+  }
+};
+
+/* ============================================================
+   EXCHANGE — the commodities broker (they actually work)
+   ============================================================ */
+const Exchange={
+  commodities:{
+    "Blanker":{active:true,desc:"Blanks the screen after 60 seconds of idle time."},
+    "ClickToFront":{active:false,desc:"Double-click in a window to bring it to the front."},
+    "FKey":{active:true,desc:"F1 opens a Shell. F2 opens the Clock. (When active.)"},
+  },
+  open(){
+    const scr=Screens.byId["wb"];
+    if(this.win&&!this.win.closed){Windows.activate(this.win);return;}
+    const win=Windows.create(scr,{title:"Exchange",x:150,y:70,w:420,h:250,resize:false,chip:7000,fast:15000});
+    this.win=win;
+    const t=Tasks.add("Exchange",0);
+    win.opts.onclose=()=>Tasks.remove(t);
+    this.render();
+  },
+  launchCommodity(name){
+    if(this.commodities[name]){ this.commodities[name].active=true; }
+    else this.commodities[name]={active:true,desc:"A mysterious commodity."};
+    this.open(); this.render();
+  },
+  render(){
+    const win=this.win;
+    if(!win||win.closed)return;
+    win.body.innerHTML="";
+    const wrap=mk("div","padbody");
+    wrap.appendChild(mk("div","lbl","Available Commodities:"));
+    const list=mk("div","bev-in");
+    list.style.cssText="background:var(--c2);height:110px;overflow:auto;margin:4px 0 8px";
+    const info=mk("div","lbl","");
+    info.style.cssText="min-height:32px;font-size:12px";
+    let sel=null;
+    Object.entries(this.commodities).forEach(([name,c])=>{
+      const row=mk("div","listrow",esc(name)+(c.active?"":"  (inactive)"));
+      row.addEventListener("click",()=>{
+        list.querySelectorAll(".listrow.sel").forEach(r=>r.classList.remove("sel"));
+        row.classList.add("sel");sel=name;
+        info.textContent=c.desc;
+      });
+      list.appendChild(row);
+    });
+    const btns=mk("div","reqbtns");
+    const mkb=(lbl,fn)=>{const b=mk("span","btn",lbl);b.addEventListener("click",fn);btns.appendChild(b);};
+    mkb("Show",()=>{ if(sel)sysRequest(sel+" has no window to show.",["Ok"]); });
+    mkb("Active",()=>{ if(sel){this.commodities[sel].active=true;this.render();} });
+    mkb("Inactive",()=>{ if(sel){this.commodities[sel].active=false;this.render();} });
+    mkb("Remove",()=>{ if(sel){delete this.commodities[sel];this.render();} });
+    wrap.append(list,info,btns);
+    win.body.appendChild(wrap);
+  }
+};
+/* Blanker: blank after 60s idle when active */
+(function(){
+  let idleT=0;
+  const reset=()=>{ idleT=0; if(blank.style.display==="block"){blank.style.display="none";} };
+  const blank=mk("div");
+  blank.style.cssText="position:absolute;inset:0;background:#000;z-index:1900;display:none";
+  document.body.appendChild(blank);
+  ["mousemove","mousedown","keydown"].forEach(ev=>window.addEventListener(ev,reset,true));
+  setInterval(()=>{
+    if(!Exchange.commodities.Blanker||!Exchange.commodities.Blanker.active)return;
+    if(Boot.running)return;
+    if(++idleT>=60){ blank.style.display="block"; }
+  },1000);
+})();
+/* ClickToFront: double-click anywhere in a window brings it forward */
+window.addEventListener("dblclick",e=>{
+  const c=Exchange.commodities.ClickToFront;
+  if(!c||!c.active)return;
+  const wEl=e.target.closest&&e.target.closest(".win");
+  if(wEl){ wEl.style.zIndex=100+(++WINSEQ); }
+},true);
+/* FKey */
+window.addEventListener("keydown",e=>{
+  const c=Exchange.commodities.FKey;
+  if(!c||!c.active||Boot.running)return;
+  if(e.key==="F1"){e.preventDefault();Shell.open();}
+  if(e.key==="F2"){e.preventDefault();Apps.clock();}
+});
+/* ============================================================
+   PREFERENCES — each editor is a little app with Save/Use/Cancel.
+   Save persists to localStorage; Use lives only until reboot.
+   ============================================================ */
+const DEFAULT_PALETTE={c0:"#aaaaaa",c1:"#000000",c2:"#ffffff",c3:"#6688bb"};
+const WB1X_PALETTE={c0:"#0055aa",c1:"#000000",c2:"#ffffff",c3:"#ff8800"};
+function applyPalette(p){
+  const r=document.documentElement.style;
+  r.setProperty("--c0",p.c0);r.setProperty("--c1",p.c1);
+  r.setProperty("--c2",p.c2);r.setProperty("--c3",p.c3);
+}
+const Prefs={
+  open(name){
+    const fn=this.editors[name]||this.editors._stub;
+    fn.call(this,name);
+  },
+  frame(name,w,h,buildFn,collectFn,applyFn){
+    const scr=Screens.byId["wb"];
+    const win=Windows.create(scr,{title:name+" Preferences",x:110,y:36,w:w||460,h:h||330,resize:false,chip:9000,fast:22000,
+      menu:[{title:"Project",items:[{t:"Quit",key:"Q",cmd:()=>Windows.close(win)}]},
+            {title:"Edit",items:[{t:"Reset To Defaults",cmd:()=>{Windows.close(win);delete State.data.prefs[name.toLowerCase()];delete State.useOverlay[name.toLowerCase()];if(applyFn)applyFn(null);Prefs.open(name);}}]}]});
+    const t=Tasks.add(name+"Prefs",0);
+    win.opts.onclose=()=>Tasks.remove(t);
+    const body=mk("div","padbody");
+    body.style.cssText="position:absolute;inset:0 0 44px 0;overflow:auto;padding:10px";
+    const btns=mk("div");
+    btns.style.cssText="position:absolute;left:0;right:0;bottom:0;height:40px;display:flex;justify-content:space-between;padding:6px 10px;border-top:2px solid var(--c1)";
+    const key=name.toLowerCase();
+    const mkb=(lbl,fn)=>{const b=mk("span","btn",lbl);b.addEventListener("click",fn);btns.appendChild(b);};
+    mkb("Save",()=>{ const v=collectFn(); State.savePref(key,v); if(applyFn)applyFn(v); Windows.close(win); });
+    mkb("Use", ()=>{ const v=collectFn(); State.usePref(key,v);  if(applyFn)applyFn(v); Windows.close(win); });
+    mkb("Cancel",()=>Windows.close(win));
+    win.body.append(body,btns);
+    buildFn(body,win);
+    return win;
+  },
+  editors:{
+    Palette(name){
+      const cur=State.getPref("palette",DEFAULT_PALETTE);
+      const work=Object.assign({},cur);
+      this.frame(name,470,360,(body)=>{
+        let selKey="c0";
+        const sw=mk("div");sw.style.cssText="display:flex;gap:8px;margin-bottom:10px";
+        const swEls={};
+        ["c0","c1","c2","c3"].forEach(k=>{
+          const s=mk("div");
+          s.style.cssText="width:64px;height:36px;border:3px solid var(--c1);background:"+work[k];
+          s.addEventListener("click",()=>{selKey=k;refresh();});
+          swEls[k]=s;sw.appendChild(s);
+        });
+        body.appendChild(sw);
+        const sliders={};
+        ["R","G","B"].forEach((ch,i)=>{
+          const row=mk("div","row");
+          row.appendChild(mk("span","lbl",ch+":"));
+          const sl=mk("input");sl.type="range";sl.min=0;sl.max=15;sl.style.flex="1";
+          const val=mk("span","lbl","0");
+          sl.addEventListener("input",()=>{
+            const hex=work[selKey].slice(1);
+            const rgb=[0,1,2].map(j=>parseInt(hex.substr(j*2,2),16));
+            rgb[i]=sl.value*17;
+            work[selKey]="#"+rgb.map(v=>v.toString(16).padStart(2,"0")).join("");
+            val.textContent=sl.value;
+            refresh();
+          });
+          row.append(sl,val);
+          sliders[ch]={sl,val};
+          body.appendChild(row);
+        });
+        const presets=mk("div","row");
+        presets.appendChild(mk("span","lbl","Presets:"));
+        const p31=mk("span","btn","Workbench 3.x");
+        p31.addEventListener("click",()=>{Object.assign(work,DEFAULT_PALETTE);refresh();});
+        const p1x=mk("span","btn","Workbench 1.x");
+        p1x.title="The classic blue and orange";
+        p1x.addEventListener("click",()=>{Object.assign(work,WB1X_PALETTE);refresh();});
+        presets.append(p31,p1x);
+        body.appendChild(presets);
+        const note=mk("div","lbl","Select a colour above, then adjust with the sliders.\n(Workbench 1.x preset: the Easter egg you were looking for.)");
+        note.style.cssText="font-size:12px;white-space:pre-wrap;margin-top:6px";
+        body.appendChild(note);
+        const refresh=()=>{
+          Object.entries(swEls).forEach(([k,el])=>{
+            el.style.background=work[k];
+            el.style.outline=k===selKey?"2px dashed var(--c3)":"none";
+          });
+          const hex=work[selKey].slice(1);
+          ["R","G","B"].forEach((ch,i)=>{
+            sliders[ch].sl.value=Math.round(parseInt(hex.substr(i*2,2),16)/17);
+            sliders[ch].val.textContent=sliders[ch].sl.value;
+          });
+        };
+        refresh();
+      },()=>work,(v)=>applyPalette(v||DEFAULT_PALETTE));
+    },
+    WBPattern(name){
+      const cur=State.getPref("wbpattern",{grid:null});
+      let grid=(cur.grid&&cur.grid.slice())||new Array(64).fill(0);
+      this.frame(name,430,400,(body)=>{
+        body.appendChild(mk("div","lbl","Workbench backdrop pattern (8×8, four colours):"));
+        const g=mk("div");
+        g.style.cssText="display:grid;grid-template-columns:repeat(8,26px);gap:1px;background:var(--c1);width:fit-content;padding:1px;margin:8px 0";
+        let pen=1;
+        const cols=()=>["--c0","--c1","--c2","--c3"].map(v=>getComputedStyle(document.documentElement).getPropertyValue(v));
+        const cells=[];
+        for(let i=0;i<64;i++){
+          const c=mk("div");
+          c.style.cssText="width:26px;height:26px;background:var(--c"+grid[i]+")";
+          c.addEventListener("mousedown",()=>{grid[i]=pen;c.style.background="var(--c"+pen+")";});
+          c.addEventListener("mouseover",e=>{if(e.buttons&1){grid[i]=pen;c.style.background="var(--c"+pen+")";}});
+          cells.push(c);g.appendChild(c);
+        }
+        body.appendChild(g);
+        const pal=mk("div","row");
+        pal.appendChild(mk("span","lbl","Pen:"));
+        for(let i=0;i<4;i++){
+          const p=mk("div");
+          p.style.cssText="width:30px;height:22px;border:2px solid var(--c1);background:var(--c"+i+")";
+          p.addEventListener("click",()=>{pen=i;[...pal.children].forEach((el,j)=>el.style.outline=j-1===i?"2px dashed var(--c3)":"none");});
+          pal.appendChild(p);
+        }
+        const clr=mk("span","btn","Clear");
+        clr.addEventListener("click",()=>{grid.fill(0);cells.forEach(c=>c.style.background="var(--c0)");});
+        pal.appendChild(clr);
+        body.appendChild(pal);
+      },()=>({grid:grid.some(v=>v)?grid:null}),(v)=>{WB.applyPattern();});
+    },
+    Pointer(name){
+      const cur=State.getPref("pointer",{grid:null});
+      let grid=(cur.grid&&cur.grid.slice())||Pointerify.defaultGrid();
+      this.frame(name,420,430,(body)=>{
+        body.appendChild(mk("div","lbl","Edit the pointer sprite (16×16):"));
+        const g=mk("div");
+        g.style.cssText="display:grid;grid-template-columns:repeat(16,14px);gap:1px;background:#666;width:fit-content;padding:1px;margin:8px 0";
+        let pen=1;
+        const PCOLS=["transparent","#e44","#000","#fff"];
+        const paint=(c,i)=>{c.style.background=PCOLS[grid[i]]==="transparent"?"var(--c0)":PCOLS[grid[i]];};
+        for(let i=0;i<256;i++){
+          const c=mk("div");
+          c.style.cssText="width:14px;height:14px";
+          paint(c,i);
+          const set=()=>{grid[i]=pen;paint(c,i);};
+          c.addEventListener("mousedown",set);
+          c.addEventListener("mouseover",e=>{if(e.buttons&1)set();});
+          g.appendChild(c);
+        }
+        body.appendChild(g);
+        const pal=mk("div","row");
+        pal.appendChild(mk("span","lbl","Pen:"));
+        ["erase","red","black","white"].forEach((nm,i)=>{
+          const b=mk("span","btn",nm);
+          b.addEventListener("click",()=>pen=i);
+          pal.appendChild(b);
+        });
+        body.appendChild(pal);
+      },()=>({grid}),(v)=>Pointerify.apply(v?v.grid:null));
+    },
+    ScreenMode(name){
+      const cur=State.getPref("screenmode",{mode:"PAL: High Res"});
+      let sel=cur.mode;
+      this.frame(name,470,330,(body)=>{
+        body.appendChild(mk("div","lbl","Display Mode:"));
+        const list=mk("div","bev-in");
+        list.style.cssText="background:var(--c2);height:120px;overflow:auto;margin:6px 0";
+        const modes=["PAL: Low Res  320 × 256","PAL: High Res  640 × 256","PAL: High Res Laced  640 × 512","NTSC: High Res  640 × 200","NTSC: High Res Laced  640 × 400","Multiscan: Productivity  640 × 480"];
+        const props=mk("div","lbl","");
+        props.style.cssText="font-size:12px;white-space:pre";
+        modes.forEach(m=>{
+          const row=mk("div","listrow",esc(m));
+          if(m.startsWith(sel.split("  ")[0])&&m.includes(sel.split(": ")[1]||""))row.classList.add("sel");
+          row.addEventListener("click",()=>{
+            list.querySelectorAll(".sel").forEach(r=>r.classList.remove("sel"));
+            row.classList.add("sel");sel=m;
+            props.textContent="Visible Size: "+m.split("  ")[1]+"\nColors: 4 (Workbench)   Refresh: "+(m.startsWith("PAL")?"50 Hz":"60 Hz")+"\n"+(m.includes("Laced")?"Interlaced — bring a flicker fixer.":"Non-interlaced.");
+          });
+          list.appendChild(row);
+        });
+        body.append(list,props);
+      },()=>({mode:sel}),null);
+    },
+    Sound(name){
+      const cur=State.getPref("sound",{enabled:true,flash:true});
+      let en=cur.enabled!==false,fl=cur.flash!==false;
+      this.frame(name,420,240,(body)=>{
+        const r1=mk("div","row");
+        const ck1=mk("span","ckb"+(en?" on":""));
+        ck1.addEventListener("click",()=>{en=!en;ck1.classList.toggle("on");});
+        r1.append(ck1,mk("span","lbl","Sound effects (floppy, beeps, Paula toys)"));
+        const r2=mk("div","row");
+        const ck2=mk("span","ckb"+(fl?" on":""));
+        ck2.addEventListener("click",()=>{fl=!fl;ck2.classList.toggle("on");});
+        r2.append(ck2,mk("span","lbl","Flash display on beep"));
+        const test=mk("span","btn","Test Beep");
+        test.addEventListener("click",()=>{Sound.beep();if(fl)flashDisplay();});
+        body.append(r1,r2,test);
+      },()=>({enabled:en,flash:fl}),null);
+    },
+    Input(name){
+      const cur=State.getPref("input",{speed:2,repeat:5});
+      let sp=cur.speed,rp=cur.repeat;
+      this.frame(name,440,280,(body)=>{
+        const r1=mk("div","row");
+        r1.appendChild(mk("span","lbl","Mouse Speed:"));
+        const s1=mk("input");s1.type="range";s1.min=1;s1.max=4;s1.value=sp;s1.style.flex="1";
+        s1.addEventListener("input",()=>sp=+s1.value);
+        r1.appendChild(s1);
+        const r2=mk("div","row");
+        r2.appendChild(mk("span","lbl","Key Repeat Rate:"));
+        const s2=mk("input");s2.type="range";s2.min=1;s2.max=10;s2.value=rp;s2.style.flex="1";
+        s2.addEventListener("input",()=>rp=+s2.value);
+        r2.appendChild(s2);
+        const r3=mk("div","row");
+        r3.appendChild(mk("span","lbl","Key repeat test:"));
+        const t=mk("input","sgad");t.type="text";t.style.flex="1";
+        t.addEventListener("keydown",e=>e.stopPropagation());
+        r3.appendChild(t);
+        body.append(r1,r2,r3,mk("div","lbl","(The pointer in this museum moves itself.)"));
+      },()=>({speed:sp,repeat:rp}),null);
+    },
+    Time(name){
+      this.frame(name,380,220,(body)=>{
+        const d=new Date();
+        body.appendChild(mk("div","lbl","Current system time:"));
+        const big=mk("div",null,esc(adosDate(d)+"  "+adosTime(d)));
+        big.style.cssText="font-size:20px;margin:12px 0";
+        body.appendChild(big);
+        const iv=setInterval(()=>{
+          if(!big.isConnected){clearInterval(iv);return;}
+          const n=new Date();big.textContent=adosDate(n)+"  "+adosTime(n);
+        },500);
+        body.appendChild(mk("div","lbl","The battery-backed clock is supplied by your browser\nand cannot be argued with."));
+      },()=>({}),null);
+    },
+    _stub(name){
+      this.frame(name,420,240,(body)=>{
+        const flavor={
+          Locale:"Country: United Kingdom\nLanguage: English\nTime Zone: GMT (where all Amigas live in spirit)",
+          Overscan:"Text Size: 640 × 256\nGraphics Size: 704 × 283\nDrag the imaginary borders at your leisure.",
+          IControl:"Screen menu snap: On\nAvoid flicker: On\nCommand keys: Left Amiga",
+          Printer:"Printer Type: EpsonQ\nPort: Parallel\nPaper: Fanfold, of course.",
+          Serial:"Baud Rate: 19200\nHandshaking: RTS/CTS\nBuffer Size: 512\n(The modem is not plugged in. It never was.)",
+          Font:"Workbench Font: topaz 8\nSystem Default Text: topaz 8\nScreen Text: topaz 8\nThere is only Topaz. There was only ever Topaz."
+        };
+        const pre=mk("div","lbl",esc(flavor[name]||name+" preferences are simulated."));
+        pre.style.whiteSpace="pre-wrap";
+        body.appendChild(pre);
+      },()=>({}),null);
+    }
+  }
+};
+/* display beep flash */
+function flashDisplay(){
+  const f=mk("div");
+  f.style.cssText="position:absolute;inset:0;background:var(--c2);opacity:.7;z-index:2500;pointer-events:none";
+  document.body.appendChild(f);
+  setTimeout(()=>f.remove(),90);
+}
+/* custom pointer sprite */
+const Pointerify={
+  defaultGrid(){
+    /* classic-flavoured red arrow with black outline, drawn in code */
+    const g=new Array(256).fill(0);
+    const set=(x,y,v)=>{if(x>=0&&x<16&&y>=0&&y<16)g[y*16+x]=v;};
+    for(let y=0;y<11;y++){
+      for(let x=0;x<=Math.min(y,6);x++)set(x,y,1);
+      set(Math.min(y,7),y,2);
+    }
+    for(let x=0;x<7;x++)set(x,11,2);
+    set(2,11,1);set(3,12,1);set(3,13,2);set(2,12,2);
+    for(let i=0;i<16;i++){ if(g[i*16]===1)set(0,i,g[i*16]); }
+    return g;
+  },
+  apply(grid){
+    grid=grid||this.defaultGrid();
+    const cnv=document.createElement("canvas");cnv.width=16;cnv.height=16;
+    const cx=cnv.getContext("2d");
+    const COLS=[null,"#e44","#000","#fff"];
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+      const v=grid[y*16+x];
+      if(v){cx.fillStyle=COLS[v];cx.fillRect(x,y,1,1);}
+    }
+    const big=document.createElement("canvas");big.width=32;big.height=32;
+    const bx=big.getContext("2d");bx.imageSmoothingEnabled=false;
+    bx.drawImage(cnv,0,0,32,32);
+    document.body.style.cursor="url("+big.toDataURL()+") 1 1, auto";
+  }
+};
+/* ============================================================
+   PAINT — the flagship. Opens on its OWN SCREEN with a wider
+   palette, toolbox down the right edge, colours along the
+   bottom. In the spirit of the era's famous paint software.
+   ============================================================ */
+const Paint={
+  scr:null, pages:[null,null], page:0,
+  PALETTE:["#000000","#ffffff","#e03030","#f0a030","#f0e040","#40c040","#207820","#40c0c0",
+           "#3060e0","#202090","#a040d0","#e060a0","#804020","#c08050","#888888","#444444"],
+  open(picNode){
+    if(this.scr&&Screens.byId["paint"]){
+      Screens.toFront(this.scr);
+      if(picNode&&picNode.pngData)this.loadPic(picNode.pngData);
+      return;
+    }
+    this._pendingPic=picNode&&picNode.pngData?picNode.pngData:null;
+    const scr=Screens.create("paint","Paint 1.2  — Museum Art Dept.",{
+      css:{background:"#202030"},
+      onclose:null,
+      menu:[
+        {title:"Picture",items:[
+          {t:"New",cmd:()=>this.clear()},
+          {t:"Spare Page",key:"j",cmd:()=>this.swapPage()},
+          {t:"Save (to Work:Paintings)",key:"S",cmd:()=>this.save()},
+          "-",
+          {t:"Screen To Back",key:"B",cmd:()=>Screens.toBack(this.scr)},
+          {t:"Quit",key:"Q",cmd:()=>this.close()},
+        ]},
+        {title:"Brush",items:[
+          {t:"Small",checkFn:()=>this.size===2,cmd:()=>this.size=2},
+          {t:"Medium",checkFn:()=>this.size===5,cmd:()=>this.size=5},
+          {t:"Large",checkFn:()=>this.size===10,cmd:()=>this.size=10},
+        ]},
+        {title:"Mode",items:[
+          {t:"Brush",checkFn:()=>this.tool==="brush",cmd:()=>this.setTool("brush")},
+          {t:"Line",checkFn:()=>this.tool==="line",cmd:()=>this.setTool("line")},
+          {t:"Rectangle",checkFn:()=>this.tool==="rect",cmd:()=>this.setTool("rect")},
+          {t:"Fill",checkFn:()=>this.tool==="fill",cmd:()=>this.setTool("fill")},
+          {t:"Spray",checkFn:()=>this.tool==="spray",cmd:()=>this.setTool("spray")},
+        ]},
+      ]
+    });
+    this.scr=scr;
+    this.task=Tasks.add("Paint",0);
+    this.memid=Memory.alloc(320000,140000);
+    this.tool="brush";this.size=5;this.color=2;this.bg=1;
+    const body=scr.body;
+    body.style.background="#202030";
+    /* canvas area */
+    const cnv=document.createElement("canvas");
+    this.cnv=cnv;
+    cnv.className="paintcursor";
+    cnv.style.cssText="position:absolute;left:0;top:0;right:56px;bottom:34px;width:calc(100% - 56px);height:calc(100% - 34px)";
+    body.appendChild(cnv);
+    const fit=()=>{
+      const old=this.pages[this.page];
+      cnv.width=Math.max(320,body.clientWidth-56);
+      cnv.height=Math.max(200,body.clientHeight-34);
+      const g=cnv.getContext("2d");
+      g.fillStyle=this.PALETTE[this.bg];g.fillRect(0,0,cnv.width,cnv.height);
+      if(old){ const im=new Image(); im.onload=()=>g.drawImage(im,0,0); im.src=old; }
+    };
+    fit();
+    window.addEventListener("resize",fit);
+    /* toolbox down the RIGHT edge */
+    const tb=mk("div");
+    tb.style.cssText="position:absolute;top:0;bottom:34px;right:0;width:56px;background:var(--c0);border-left:2px solid var(--c1);padding:4px 3px;display:flex;flex-direction:column;gap:4px";
+    const tools=[["brush","●"],["line","╱"],["rect","▭"],["fill","▨"],["spray","∴"],["erase","⌫"]];
+    this.toolBtns={};
+    tools.forEach(([id,glyph])=>{
+      const b=mk("span","btn",glyph);
+      b.title=id;
+      b.style.cssText+="text-align:center;font-size:16px;padding:4px 0";
+      b.addEventListener("click",()=>this.setTool(id));
+      this.toolBtns[id]=b;
+      tb.appendChild(b);
+    });
+    const undo=mk("span","btn","⤺");
+    undo.title="undo";undo.style.cssText+="text-align:center;font-size:16px;padding:4px 0;margin-top:auto";
+    undo.addEventListener("click",()=>this.undo());
+    tb.appendChild(undo);
+    body.appendChild(tb);
+    /* colour palette along the BOTTOM */
+    const pb=mk("div");
+    pb.style.cssText="position:absolute;left:0;right:0;bottom:0;height:34px;background:var(--c0);border-top:2px solid var(--c1);display:flex;align-items:center;padding:0 6px;gap:3px";
+    this.swatches=[];
+    this.PALETTE.forEach((c,i)=>{
+      const s=mk("div");
+      s.style.cssText="width:24px;height:20px;background:"+c+";border:2px solid #000";
+      s.addEventListener("mousedown",e=>{
+        if(e.button===2){this.bg=i;e.preventDefault();}
+        else this.color=i;
+        this.refreshPal();
+        e.stopPropagation();
+      });
+      this.swatches.push(s);
+      pb.appendChild(s);
+    });
+    this.curSwatch=mk("div");
+    this.curSwatch.style.cssText="margin-left:auto;width:36px;height:22px;border:2px solid #000";
+    pb.appendChild(this.curSwatch);
+    body.appendChild(pb);
+    this.refreshPal();
+    this.setTool("brush");
+    this.bindCanvas();
+    Screens.toFront(scr);
+    if(this._pendingPic){ this.loadPic(this._pendingPic); this._pendingPic=null; }
+  },
+  loadPic(dataURL){
+    const g=this.cnv.getContext("2d"),im=new Image();
+    im.onload=()=>g.drawImage(im,0,0);
+    im.src=dataURL;
+  },
+  refreshPal(){
+    this.swatches.forEach((s,i)=>{
+      s.style.outline=i===this.color?"2px solid #fff":"none";
+      s.style.outlineOffset="-1px";
+    });
+    this.curSwatch.style.background=this.PALETTE[this.color];
+  },
+  setTool(t){
+    this.tool=t;
+    Object.entries(this.toolBtns||{}).forEach(([id,b])=>{
+      b.style.background=id===t?"var(--c3)":"";
+      b.style.color=id===t?"var(--c2)":"";
+    });
+  },
+  snapshotUndo(){
+    try{ this._undo=this.cnv.toDataURL(); }catch(e){}
+  },
+  undo(){
+    if(!this._undo)return;
+    const im=new Image(),g=this.cnv.getContext("2d");
+    im.onload=()=>g.drawImage(im,0,0);
+    im.src=this._undo;
+  },
+  bindCanvas(){
+    const cnv=this.cnv,g=cnv.getContext("2d");
+    let down=false,sx=0,sy=0,save=null;
+    const pos=e=>{
+      const r=cnv.getBoundingClientRect();
+      return [ (e.clientX-r.left)*cnv.width/r.width, (e.clientY-r.top)*cnv.height/r.height ];
+    };
+    const dot=(x,y,col)=>{
+      g.fillStyle=this.PALETTE[col!=null?col:this.color];
+      g.beginPath();g.arc(x,y,this.size,0,7);g.fill();
+    };
+    cnv.addEventListener("mousedown",e=>{
+      if(e.button!==0)return;
+      this.snapshotUndo();
+      down=true;[sx,sy]=pos(e);
+      if(this.tool==="fill"){ this.floodFill(sx|0,sy|0); down=false; return; }
+      if(this.tool==="brush")dot(sx,sy);
+      if(this.tool==="erase")dot(sx,sy,this.bg);
+      if(this.tool==="line"||this.tool==="rect")save=g.getImageData(0,0,cnv.width,cnv.height);
+      e.stopPropagation();
+    });
+    window.addEventListener("mousemove",e=>{
+      if(!down)return;
+      const [x,y]=pos(e);
+      if(this.tool==="brush"||this.tool==="erase"){
+        const col=this.tool==="erase"?this.bg:this.color;
+        g.strokeStyle=this.PALETTE[col];g.lineWidth=this.size*2;g.lineCap="round";
+        g.beginPath();g.moveTo(sx,sy);g.lineTo(x,y);g.stroke();
+        sx=x;sy=y;
+      }else if(this.tool==="spray"){
+        g.fillStyle=this.PALETTE[this.color];
+        for(let i=0;i<14;i++){
+          const a=Math.random()*7,r=Math.random()*this.size*3;
+          g.fillRect(x+Math.cos(a)*r,y+Math.sin(a)*r,1.5,1.5);
+        }
+      }else if(this.tool==="line"&&save){
+        g.putImageData(save,0,0);
+        g.strokeStyle=this.PALETTE[this.color];g.lineWidth=Math.max(1,this.size/2);
+        g.beginPath();g.moveTo(sx,sy);g.lineTo(x,y);g.stroke();
+      }else if(this.tool==="rect"&&save){
+        g.putImageData(save,0,0);
+        g.strokeStyle=this.PALETTE[this.color];g.lineWidth=Math.max(1,this.size/2);
+        g.strokeRect(Math.min(sx,x),Math.min(sy,y),Math.abs(x-sx),Math.abs(y-sy));
+      }
+    });
+    window.addEventListener("mouseup",()=>{down=false;save=null;});
+  },
+  floodFill(x,y){
+    const cnv=this.cnv,g=cnv.getContext("2d");
+    const img=g.getImageData(0,0,cnv.width,cnv.height),d=img.data,W=cnv.width,H=cnv.height;
+    const idx=(x,y)=>(y*W+x)*4;
+    const t=idx(x,y);
+    const tr=d[t],tg=d[t+1],tb=d[t+2];
+    const hex=this.PALETTE[this.color];
+    const nr=parseInt(hex.slice(1,3),16),ng=parseInt(hex.slice(3,5),16),nb=parseInt(hex.slice(5,7),16);
+    if(tr===nr&&tg===ng&&tb===nb)return;
+    const q=[[x,y]];
+    let guard=W*H;
+    while(q.length&&guard-->0){
+      const [cx,cy]=q.pop();
+      if(cx<0||cy<0||cx>=W||cy>=H)continue;
+      const i=idx(cx,cy);
+      if(d[i]!==tr||d[i+1]!==tg||d[i+2]!==tb)continue;
+      d[i]=nr;d[i+1]=ng;d[i+2]=nb;d[i+3]=255;
+      q.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+    }
+    g.putImageData(img,0,0);
+  },
+  clear(){
+    this.snapshotUndo();
+    const g=this.cnv.getContext("2d");
+    g.fillStyle=this.PALETTE[this.bg];
+    g.fillRect(0,0,this.cnv.width,this.cnv.height);
+  },
+  swapPage(){
+    this.pages[this.page]=this.cnv.toDataURL();
+    this.page=1-this.page;
+    const g=this.cnv.getContext("2d");
+    g.fillStyle=this.PALETTE[this.bg];g.fillRect(0,0,this.cnv.width,this.cnv.height);
+    const src=this.pages[this.page];
+    if(src){ const im=new Image(); im.onload=()=>g.drawImage(im,0,0); im.src=src; }
+    Screens.byId["paint"].stxt.textContent="Paint 1.2  — "+(this.page?"Spare Page":"Page 1");
+  },
+  save(){
+    const dir=resolvePath("Work:Paintings");
+    if(!dir||!dir.node)return;
+    let n=1;
+    while(dir.node.c[("untitled"+n+".pic").toLowerCase()])n++;
+    const f=N("f","Untitled"+n+".pic",{kind:"project",size:30000+((Math.random()*20000)|0),date:adosDate(new Date()),tool:"paint"});
+    f.pngData=this.cnv.toDataURL();
+    addc(dir.node,f);
+    journalFile("Work:Paintings",f);
+    State.save();WB.refreshAll();
+    requester(this.scr,"Paint","Saved as Work:Paintings/"+f.name,["Ok"]);
+  },
+  close(){
+    this.pages=[null,null];this.page=0;
+    Tasks.remove(this.task);
+    Memory.free(this.memid);
+    Screens.remove(this.scr);
+    this.scr=null;
+  }
+};
+
+/* ============================================================
+   ICONEDIT — mini icon editor; saves back into the simulated FS
+   ============================================================ */
+const IconEd={};
+Apps.iconedit=function(){
+  const scr=Screens.byId["wb"];
+  const win=Windows.create(scr,{title:"IconEdit",x:80,y:30,w:520,h:420,resize:false,chip:16000,fast:42000,
+    menu:[{title:"Project",items:[{t:"Quit",key:"Q",cmd:()=>Windows.close(win)}]}]});
+  const t=Tasks.add("IconEdit",0);
+  win.opts.onclose=()=>Tasks.remove(t);
+  const W=28,H=22,SC=12;
+  const state={grid:new Array(W*H).fill(0),alt:new Array(W*H).fill(0),which:0,pen:3};
+  const body=mk("div","padbody");
+  const g=mk("div");
+  g.style.cssText="display:grid;grid-template-columns:repeat("+W+","+SC+"px);gap:1px;background:#777;width:fit-content;padding:1px";
+  const cells=[];
+  const cur=()=>state.which?state.alt:state.grid;
+  const paint=(c,i)=>{ c.style.background="var(--c"+cur()[i]+")"; };
+  for(let i=0;i<W*H;i++){
+    const c=mk("div");
+    c.style.cssText="width:"+SC+"px;height:"+SC+"px;background:var(--c0)";
+    const set=()=>{cur()[i]=state.pen;paint(c,i);};
+    c.addEventListener("mousedown",set);
+    c.addEventListener("mouseover",e=>{if(e.buttons&1)set();});
+    cells.push(c);g.appendChild(c);
+  }
+  body.appendChild(g);
+  const row=mk("div","row");row.style.marginTop="8px";
+  row.appendChild(mk("span","lbl","Pen:"));
+  for(let i=0;i<4;i++){
+    const p=mk("div");
+    p.style.cssText="width:28px;height:20px;border:2px solid var(--c1);background:var(--c"+i+")";
+    p.addEventListener("click",()=>state.pen=i);
+    row.appendChild(p);
+  }
+  const tog=mk("span","btn","Normal");
+  tog.addEventListener("click",()=>{
+    state.which=1-state.which;
+    tog.textContent=state.which?"Selected":"Normal";
+    cells.forEach((c,i)=>paint(c,i));
+  });
+  const clr=mk("span","btn","Clear");
+  clr.addEventListener("click",()=>{cur().fill(0);cells.forEach((c,i)=>paint(c,i));});
+  const sv=mk("span","btn","Save to Ram Disk");
+  sv.addEventListener("click",()=>{
+    requester(scr,"IconEdit","Name for the new icon:",["Save","Cancel"],(i,val)=>{
+      if(i!==0||!val)return;
+      /* bake the pixel grid into SVG rects */
+      let px="";
+      for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+        const v=state.grid[y*W+x];
+        if(v)px+='<rect x="'+(x*2)+'" y="'+(y*2)+'" width="2" height="2" fill="var(--c'+v+')"/>';
+      }
+      const ram=FS.volumes["ram disk"];
+      const f=addc(ram,N("f",val.trim(),{kind:"project",size:628,date:adosDate(new Date()),customIcon:px}));
+      WB.refreshAll();
+      requester(scr,"IconEdit","Saved icon to Ram Disk:"+f.name+"\n(Ram Disk contents vanish on reboot —\nas is right and proper.)",["Ok"]);
+    },{input:"MyIcon"});
+  });
+  row.append(tog,clr,sv);
+  body.appendChild(row);
+  body.appendChild(mk("div","lbl","Draw with the four Workbench pens. Toggle Normal/Selected\nto edit the icon's two states."));
+  win.body.appendChild(body);
+};
+/* ============================================================
+   BOING — red-and-white checkered ball bouncing on a grid,
+   on its own screen, in the spirit of the 1984 demo.
+   ============================================================ */
+const Boing={
+  scr:null,
+  open(){
+    if(this.scr&&Screens.byId["boing"]){Screens.toFront(this.scr);return;}
+    const scr=Screens.create("boing","Boing!  (a tribute, 1984 forever)",{
+      css:{background:"#b8b8b8"},
+      menu:[{title:"Demo",items:[
+        {t:"Screen To Back",key:"B",cmd:()=>Screens.toBack(this.scr)},
+        {t:"Quit",key:"Q",cmd:()=>this.close()}]}]
+    });
+    this.scr=scr;
+    this.task=Tasks.add("Boing",-5);
+    this.memid=Memory.alloc(260000,90000);
+    const cnv=document.createElement("canvas");
+    cnv.style.cssText="position:absolute;inset:0;width:100%;height:100%";
+    scr.body.appendChild(cnv);
+    scr.body.style.background="#b8b8b8";
+    const fit=()=>{cnv.width=scr.body.clientWidth;cnv.height=scr.body.clientHeight;};
+    fit();window.addEventListener("resize",fit);
+    let x=200,y=120,vx=2.4,vy=0,rot=0,t=0;
+    const R=Math.min(90,cnv.height/4);
+    const g=cnv.getContext("2d");
+    this.iv=setInterval(()=>{
+      if(!Screens.byId["boing"]){clearInterval(this.iv);return;}
+      const W=cnv.width,H=cnv.height;
+      t++;
+      /* physics */
+      vy+=0.35; x+=vx; y+=vy; rot+=vx>0?0.045:-0.045;
+      if(y>H-R-30){ y=H-R-30; vy=-Math.abs(vy)*0.995-0.2; if(Math.abs(vy)>3)Sound.boom(); }
+      if(x<R+10){x=R+10;vx=Math.abs(vx);}
+      if(x>W-R-10){x=W-R-10;vx=-Math.abs(vx);}
+      /* draw */
+      g.fillStyle="#b8b8b8";g.fillRect(0,0,W,H);
+      /* purple grid backdrop */
+      g.strokeStyle="#9750b4";g.lineWidth=1.4;
+      const gw=40;
+      g.beginPath();
+      for(let gx=20;gx<W-20;gx+=gw){g.moveTo(gx,20);g.lineTo(gx,H-60);}
+      for(let gy=20;gy<H-60;gy+=gw){g.moveTo(20,gy);g.lineTo(W-20,gy);}
+      g.stroke();
+      /* floor perspective */
+      g.beginPath();
+      for(let gx=20;gx<=W-20;gx+=gw){
+        g.moveTo(gx,H-60);
+        g.lineTo(20+(gx-20)*1.12-((W-40)*.06),H-18);
+      }
+      for(let k=0;k<3;k++){g.moveTo(20-((W-40)*.06)*k/2,H-60+k*14);g.lineTo(W-20+((W-40)*.06)*k/2,H-60+k*14);}
+      g.stroke();
+      /* shadow */
+      g.fillStyle="rgba(80,80,80,.45)";
+      g.beginPath();g.ellipse(x+18,H-40,R*.9,R*.22,0,0,7);g.fill();
+      /* checkered sphere */
+      const SEG=8;
+      for(let i=0;i<SEG;i++){
+        for(let j=0;j<SEG;j++){
+          const th1=i/SEG*Math.PI, th2=(i+1)/SEG*Math.PI;
+          const ph1=j/SEG*Math.PI*2+rot, ph2=(j+1)/SEG*Math.PI*2+rot;
+          const P=(th,ph)=>{
+            const px=Math.sin(th)*Math.cos(ph), pz=Math.sin(th)*Math.sin(ph), py=Math.cos(th);
+            return [x+px*R, y+py*R, pz];
+          };
+          const a=P(th1,ph1),b=P(th1,ph2),c=P(th2,ph2),d2=P(th2,ph1);
+          if(a[2]+b[2]+c[2]+d2[2]<0)continue; /* back-face cull */
+          g.fillStyle=((i+j)%2===0)?"#e02020":"#ffffff";
+          g.strokeStyle=g.fillStyle;
+          g.beginPath();
+          g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.lineTo(c[0],c[1]);g.lineTo(d2[0],d2[1]);
+          g.closePath();g.fill();g.stroke();
+        }
+      }
+    },33);
+    Screens.toFront(scr);
+  },
+  close(){
+    clearInterval(this.iv);
+    Tasks.remove(this.task);
+    Memory.free(this.memid);
+    Screens.remove(this.scr);
+    this.scr=null;
+  }
+};
+
+/* ============================================================
+   TRACKER — a tiny 4-channel tracker-style toy (Web Audio),
+   honouring Paula. Four channels, classic arpeggio demo tune,
+   plus a beeper keyboard.
+   ============================================================ */
+const Tracker={
+  win:null,playing:false,
+  NOTES:{ "C-2":65.4,"D-2":73.4,"E-2":82.4,"F-2":87.3,"G-2":98,"A-2":110,"B-2":123.5,
+          "C-3":130.8,"D-3":146.8,"E-3":164.8,"F-3":174.6,"G-3":196,"A-3":220,"B-3":246.9,
+          "C-4":261.6,"D-4":293.7,"E-4":329.6,"F-4":349.2,"G-4":392,"A-4":440,"B-4":493.9,"C-5":523.3 },
+  PATTERN:[
+    ["C-2","...","E-4","..."],["...","C-3","...","G-4"],["C-2","...","C-4","..."],["...","...","E-4","..."],
+    ["G-2","...","D-4","..."],["...","G-3","...","B-4"],["G-2","...","G-4","..."],["...","...","D-4","..."],
+    ["A-2","...","C-4","..."],["...","A-3","...","A-4"],["A-2","...","E-4","..."],["...","...","C-4","..."],
+    ["F-2","...","A-3","..."],["...","F-3","...","F-4"],["G-2","...","B-3","..."],["...","G-3","...","G-4"],
+  ],
+  open(){
+    if(this.win&&!this.win.closed){Windows.activate(this.win);return;}
+    const scr=Screens.byId["wb"];
+    const win=Windows.create(scr,{title:"MuseumTracker 1.0 — mod.museum",x:130,y:70,w:520,h:330,resize:false,chip:120000,fast:60000,
+      menu:[{title:"Module",items:[{t:"Play",cmd:()=>this.play()},{t:"Stop",cmd:()=>this.stop()},{t:"Quit",key:"Q",cmd:()=>Windows.close(win)}]}]});
+    this.win=win;
+    this.task=Tasks.add("Tracker",4);
+    win.opts.onclose=()=>{this.stop();Tasks.remove(this.task);};
+    const body=mk("div","padbody");
+    const pat=mk("div","bev-in");
+    pat.style.cssText="background:#000;color:#0d0;font:12px/15px var(--tz);height:130px;overflow:hidden;padding:2px 6px;white-space:pre";
+    this.patEl=pat;
+    const ctl=mk("div","row");ctl.style.marginTop="8px";
+    const play=mk("span","btn","Play");play.addEventListener("click",()=>this.play());
+    const stop=mk("span","btn","Stop");stop.addEventListener("click",()=>this.stop());
+    ctl.append(play,stop,mk("span","lbl","4 channels of pure nostalgia (Paula-flavoured)"));
+    const kb=mk("div");
+    kb.style.cssText="display:flex;gap:2px;margin-top:10px";
+    Object.keys(this.NOTES).slice(7,20).forEach(n=>{
+      const k=mk("span","btn",esc(n.replace("-","")));
+      k.style.cssText+="flex:1;text-align:center;font-size:10px;padding:12px 0 4px";
+      k.addEventListener("mousedown",()=>Sound.tone(this.NOTES[n],.25,.14,"square"));
+      kb.appendChild(k);
+    });
+    body.append(pat,ctl,kb,mk("div","lbl","Click the keys, or Play the module and drag this window\naround while it runs. It will not skip. That is the point."));
+    win.body.appendChild(body);
+    this.row=0;this.renderPattern();
+  },
+  renderPattern(){
+    let out="  POS  CH1  CH2  CH3  CH4\n";
+    for(let i=-3;i<=4;i++){
+      const r=(this.row+i+this.PATTERN.length*4)%this.PATTERN.length;
+      const cur=i===0;
+      out+=(cur?"→ ":"  ")+String(r).padStart(2,"0")+"  "+this.PATTERN[r].map(n=>n==="..."?"---":n).join("  ")+(cur?" ←":"")+"\n";
+    }
+    this.patEl.textContent=out;
+  },
+  play(){
+    if(this.playing)return;
+    this.playing=true;
+    this.iv=setInterval(()=>{
+      if(!this.win||this.win.closed){this.stop();return;}
+      const row=this.PATTERN[this.row];
+      row.forEach((n,ch)=>{
+        if(n==="...")return;
+        const f=this.NOTES[n];
+        Sound.tone(f,ch===0?.22:.16,ch===0?.16:.09,ch===0?"triangle":"square");
+      });
+      this.row=(this.row+1)%this.PATTERN.length;
+      this.renderPattern();
+    },170);
+  },
+  stop(){ this.playing=false; clearInterval(this.iv); }
+};
+
+/* ============================================================
+   GURU MEDITATION — Software Failure. Non-negotiable.
+   ============================================================ */
+const Guru={
+  el:null,
+  init(){
+    this.el=mk("div");this.el.id="guru";
+    this.el.innerHTML='<div class="alert"><div id="gurul1">Software Failure.&nbsp;&nbsp;Press left mouse button to continue.</div>'+
+      '<div id="gurul2">Guru Meditation #00000003.00C0FFEE</div></div>';
+    document.body.appendChild(this.el);
+    this.el.addEventListener("mousedown",e=>{
+      if(e.button===0){ this.el.style.display="none"; Boot.reboot(); }
+    });
+    /* vanishingly rare random failure: roughly once per ~4 hours of clicking */
+    window.addEventListener("mousedown",()=>{
+      if(Boot.running||this.el.style.display==="block")return;
+      if(Math.random()<0.00004)this.trigger("8100000"+((Math.random()*9)|0)+"."+(Math.random()*0xFFFFFFFF>>>0).toString(16).toUpperCase().padStart(8,"0"));
+    },true);
+  },
+  trigger(code){
+    $("#gurul2").textContent="Guru Meditation #"+(code||"00000003.00C0FFEE");
+    /* dim, then alert */
+    stage.style.filter="brightness(.4)";
+    Sound.noise(.3,.2,300);
+    setTimeout(()=>{
+      stage.style.filter="";
+      this.el.style.display="block";
+    },700);
+  }
+};
+/* ============================================================
+   BOOT MANAGER — power-on, Kickstart insert-disk screen,
+   boot colour strobe, startup-sequence, then Workbench.
+   ESC skips. Hidden "no boot disk" mode: add ?noboot to the
+   URL, or set localStorage key amigaos31_noboot.
+   ============================================================ */
+const Boot={
+  running:true, el:null, skipReq:false,
+  nobootMode(){
+    try{
+      return location.search.includes("noboot")||localStorage.getItem("amigaos31_noboot")==="1";
+    }catch(e){ return false; }
+  },
+  kickstartSVG(){
+    /* 3.x-style presentation: a floppy gliding into a drive slot,
+       original artwork in the spirit of the ROM screen */
+    return `
+    <svg id="kickart" viewBox="0 0 400 260" style="width:70%;max-width:560px">
+      <rect x="0" y="0" width="400" height="260" fill="#ffffff"/>
+      <g id="kickdrive">
+        <rect x="70" y="150" width="260" height="70" rx="6" fill="#dddddd" stroke="#555" stroke-width="3"/>
+        <rect x="100" y="168" width="200" height="10" rx="3" fill="#333"/>
+        <circle cx="310" cy="200" r="6" fill="#44aa44"/>
+        <rect x="90" y="196" width="60" height="12" rx="2" fill="#bbb" stroke="#777"/>
+      </g>
+      <g id="kickdisk">
+        <rect x="150" y="30" width="100" height="96" rx="4" fill="#3355bb" stroke="#112" stroke-width="3"/>
+        <rect x="172" y="30" width="56" height="34" fill="#ccc" stroke="#556"/>
+        <rect x="196" y="36" width="18" height="22" fill="#334"/>
+        <rect x="162" y="78" width="76" height="40" rx="2" fill="#eee" stroke="#556"/>
+        <text x="200" y="103" font-size="13" text-anchor="middle" fill="#334" font-family="monospace">3.1</text>
+      </g>
+      <path id="kickarrow" d="M200 8 l0 14 m-8 -8 l8 8 l8 -8" stroke="#cc3333" stroke-width="4" fill="none"/>
+      <text x="200" y="250" font-size="12" text-anchor="middle" fill="#888" font-family="monospace">kickstart 40.68 — insert disk</text>
+    </svg>`;
+  },
+  start(){
+    this.running=true;
+    const el=mk("div");el.id="boot";
+    el.innerHTML='<div id="kick" style="display:none">'+this.kickstartSVG()+'</div><div id="bootseq"></div>';
+    document.body.appendChild(el);
+    this.el=el;
+    const skip=e=>{ if(e.key==="Escape"){this.skipReq=true;} };
+    window.addEventListener("keydown",skip);
+    this._skipHandler=skip;
+    const steps=[];
+    const wait=(ms)=>new Promise(res=>{
+      if(this.skipReq)return res();
+      const t=setTimeout(res,ms);
+      const iv=setInterval(()=>{ if(this.skipReq){clearTimeout(t);clearInterval(iv);res();} },60);
+      setTimeout(()=>clearInterval(iv),ms+50);
+    });
+    (async()=>{
+      /* a beat of dark screen */
+      await wait(900);
+      /* famous power-on palette strobe: dark grey → grey → white */
+      for(const c of ["#333333","#888888","#ffffff"]){
+        el.style.background=c;
+        await wait(240);
+      }
+      el.style.background="#fff";
+      /* Kickstart insert-disk screen */
+      $("#kick",el).style.display="flex";
+      const dsk=$("#kickdisk",el);
+      if(dsk){ dsk.style.transition="transform 1.4s ease-in"; }
+      Sound.floppyClick();
+      await wait(500);
+      if(this.nobootMode()){
+        /* museum mode: sit at the insert-disk screen forever */
+        const bounce=setInterval(()=>{
+          if(!document.body.contains(el)){clearInterval(bounce);return;}
+          const a=$("#kickarrow",el);
+          if(a)a.style.opacity=a.style.opacity==="0.2"?"1":"0.2";
+        },600);
+        this.running=true;
+        return;
+      }
+      /* the hard drive "boots": disk glides into the slot */
+      if(dsk&&!this.skipReq){ dsk.style.transform="translateY(96px) scale(.92)"; Sound.diskInsert(); }
+      await wait(1300);
+      Sound.floppyGrind(8);
+      /* startup-sequence flicker */
+      $("#kick",el).style.display="none";
+      el.style.background="#000";
+      const seq=$("#bootseq",el);
+      seq.style.display="block";
+      const lines=["AMIGA ROM Operating System and Libraries",
+        "Copyright © 1985-1994 Commodore-Amiga, Inc.","All Rights Reserved.","",
+        "SetPatch 40.16","Kickstart 40.68, Workbench 40.42","",
+        "Mounting DH0: (FastFileSystem)  ... ok","Mounting DH1: (FastFileSystem)  ... ok",
+        "Mounting RAM: (ram-handler)     ... ok","",
+        "Copy ENVARC: RAM:ENV ALL QUIET","Assign ENV: RAM:ENV","Assign T: RAM:T",
+        "IPrefs 40.6","","LoadWB","EndCLI"];
+      for(const ln of lines){
+        seq.textContent+=ln+"\n";
+        if(Math.random()<.5)Sound.floppyClick();
+        await wait(this.skipReq?0:90+Math.random()*140);
+      }
+      await wait(400);
+      this.finish();
+    })();
+  },
+  finish(){
+    window.removeEventListener("keydown",this._skipHandler);
+    if(this.el){this.el.remove();this.el=null;}
+    this.running=false;
+    this.skipReq=false;
+    Sound.floppyClick();
+  },
+  reboot(){
+    /* clear the Ram Disk — veterans will test this */
+    Screens.list.slice().forEach(s=>Screens.remove(s));
+    stage.innerHTML="";
+    Windows.active=null;
+    WB.openWins={};
+    WB.selection=new Set();
+    Tasks.list=Tasks.list.filter(t=>t.n===1);
+    /* Use-only prefs evaporate on reboot */
+    State.useOverlay={};
+    try{ speechSynthesis&&speechSynthesis.cancel(); }catch(e){}
+    buildFS();           /* RAM: rebuilt empty, everything else from defaults */
+    State.load();
+    replayUserFS();
+    this.start();
+    const iv=setInterval(()=>{
+      if(!this.running){ clearInterval(iv); initWorkbench(); }
+    },150);
+  }
+};
+
+/* very small persistence of user-created FS objects: we re-apply a
+   journal of creations on top of the pristine tree (RAM: excluded). */
+function replayUserFS(){ /* the full tree lives in code; user files persist via State.data.files */
+  const j=State.data.files;
+  if(!j)return;
+  j.forEach(ent=>{
+    try{
+      const r=resolvePath(ent.dir);
+      if(!r||!r.node||!r.node.c)return;
+      if(ent.dir.toLowerCase().startsWith("ram"))return;
+      const n=N(ent.t,ent.name,ent.props||{});
+      r.node.c[n.name.toLowerCase()]=n;
+    }catch(e){}
+  });
+}
+
+/* ============================================================
+   INIT — build the world, boot the machine
+   ============================================================ */
+function initWorkbench(){
+  const wb=Screens.create("wb","AmigaOS 3.1  Workbench Screen",{mem:true,menu:WBMENU});
+  wb.app="workbench";
+  WB.scr=wb;
+  WB.selection=new Set();
+  WB.init(wb);
+  Titlebars.refresh();
+  /* apply Saved prefs (Use-only ones evaporated at reboot) */
+  applyPalette(State.getPref("palette",DEFAULT_PALETTE));
+  WB.applyPattern();
+  const pp=State.getPref("pointer",{grid:null});
+  Pointerify.apply(pp.grid);
+}
+function initAll(){
+  buildFS();
+  replayUserFS();
+  Guru.init();
+  Boot.start();
+  const iv=setInterval(()=>{
+    if(!Boot.running){ clearInterval(iv); initWorkbench(); }
+  },150);
+}
+/* CRT toggle: Ctrl+F12 (subtle scanline flavour, defaults off) */
+window.addEventListener("keydown",e=>{
+  if(e.key==="F12"&&e.ctrlKey){ e.preventDefault(); $("#crt").classList.toggle("on"); }
+  if(e.key==="F11"&&e.ctrlKey){ /* hidden museum mode toggle */
+    e.preventDefault();
+    try{
+      const v=localStorage.getItem("amigaos31_noboot")==="1";
+      localStorage.setItem("amigaos31_noboot",v?"0":"1");
+      sysRequest("No-boot museum mode "+(v?"disabled":"enabled")+".\nTakes effect at next reboot (try the Guru).",["Ok"]);
+    }catch(err){}
+  }
+});
+window.addEventListener("beforeunload",()=>State.save());
+initAll();
+</script>
+</body>
+</html>
