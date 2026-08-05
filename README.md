@@ -7,7 +7,9 @@ re-creation of the look, feel and quirks of a beloved OS: a museum piece you can
 
 ## 🚀 Getting started
 
-There is nothing to build and nothing to serve.
+**Visit the museum online:** [tunlezah.github.io/os-emu](https://tunlezah.github.io/os-emu/) — every exhibit, served straight from this repository via GitHub Pages.
+
+Or run it locally — there is nothing to build and nothing to serve.
 
 1. Clone or download this repository.
 2. Open **[`index.html`](index.html)** in any modern browser — straight from disk (`file://`) works fine.
