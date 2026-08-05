@@ -1,0 +1,4051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple Lisa — Office System 3.1 (7/7) — a simulation</title>
+<style>
+/* ============================================================
+   THE OS MUSEUM — Apple Lisa Office System 3.1 (7/7), 1984
+   A single-file, front-end-only simulation. Nothing real runs.
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#141210;font-family:Verdana,Geneva,'DejaVu Sans',sans-serif}
+body{user-select:none;-webkit-user-select:none}
+
+/* ---- the machine (bezel, power switch) ---- */
+#machine{position:absolute;background:linear-gradient(175deg,#d9d0be 0%,#cbc1ac 70%,#bdb29c 100%);
+  border-radius:14px;box-shadow:0 30px 70px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.55),inset 0 -2px 6px rgba(0,0,0,.18);
+  padding:16px 16px 0 16px}
+#screenBox{position:relative;background:#111;border-radius:7px;padding:10px;box-shadow:inset 0 0 22px #000,0 0 0 1px #8f866f}
+#stageClip{position:relative;overflow:hidden;background:#000}
+#stage{position:absolute;left:0;top:0;width:720px;height:364px;transform-origin:0 0;background:#fff;
+  cursor:default;font-size:11px;line-height:1.3;color:#000}
+#stage.busy, #stage.busy *{cursor:wait !important}
+#dim{position:absolute;inset:0;background:#000;opacity:0;transition:opacity 1.2s;pointer-events:none;z-index:5}
+#dark{position:absolute;inset:0;background:#000;opacity:1;transition:opacity .6s;pointer-events:none;z-index:6}
+#frontPanel{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 10px}
+#badge{font:italic bold 16px Georgia,'Times New Roman',serif;color:#6f6452;letter-spacing:2px;text-shadow:0 1px 0 rgba(255,255,255,.5)}
+#modelTag{font-size:9px;color:#8a7f6a;margin-left:10px;letter-spacing:1px}
+#powerWrap{display:flex;align-items:center;gap:12px}
+#powerHint{font-size:9px;color:#8a7f6a}
+#led{width:9px;height:9px;border-radius:50%;background:#4a4438;box-shadow:inset 0 1px 2px #000}
+#led.on{background:#8fe89a;box-shadow:0 0 9px #8fe89a,inset 0 0 2px #2c7}
+#powerBtn{width:50px;height:22px;border-radius:5px;background:linear-gradient(#efe7d6,#bfb49c);
+  border:1px solid #8d8471;box-shadow:0 2px 0 #857b66;cursor:pointer;outline:none}
+#powerBtn:active{transform:translateY(1px);box-shadow:0 1px 0 #857b66}
+
+/* ---- 1-bit vocabulary: checkerboards & dithers ---- */
+.chk50{background:repeating-conic-gradient(#000 0% 25%,#fff 0% 50%);background-size:2px 2px}
+.chk25{background:#fff repeating-conic-gradient(#000 0% 25%,transparent 0% 100%);background-size:2px 2px}
+.chkShadow{background:repeating-conic-gradient(#000 0% 25%,transparent 0% 50%);background-size:2px 2px}
+.dith{color:transparent !important;background:repeating-conic-gradient(#000 0% 25%,#fff 0% 50%);
+  background-size:2px 2px;-webkit-background-clip:text;background-clip:text}
+
+/* ---- menu bar & menus ---- */
+#menubar{position:absolute;left:0;top:0;right:0;height:17px;background:#fff;border-bottom:1px solid #000;
+  display:flex;align-items:stretch;z-index:520;font-size:11px}
+.mtitle{padding:2px 11px 0 11px;white-space:nowrap}
+.mtitle.open{background:#000;color:#fff}
+#menulayer{position:absolute;inset:0;z-index:521;display:none}
+.menu{position:absolute;background:#fff;border:1px solid #000;padding:1px 0;min-width:150px}
+.menu::after{content:'';position:absolute;left:5px;top:5px;width:100%;height:100%;z-index:-1;
+  background:repeating-conic-gradient(#000 0% 25%,transparent 0% 50%);background-size:2px 2px}
+.mi{padding:2px 16px 2px 14px;white-space:nowrap;display:flex;justify-content:space-between;gap:22px;align-items:center}
+.mi.hl{background:#000;color:#fff}
+.mi.hl .ap path{fill:#fff}
+.mi.check::before{content:'✓';position:absolute;margin-left:-11px;font-size:9px}
+.mkey{display:flex;align-items:center;gap:2px;font-size:10px}
+.msep{border-top:1px dashed #000;margin:3px 1px}
+.ap{vertical-align:-1px}
+
+/* ---- windows: the Lisa folder-tab chrome ---- */
+.lwin{position:absolute}
+.lwin .wsh{position:absolute;left:7px;top:7px;width:100%;height:100%;z-index:-1;
+  background:repeating-conic-gradient(#000 0% 25%,transparent 0% 50%);background-size:2px 2px}
+.lwin .tab{position:absolute;left:12px;top:0;height:17px;background:#fff;border:1px solid #000;border-bottom:none;
+  padding:2px 9px 0 7px;display:flex;align-items:center;gap:5px;z-index:2;max-width:80%;white-space:nowrap;font-size:11px}
+.lwin .tab .ticon{width:14px;height:11px;flex:0 0 auto}
+.lwin.inactive .tab .tname{color:transparent;background:repeating-conic-gradient(#000 0% 25%,#fff 0% 50%);
+  background-size:2px 2px;-webkit-background-clip:text;background-clip:text}
+.lwin .frame{position:absolute;left:0;top:16px;right:0;bottom:0;border:1px solid #000;background:#fff;
+  box-shadow:inset 0 0 0 1px #fff, inset 0 0 0 2px #000}
+.lwin .wbody{position:absolute;left:2px;top:18px;right:2px;bottom:2px;overflow:hidden;background:#fff}
+.lwin.hasV .wbody{right:16px}
+.lwin.hasH .wbody{bottom:16px}
+.lwin .inner{position:absolute;inset:0;overflow:hidden}
+.sbV{position:absolute;top:18px;right:2px;bottom:2px;width:14px;border-left:1px solid #000;background:#fff}
+.lwin.hasH .sbV{bottom:16px}
+.sbH{position:absolute;left:2px;right:2px;bottom:2px;height:14px;border-top:1px solid #000;background:#fff}
+.lwin.hasV .sbH{right:16px}
+.sbArr{position:absolute;background:#fff;display:flex;align-items:center;justify-content:center}
+.sbV .sbArr{left:0;right:0;height:13px}
+.sbH .sbArr{top:0;bottom:0;width:13px}
+.sbTrack{position:absolute;background:#fff repeating-conic-gradient(#000 0% 25%,transparent 0% 100%);background-size:2px 2px}
+.sbV .sbTrack{left:0;right:0;top:13px;bottom:13px;border-top:1px solid #000;border-bottom:1px solid #000}
+.sbH .sbTrack{top:0;bottom:0;left:13px;right:13px;border-left:1px solid #000;border-right:1px solid #000}
+.sbThumb{position:absolute;background:#fff;border:1px solid #000}
+.sbV .sbThumb{left:0;right:-1px}
+.sbH .sbThumb{top:0;bottom:-1px}
+.grow{position:absolute;right:2px;bottom:2px;width:14px;height:14px;background:#fff;border-left:1px solid #000;
+  border-top:1px solid #000;z-index:3;cursor:nwse-resize}
+.grow svg{display:block;margin:1px 0 0 1px}
+
+/* ---- icons ---- */
+.icon{position:absolute;width:66px;text-align:center;z-index:1}
+.icon svg{display:block;margin:0 auto;shape-rendering:crispEdges;pointer-events:none}
+.icon .lbl{font-size:9px;line-height:11px;display:inline-block;padding:0 3px;background:#fff;max-width:66px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
+.icon.selected svg{filter:invert(1)}
+.icon.selected .lbl{background:#000;color:#fff}
+.icon.ghost svg{opacity:.35}
+.icon.ghost .lbl{opacity:.6}
+.icon .lbl input{width:60px;font-size:9px;border:1px solid #000;background:#fff;text-align:center;outline:none;font-family:inherit}
+#dragGhost{position:absolute;z-index:900;pointer-events:none;opacity:.75}
+.tearBit{position:absolute;z-index:899;pointer-events:none;transition:transform .32s ease-out,opacity .34s}
+
+/* ---- dialogs: the polite voice ---- */
+#dialoglayer{position:absolute;inset:0;z-index:700;display:none}
+.dlg{position:absolute;left:50%;top:26px;transform:translateX(-50%);min-width:330px;max-width:600px;background:#fff;
+  border:2px solid #000;box-shadow:0 0 0 2px #fff,0 0 0 3px #000;padding:11px 14px 10px 14px}
+.dlg::after{content:'';position:absolute;left:6px;top:6px;width:100%;height:100%;z-index:-1;
+  background:repeating-conic-gradient(#000 0% 25%,transparent 0% 50%);background-size:2px 2px}
+.dlg .dtxt{font-size:11px;line-height:1.5;user-select:none}
+.dlg .dtxt b{font-weight:bold}
+.dlg .drow{margin-top:9px;display:flex;align-items:center;gap:8px;font-size:11px}
+.dlg input[type=text],.dlg input[type=password]{border:1px solid #000;font:11px Verdana,sans-serif;padding:1px 4px;outline:none;flex:1}
+.dlg .dbtns{display:flex;justify-content:flex-end;gap:12px;margin-top:12px}
+.lbtn{border:1px solid #000;border-radius:10px;padding:2px 16px 3px 16px;background:#fff;font:11px Verdana,sans-serif;cursor:pointer}
+.lbtn:active{background:#000;color:#fff}
+.lbtn.def{box-shadow:0 0 0 2px #fff,0 0 0 3px #000}
+.note{position:absolute;left:50%;top:26px;transform:translateX(-50%);background:#fff;border:2px solid #000;
+  box-shadow:0 0 0 2px #fff,0 0 0 3px #000;padding:8px 18px;font-size:11px;z-index:710}
+
+/* ---- overlays: boot, shutdown, environments, workshop ---- */
+#overlay{position:absolute;inset:0;background:#fff;z-index:800;display:none}
+.postWrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.postIcons{display:flex;gap:26px}
+.postIcon{width:56px;height:48px;border:1px solid #000;position:relative;display:flex;align-items:center;justify-content:center}
+.postIcon .tick{position:absolute;right:2px;bottom:0;font-size:13px;font-weight:bold;display:none}
+.postIcon.ok .tick{display:block}
+.postHint{position:absolute;bottom:10px;width:100%;text-align:center;font-size:9px}
+.envWin{position:absolute;left:50%;top:60px;transform:translateX(-50%);width:420px;background:#fff;border:2px solid #000;
+  box-shadow:0 0 0 2px #fff,0 0 0 3px #000;padding:12px 16px}
+.envChoice{display:flex;gap:22px;justify-content:center;margin:14px 0}
+.envItem{border:1px solid #000;width:150px;padding:10px 6px;text-align:center;cursor:pointer;font-size:11px}
+.envItem.sel{background:#000;color:#fff}
+.envItem.sel svg{filter:invert(1)}
+.wksp{position:absolute;inset:0;background:#fff;color:#000;font:11px/15px 'Courier New',monospace;padding:6px 10px;white-space:pre-wrap}
+
+/* ---- LisaWrite ---- */
+.wr-ruler{position:relative;height:20px;border-bottom:1px solid #000;background:#fff;overflow:hidden;flex:0 0 auto}
+.wr-ruler .ticks{position:absolute;left:0;top:12px;right:0;height:8px;
+  background:repeating-linear-gradient(90deg,#000 0 1px,transparent 1px 12px)}
+.wr-ruler .num{position:absolute;top:1px;font-size:8px}
+.wr-mark{position:absolute;top:11px;width:0;height:0;cursor:ew-resize}
+.wr-mark.mL{border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #000;margin-left:-5px}
+.wr-mark.mR{border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #000;margin-left:-5px}
+.wr-tab{position:absolute;top:12px;margin-left:-3px;font-size:9px;line-height:8px;cursor:pointer}
+.wr-scroll{flex:1;overflow:hidden;position:relative;background:#fff}
+.wr-page{position:relative;min-height:100%;background:#fff}
+.wr-edit{outline:none;user-select:text;-webkit-user-select:text;cursor:text;font-family:Georgia,'Times New Roman',serif;
+  font-size:12px;line-height:1.5;min-height:280px;padding-top:8px;padding-bottom:40px;word-wrap:break-word}
+.wr-edit table{border-collapse:collapse;margin:4px 0}
+.wr-edit td{border:1px solid #000;padding:1px 6px;font-size:11px}
+.wr-edit svg{max-width:100%}
+.wr-break{position:absolute;left:0;right:0;border-top:1px dashed #000;pointer-events:none}
+.wr-break span{position:absolute;right:2px;top:-13px;font-size:8px;background:#fff;padding:0 3px}
+
+/* ---- LisaCalc / LisaList grids ---- */
+.lc-wrap{display:flex;flex-direction:column;height:100%}
+.lc-entry{flex:0 0 auto;height:18px;border-bottom:1px solid #000;display:flex;align-items:center;font-size:10px;background:#fff}
+.lc-entry .lc-ref{width:44px;text-align:center;border-right:1px solid #000;height:100%;line-height:17px;font-weight:bold;flex:0 0 auto}
+.lc-entry input{flex:1;border:none;outline:none;font:10px 'Courier New',monospace;height:100%;padding:0 5px;background:#fff}
+.lc-scroll{flex:1;overflow:auto;position:relative;scrollbar-width:none}
+.lc-scroll::-webkit-scrollbar{display:none}
+table.grid{border-collapse:separate;border-spacing:0;table-layout:fixed}
+table.grid td,table.grid th{border-right:1px dotted #000;border-bottom:1px dotted #000;font-size:10px;height:14px;
+  padding:0 3px;overflow:hidden;white-space:nowrap;background:#fff;font-weight:normal}
+table.grid th{background:#fff;text-align:center;border-right:1px solid #000;border-bottom:1px solid #000;font-weight:bold}
+table.grid th.corner{position:sticky;left:0;top:0;z-index:3}
+table.grid thead th{position:sticky;top:0;z-index:2}
+table.grid tbody th{position:sticky;left:0;z-index:1}
+td.cellSel{outline:2px solid #000;outline-offset:-2px}
+td.cellRange{background:repeating-conic-gradient(#000 0% 25%,#fff 0% 50%);background-size:2px 2px}
+td.num{text-align:right}
+td input.cellIn{width:100%;border:none;outline:1px solid #000;font:10px 'Courier New',monospace;padding:0;background:#fff}
+
+/* ---- LisaDraw ---- */
+.dw-wrap{display:flex;height:100%}
+.dw-tools{flex:0 0 24px;border-right:1px solid #000;display:flex;flex-direction:column;background:#fff}
+.dw-tool{height:22px;border-bottom:1px solid #000;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.dw-tool.on{background:#000}
+.dw-tool.on svg *{stroke:#fff !important;fill:none}
+.dw-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.dw-canvas{flex:1;overflow:hidden;position:relative;background:#fff}
+.dw-canvas svg{display:block}
+.dw-pats{flex:0 0 20px;border-top:1px solid #000;display:flex;align-items:center;padding-left:4px;gap:3px;background:#fff}
+.dw-pat{width:18px;height:13px;border:1px solid #000;cursor:pointer}
+.dw-pat.on{outline:2px solid #000;outline-offset:1px}
+.dw-txtin{position:absolute;border:1px dashed #000;font:12px Georgia,serif;outline:none;background:#fff;padding:0 2px;min-width:40px}
+
+/* ---- LisaGraph ---- */
+.gr-wrap{display:flex;height:100%}
+.gr-left{flex:0 0 158px;border-right:1px solid #000;overflow:auto;scrollbar-width:none}
+.gr-left::-webkit-scrollbar{display:none}
+.gr-chart{flex:1;position:relative;background:#fff;overflow:hidden}
+
+/* ---- LisaProject ---- */
+.pj-wrap{display:flex;flex-direction:column;height:100%}
+.pj-top{flex:0 0 auto;border-bottom:1px solid #000;max-height:45%;overflow:auto;scrollbar-width:none}
+.pj-top::-webkit-scrollbar{display:none}
+.pj-chart{flex:1;overflow:auto;position:relative;scrollbar-width:none}
+.pj-chart::-webkit-scrollbar{display:none}
+
+/* ---- LisaTerminal ---- */
+.tm-wrap{height:100%;overflow:hidden;position:relative;background:#fff}
+.tm-scr{position:absolute;inset:0;overflow:hidden;font:10px/13px 'Courier New',monospace;padding:4px 6px;
+  white-space:pre-wrap;word-break:break-all;user-select:text;-webkit-user-select:text}
+.tm-cur{display:inline-block;width:6px;height:10px;background:#000;vertical-align:-1px}
+
+/* ---- desk accessories ---- */
+.ca-wrap{display:flex;flex-direction:column;height:100%;padding:7px;gap:6px}
+.ca-disp{border:1px solid #000;height:24px;font:14px 'Courier New',monospace;text-align:right;padding:3px 6px;overflow:hidden;background:#fff}
+.ca-keys{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.ca-key{border:1px solid #000;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:#fff}
+.ca-key:active{background:#000;color:#fff}
+.pf-wrap{padding:9px 12px;font-size:10px;overflow:hidden;height:100%;position:relative}
+.pf-h{font-weight:bold;border-bottom:1px solid #000;margin:7px 0 4px 0;padding-bottom:1px}
+.pf-row{display:flex;align-items:center;gap:8px;margin:3px 0;flex-wrap:wrap}
+.chkbox{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.chkbox .bx{width:10px;height:10px;border:1px solid #000;display:inline-block;position:relative;background:#fff}
+.chkbox.on .bx::after{content:'✕';position:absolute;left:0px;top:-2px;font-size:10px}
+.radio{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.radio .rd{width:10px;height:10px;border:1px solid #000;border-radius:50%;display:inline-block;position:relative;background:#fff}
+.radio.on .rd::after{content:'';position:absolute;left:2px;top:2px;width:4px;height:4px;border-radius:50%;background:#000}
+.pf-price{position:absolute;right:10px;bottom:6px;font-size:8px}
+.clk-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px}
+.clk-date{font-size:10px}
+
+/* ---- LisaGuide ---- */
+.gd-wrap{display:flex;flex-direction:column;height:100%}
+.gd-page{flex:1;overflow:hidden;padding:10px 14px;font-size:11px;line-height:1.55}
+.gd-page h1{font-size:13px;margin-bottom:8px;border-bottom:1px solid #000;padding-bottom:3px}
+.gd-page p{margin:0 0 7px 0}
+.gd-page .fig{text-align:center;margin:8px 0}
+.gd-foot{flex:0 0 30px;border-top:1px solid #000;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:10px}
+
+/* ---- clipboard window ---- */
+.cb-wrap{padding:10px;font-size:11px;height:100%;overflow:hidden}
+.cb-prev{border:1px dashed #000;margin-top:8px;padding:6px;max-height:130px;overflow:hidden;font-family:Georgia,serif;font-size:11px}
+.cb-prev table{border-collapse:collapse}
+.cb-prev td{border:1px solid #000;padding:1px 5px;font-size:10px}
+
+/* ---- credits egg ---- */
+#credits{position:absolute;inset:0;z-index:850;display:none;align-items:center;justify-content:center}
+#credits .card{background:#fff;border:2px solid #000;box-shadow:0 0 0 2px #fff,0 0 0 3px #000,10px 10px 0 rgba(0,0,0,.0);
+  width:430px;padding:18px 26px;font-family:'Segoe Script','Comic Sans MS',cursive;font-size:13px;line-height:1.7;transform:rotate(-1.2deg)}
+</style>
+</head>
+<body>
+<div id="machine">
+  <div id="screenBox">
+    <div id="stageClip">
+      <div id="stage">
+        <div id="patternHost"></div>
+        <div id="desktop" class="chk50" style="position:absolute;left:0;top:17px;right:0;bottom:0"></div>
+        <div id="menubar"></div>
+        <div id="menulayer"></div>
+        <div id="dialoglayer"></div>
+        <div id="overlay"></div>
+        <div id="credits"></div>
+      </div>
+      <div id="dim"></div>
+      <div id="dark"></div>
+    </div>
+  </div>
+  <div id="frontPanel">
+    <span><span id="badge">Lisa</span><span id="modelTag">OFFICE SYSTEM · A SIMULATION</span></span>
+    <span id="powerWrap"><span id="powerHint">on / off</span><span id="led"></span><button id="powerBtn" title="Power"></button></span>
+  </div>
+</div>
+<noscript><div style="color:#fff;padding:20px">This exhibit needs JavaScript, which your browser has politely declined to provide.</div></noscript>
+<script>
+'use strict';
+/* ============================================================
+   Utilities
+   ============================================================ */
+const qs = s => document.querySelector(s);
+const stage = qs('#stage');
+function el(parent, tag, cls, text){
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function hel(parent, tag, cls, markup){
+  const n = el(parent, tag, cls);
+  n.innerHTML = markup;
+  return n;
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function uid(){ G.seq = (G.seq || 0) + 1; return 'i' + G.seq.toString(36) + Date.now().toString(36).slice(-4); }
+function pt(e){
+  const r = stage.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / (r.width / 720), y: (e.clientY - r.top) / (r.height / 364) };
+}
+/* Generic drag helper: begins on an existing mousedown event. */
+function drag(e, opts){
+  const start = pt(e);
+  let moved = false;
+  function mm(ev){
+    const p = pt(ev);
+    const dx = p.x - start.x, dy = p.y - start.y;
+    if (!moved && Math.abs(dx) + Math.abs(dy) > 3){ moved = true; if (opts.begin) opts.begin(p); }
+    if (moved && opts.move) opts.move(dx, dy, p, ev);
+    ev.preventDefault();
+  }
+  function mu(ev){
+    document.removeEventListener('mousemove', mm, true);
+    document.removeEventListener('mouseup', mu, true);
+    if (opts.up) opts.up(moved, pt(ev), ev);
+  }
+  document.addEventListener('mousemove', mm, true);
+  document.addEventListener('mouseup', mu, true);
+}
+function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ---- the simulated 1984 clock ---- */
+function simNow(){ return new Date(Date.now() + (G.simOffset || 0)); }
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function fmtDate(d){ return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
+function fmtTime(d){
+  let h = d.getHours(), m = d.getMinutes();
+  const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return h + ':' + (m < 10 ? '0' : '') + m + ' ' + ap;
+}
+function fmtDateTime(d){ return fmtDate(d) + '  ' + fmtTime(d); }
+
+/* ============================================================
+   Global state
+   ============================================================ */
+const STORAGE_KEY = 'osmuseum.lisa77.v1';
+let G = null;   // whole persisted world
+let FS = null;  // shortcut to G.items
+
+const State = {
+  timer: null,
+  dirty(){
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.save(), 400);
+  },
+  save(){
+    if (!G) return;
+    try {
+      // capture live window geometry/view before writing
+      Wins.list.forEach(w => w.persist && w.persist());
+      G.clip = Clip.c;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(G));
+    } catch (e) { /* storage may be unavailable; the Lisa forgives */ }
+  },
+  load(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return null;
+  },
+  reset(){
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  }
+};
+
+/* ============================================================
+   Sound Manager — everything synthesized, nothing sampled
+   ============================================================ */
+const Sound = {
+  ctx: null, humNodes: null,
+  ac(){
+    try {
+      if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      return this.ctx;
+    } catch (e) { return null; }
+  },
+  vol(){ return [0, 0.12, 0.24, 0.4][(G && G.prefs.volume) || 0] || 0; },
+  tone(freq, dur, type, gain){
+    const v = this.vol(); if (!v) return;
+    const c = this.ac(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(v * (gain || 1), c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(); o.stop(c.currentTime + dur + 0.02);
+  },
+  noise(dur, gain, freq){
+    const v = this.vol(); if (!v) return;
+    const c = this.ac(); if (!c) return;
+    const len = Math.floor(c.sampleRate * dur);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const s = c.createBufferSource(); s.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq || 2000; f.Q.value = 0.6;
+    const g = c.createGain(); g.gain.value = v * (gain || 0.7);
+    s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+  },
+  beep(){ this.tone(880, 0.14, 'square', 0.8); },
+  click(){ this.noise(0.03, 0.5, 3500); },
+  powerClick(){ this.noise(0.05, 0.9, 900); },
+  tear(){ this.noise(0.22, 0.9, 1600); setTimeout(() => this.noise(0.1, 0.5, 900), 60); },
+  insertS(){ this.noise(0.08, 0.7, 1200); setTimeout(() => this.tone(220, 0.08, 'square', 0.4), 120); },
+  ejectS(){ this.tone(180, 0.07, 'square', 0.4); setTimeout(() => this.noise(0.09, 0.7, 1000), 80); },
+  hum(on){
+    if (on){
+      if (this.humNodes || !G || !G.prefs.hum) return;
+      const v = this.vol(); if (!v) return;
+      const c = this.ac(); if (!c) return;
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 58;
+      const o2 = c.createOscillator(); o2.type = 'triangle'; o2.frequency.value = 117;
+      const g = c.createGain(); g.gain.value = 0;
+      g.gain.linearRampToValueAtTime(v * 0.08, c.currentTime + 1.2);
+      o.connect(g); o2.connect(g); g.connect(c.destination);
+      o.start(); o2.start();
+      this.humNodes = { o, o2, g };
+    } else if (this.humNodes){
+      const h = this.humNodes, c = this.ctx;
+      try {
+        h.g.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.4);
+        setTimeout(() => { try { h.o.stop(); h.o2.stop(); } catch (e) {} }, 500);
+      } catch (e) {}
+      this.humNodes = null;
+    }
+  }
+};
+
+/* ============================================================
+   Dither patterns for SVG fills (LisaDraw, charts)
+   ============================================================ */
+const PATTERNS = [
+  { id:'pw',  sz:2, px:[],                              name:'White' },
+  { id:'p06', sz:4, px:[[0,0]] },
+  { id:'p12', sz:4, px:[[0,0],[2,2]] },
+  { id:'p25', sz:2, px:[[0,0]] },
+  { id:'p50', sz:2, px:[[0,0],[1,1]] },
+  { id:'p75', sz:2, px:[[0,0],[1,0],[0,1]] },
+  { id:'pb',  sz:2, px:[], black:true,                  name:'Black' },
+  { id:'ph',  sz:4, px:[[0,0],[1,0],[2,0],[3,0]] },
+  { id:'pv',  sz:4, px:[[0,0],[0,1],[0,2],[0,3]] },
+  { id:'pd',  sz:4, px:[[0,0],[1,1],[2,2],[3,3]] }
+];
+function installPatterns(){
+  const defs = PATTERNS.map(p =>
+    '<pattern id="' + p.id + '" width="' + p.sz + '" height="' + p.sz + '" patternUnits="userSpaceOnUse">' +
+    '<rect width="' + p.sz + '" height="' + p.sz + '" fill="' + (p.black ? '#000' : '#fff') + '"/>' +
+    p.px.map(q => '<rect x="' + q[0] + '" y="' + q[1] + '" width="1" height="1" fill="#000"/>').join('') +
+    '</pattern>').join('');
+  qs('#patternHost').innerHTML = '<svg width="0" height="0" style="position:absolute"><defs>' + defs + '</defs></svg>';
+}
+function patFill(id){ return id === 'none' ? 'none' : 'url(#' + id + ')'; }
+
+/* ============================================================
+   Icon artwork — all original line drawings
+   ============================================================ */
+const APPLE_GLYPH = '<svg class="ap" width="9" height="10" viewBox="0 0 9 10">' +
+  '<path d="M5.6 0.6 C5.5 1.5 4.8 2.1 4.1 2.2 C4.1 1.3 4.8 0.6 5.6 0.6 Z ' +
+  'M4.2 2.7 C4.8 2.7 5.1 2.3 5.8 2.3 C6.6 2.3 7.1 2.8 7.4 3.2 C6.3 3.9 6.4 5.5 7.6 6 ' +
+  'C7.3 6.9 6.7 8 6 8 C5.4 8 5.3 7.6 4.6 7.6 C3.9 7.6 3.7 8 3.2 8 C2.3 8 1.3 6 1.3 4.8 ' +
+  'C1.3 3.5 2.2 2.7 3 2.7 C3.6 2.7 3.8 2.7 4.2 2.7 Z" fill="#000"/></svg>';
+
+const EMBLEMS = {
+  write:   '<path d="M0 1h11M0 4h11M0 7h8" stroke="#000" fill="none"/>',
+  calc:    '<path d="M0 0h11v8h-11z M0 4h11 M3.6 0v8 M7.2 0v8" stroke="#000" fill="none"/>',
+  draw:    '<rect x="0" y="2" width="7" height="6" fill="none" stroke="#000"/><circle cx="8" cy="3.4" r="3" fill="#fff" stroke="#000"/>',
+  graph:   '<path d="M0 8h11 M1 8v-3h2v3 M4.5 8v-6h2v6 M8 8v-8h2v8" stroke="#000" fill="none"/>',
+  project: '<circle cx="1.6" cy="1.6" r="1.5" fill="none" stroke="#000"/><circle cx="9" cy="1.6" r="1.5" fill="none" stroke="#000"/><circle cx="5.4" cy="7" r="1.5" fill="none" stroke="#000"/><path d="M3 2h4.5 M2.6 3 L4.6 6 M8.2 3 L6.3 6" stroke="#000" fill="none"/>',
+  list:    '<path d="M0 1h2v2h-2z M0 5h2v2h-2z M3.5 2h7 M3.5 6h7" stroke="#000" fill="none"/>',
+  term:    '<rect x="0" y="0" width="11" height="8" fill="none" stroke="#000"/><path d="M2 2l2 2 -2 2 M5.5 6h3" stroke="#000" fill="none"/>',
+  guide:   '<path d="M2 3 C2 0.5 7 0.5 7 3 C7 4.6 4.5 4.4 4.5 6 M4.5 7.6 v0.8" stroke="#000" fill="none" stroke-width="1.4"/>'
+};
+function emblem(tool, x, y){
+  const e = EMBLEMS[tool] || '';
+  return e ? '<g transform="translate(' + x + ' ' + y + ')">' + e + '</g>' : '';
+}
+function sheet(x, y, w, h){
+  const f = 5;
+  return '<path d="M' + x + ' ' + y + ' h' + (w - f) + ' l' + f + ' ' + f + ' v' + (h - f) + ' h' + (-w) + ' z" fill="#fff" stroke="#000"/>' +
+         '<path d="M' + (x + w - f) + ' ' + y + ' v' + f + ' h' + f + '" fill="none" stroke="#000"/>';
+}
+function iconSVG(item, w, h){
+  w = w || 42; h = h || 27;
+  const kind = item.kind, tool = item.tool;
+  let inner = '';
+  if (kind === 'doc' || kind === 'guide'){
+    inner = sheet(11, 1, 20, 25) + emblem(tool, 15, 5) + '<path d="M15 18h12 M15 21h9" stroke="#000"/>';
+  } else if (kind === 'pad'){
+    inner = '<rect x="15" y="5" width="20" height="21" fill="#fff" stroke="#000"/>' +
+            '<rect x="13" y="3" width="20" height="21" fill="#fff" stroke="#000"/>' +
+            sheet(11, 1, 20, 21) + emblem(tool, 15, 5) + '<path d="M15 17h12" stroke="#000"/>';
+  } else if (kind === 'tool'){
+    inner = '<rect x="6" y="2" width="30" height="19" rx="2" fill="#fff" stroke="#000"/>' +
+            '<rect x="10" y="5" width="22" height="13" fill="#fff" stroke="#000"/>' +
+            emblem(tool, 15.5, 7.5) +
+            '<path d="M10 24h5 M27 24h5" stroke="#000" stroke-width="2"/>';
+  } else if (kind === 'folder'){
+    inner = '<path d="M5 6 h11 l3 3 h18 v14 h-32 z" fill="#fff" stroke="#000"/><path d="M5 9 h14" stroke="#000"/>';
+  } else if (kind === 'folderpad'){
+    inner = '<path d="M9 10 h32 v14 h-32 z M7 8 h32 v14 h-32 z" fill="#fff" stroke="#000"/>' +
+            '<path d="M5 6 h11 l3 3 h18 v13 h-32 z" fill="#fff" stroke="#000"/>';
+  } else if (kind === 'profile'){
+    inner = '<rect x="3" y="4" width="36" height="15" rx="1" fill="#fff" stroke="#000"/>' +
+            '<path d="M3 15 h36" stroke="#000"/><rect x="32" y="16.5" width="3" height="1.5" fill="#000"/>' +
+            '<path d="M6 22h6 M30 22h6" stroke="#000" stroke-width="2"/>' +
+            '<path d="M6 7 h20" stroke="#000"/>';
+  } else if (kind === 'diskette'){
+    inner = '<rect x="11" y="1" width="22" height="24" fill="#fff" stroke="#000"/>' +
+            '<rect x="17" y="1" width="10" height="7" fill="#fff" stroke="#000"/><rect x="23" y="2.5" width="3" height="4" fill="#000"/>' +
+            '<rect x="14" y="12" width="16" height="11" fill="#fff" stroke="#000"/>' +
+            '<path d="M16 15h12 M16 18h12 M16 21h8" stroke="#000"/>';
+  } else if (kind === 'waste'){
+    inner = '<ellipse cx="21" cy="6" rx="9" ry="2.5" fill="#fff" stroke="#000"/>' +
+            '<path d="M12 6 L14 25 h14 L30 6" fill="#fff" stroke="#000"/>' +
+            '<path d="M12 6 L14 25 h14 L30 6" fill="none" stroke="#000"/>' +
+            '<path d="M17 9 l1 13 M21 9 v13 M25 9 l-1 13" stroke="#000"/>' +
+            '<path d="M18 3.5 C18 1.5 24 1.5 24 3.5" fill="none" stroke="#000"/>';
+  } else if (kind === 'clip'){
+    let glyph = '';
+    const c = Clip && Clip.c;
+    if (c){
+      if (c.type === 'text') glyph = '<path d="M16 12h11M16 15h11M16 18h8" stroke="#000"/>';
+      else if (c.type === 'table') glyph = '<path d="M15 11h13v9h-13z M15 14h13 M15 17h13 M19.3 11v9 M23.6 11v9" stroke="#000" fill="none"/>';
+      else glyph = '<circle cx="19" cy="15" r="3.5" fill="none" stroke="#000"/><path d="M22 18 l5 3" stroke="#000"/>';
+    }
+    inner = '<rect x="11" y="3" width="22" height="23" fill="#fff" stroke="#000"/>' +
+            '<rect x="17" y="0.5" width="10" height="5" rx="1.5" fill="#fff" stroke="#000"/>' + glyph;
+  } else if (kind === 'clock'){
+    inner = '<circle cx="21" cy="12" r="10" fill="#fff" stroke="#000"/><path d="M21 6 v6 l4.5 3" fill="none" stroke="#000"/>' +
+            '<path d="M14 23 l-2 3 M28 23 l2 3" stroke="#000"/>';
+  } else if (kind === 'calcda'){
+    inner = '<rect x="13" y="1" width="18" height="25" rx="1" fill="#fff" stroke="#000"/>' +
+            '<rect x="15" y="3" width="14" height="5" fill="#fff" stroke="#000"/>' +
+            '<path d="M16 12h2M20 12h2M24 12h2M16 16h2M20 16h2M24 16h2M16 20h2M20 20h2M24 20h2" stroke="#000" stroke-width="1.6"/>';
+  } else if (kind === 'prefs'){
+    inner = '<rect x="8" y="2" width="26" height="23" fill="#fff" stroke="#000"/>' +
+            '<path d="M12 8h18 M12 14h18 M12 20h18" stroke="#000"/>' +
+            '<rect x="15" y="6" width="3" height="4" fill="#000"/><rect x="24" y="12" width="3" height="4" fill="#000"/><rect x="18" y="18" width="3" height="4" fill="#000"/>';
+  }
+  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 42 27">' + inner + '</svg>';
+}
+function tabIconSVG(item){
+  return iconSVG(item, 16, 11);
+}
+/* ============================================================
+   Dialog Manager — every message in the Lisa's courteous voice
+   ============================================================ */
+const Dialogs = {
+  layer: qs('#dialoglayer'),
+  openCount: 0,
+  build(){
+    this.layer.style.display = 'block';
+    this.openCount++;
+    const d = el(this.layer, 'div', 'dlg');
+    return d;
+  },
+  dismiss(d){
+    d.remove();
+    this.openCount--;
+    if (this.openCount <= 0){ this.openCount = 0; this.layer.style.display = 'none'; }
+    MenuBar.refresh();
+  },
+  /* buttons: [{label, value, def, cancel}] */
+  ask(text, buttons){
+    Sound.beep();
+    return new Promise(resolve => {
+      const d = this.build();
+      hel(d, 'div', 'dtxt', text);
+      const row = el(d, 'div', 'dbtns');
+      let defBtn = null, cancelVal;
+      buttons.forEach(b => {
+        const btn = el(row, 'button', 'lbtn' + (b.def ? ' def' : ''), b.label);
+        if (b.def) defBtn = btn;
+        if (b.cancel) cancelVal = b.value;
+        btn.onclick = () => { this.dismiss(d); resolve(b.value); };
+      });
+      d._key = (ev) => {
+        if (ev.key === 'Enter' && defBtn){ defBtn.click(); return true; }
+        if (ev.key === 'Escape' && cancelVal !== undefined){ this.dismiss(d); resolve(cancelVal); return true; }
+        return false;
+      };
+      if (defBtn) defBtn.focus();
+    });
+  },
+  alert(text, label){
+    return this.ask(text, [{ label: label || 'OK', value: true, def: true }]);
+  },
+  /* A text-entry dialog. Resolves to the string, or null if declined. */
+  prompt(text, opts){
+    opts = opts || {};
+    Sound.beep();
+    return new Promise(resolve => {
+      const d = this.build();
+      hel(d, 'div', 'dtxt', text);
+      const row = el(d, 'div', 'drow');
+      if (opts.label) el(row, 'span', null, opts.label);
+      const inp = el(row, 'input');
+      inp.type = opts.password ? 'password' : 'text';
+      inp.value = opts.value || '';
+      const btns = el(d, 'div', 'dbtns');
+      const cancel = el(btns, 'button', 'lbtn', opts.cancelLabel || 'Cancel');
+      const ok = el(btns, 'button', 'lbtn def', opts.okLabel || 'OK');
+      const done = v => { this.dismiss(d); resolve(v); };
+      cancel.onclick = () => done(null);
+      ok.onclick = () => done(inp.value);
+      inp.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') ok.click();
+        if (ev.key === 'Escape') cancel.click();
+        ev.stopPropagation();
+      });
+      setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    });
+  },
+  /* Transient narration, no buttons. Returns a handle with close(). */
+  narrate(text){
+    this.layer.style.display = 'block';
+    this.openCount++;
+    const d = el(this.layer, 'div', 'dlg');
+    hel(d, 'div', 'dtxt', text);
+    return {
+      set: t => { d.firstChild.innerHTML = t; },
+      close: () => this.dismiss(d)
+    };
+  },
+  note(text, ms){
+    const n = hel(stage, 'div', 'note', text);
+    setTimeout(() => n.remove(), ms || 1200);
+  },
+  /* fully custom dialog; builder(d, done) */
+  custom(builder){
+    Sound.beep();
+    return new Promise(resolve => {
+      const d = this.build();
+      builder(d, v => { this.dismiss(d); resolve(v); });
+    });
+  }
+};
+
+/* ============================================================
+   Menu System — press, hold, drag, release. Never sticky.
+   ============================================================ */
+const MenuBar = {
+  bar: qs('#menubar'),
+  layer: qs('#menulayer'),
+  trees: [],
+  openIdx: -1,
+  menuEl: null,
+  hlItem: null,
+  tracking: false,
+
+  refresh(){
+    let trees;
+    const w = Wins.active;
+    if (w && w.menus) trees = w.menus();
+    else trees = Desk.desktopMenus();
+    this.trees = trees;
+    this.bar.innerHTML = '';
+    trees.forEach((t, i) => {
+      const m = el(this.bar, 'span', 'mtitle', t.title);
+      m.dataset.idx = i;
+    });
+  },
+
+  begin(e){
+    const t = e.target.closest('.mtitle');
+    if (!t) return false;
+    if (!Power.isOn || Dialogs.openCount) return true;
+    this.tracking = true;
+    this.open(+t.dataset.idx);
+    const mm = ev => this.track(ev);
+    const mu = ev => {
+      document.removeEventListener('mousemove', mm, true);
+      document.removeEventListener('mouseup', mu, true);
+      this.finish(ev);
+    };
+    document.addEventListener('mousemove', mm, true);
+    document.addEventListener('mouseup', mu, true);
+    return true;
+  },
+
+  open(idx){
+    if (this.openIdx === idx) return;
+    this.close();
+    this.openIdx = idx;
+    const tree = this.trees[idx];
+    if (!tree) return;
+    const titles = this.bar.querySelectorAll('.mtitle');
+    titles[idx].classList.add('open');
+    this.layer.style.display = 'block';
+    const m = el(this.layer, 'div', 'menu');
+    let left = 2;
+    const tEl = titles[idx];
+    left = tEl.offsetLeft;
+    m.style.left = Math.min(left, 718 - 170) + 'px';
+    m.style.top = '17px';
+    tree.items.forEach(it => {
+      if (it.sep){ el(m, 'div', 'msep'); return; }
+      const row = el(m, 'div', 'mi');
+      row._item = it;
+      const lab = el(row, 'span', null, it.label);
+      if (it.checked) row.classList.add('check');
+      if (it.key) hel(row, 'span', 'mkey', APPLE_GLYPH + '<span>' + it.key + '</span>');
+      const enabled = (it.enabled === undefined) ? true : (typeof it.enabled === 'function' ? it.enabled() : it.enabled);
+      if (!enabled){ row.classList.add('dis'); lab.classList.add('dith'); row._dis = true; }
+    });
+    // keep on screen
+    const rect = m.getBoundingClientRect(), srect = stage.getBoundingClientRect();
+    const wLogical = rect.width / (srect.width / 720);
+    if (parseFloat(m.style.left) + wLogical > 716) m.style.left = (716 - wLogical) + 'px';
+    this.menuEl = m;
+  },
+
+  close(){
+    this.bar.querySelectorAll('.mtitle.open').forEach(x => x.classList.remove('open'));
+    this.layer.innerHTML = '';
+    this.layer.style.display = 'none';
+    this.openIdx = -1; this.menuEl = null; this.hlItem = null;
+  },
+
+  track(ev){
+    const elAt = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (!elAt) return;
+    const title = elAt.closest && elAt.closest('.mtitle');
+    if (title){ this.open(+title.dataset.idx); this.setHl(null); return; }
+    const mi = elAt.closest && elAt.closest('.mi');
+    this.setHl(mi && !mi._dis ? mi : null);
+  },
+
+  setHl(mi){
+    if (this.hlItem === mi) return;
+    if (this.hlItem) this.hlItem.classList.remove('hl');
+    this.hlItem = mi;
+    if (mi) mi.classList.add('hl');
+  },
+
+  finish(ev){
+    this.tracking = false;
+    const mi = this.hlItem;
+    if (mi && mi._item && mi._item.cmd){
+      // authentic blink before the menu closes
+      const item = mi._item;
+      let n = 0;
+      const iv = setInterval(() => {
+        mi.classList.toggle('hl');
+        if (++n >= 4){
+          clearInterval(iv);
+          this.close();
+          Commands.run(item.cmd, item.arg);
+        }
+      }, 45);
+    } else {
+      this.close();
+    }
+  }
+};
+
+/* ============================================================
+   Window Manager — folder tabs, patterned shadows, no close box
+   ============================================================ */
+const Wins = {
+  list: [],
+  parked: [],   // set-aside windows, hidden but alive
+  active: null,
+  zTop: 100,
+
+  add(w){
+    this.list.push(w);
+    this.activate(w);
+  },
+  activate(w){
+    if (this.active === w){ MenuBar.refresh(); return; }
+    if (this.active) this.active.el.classList.add('inactive');
+    this.active = w;
+    if (w){
+      w.el.classList.remove('inactive');
+      w.el.style.zIndex = ++this.zTop;
+      if (this.zTop > 400) this.renumber();
+    }
+    MenuBar.refresh();
+    State.dirty();
+  },
+  renumber(){
+    const sorted = this.list.slice().sort((a, b) => (+a.el.style.zIndex) - (+b.el.style.zIndex));
+    this.zTop = 100;
+    sorted.forEach(w => w.el.style.zIndex = ++this.zTop);
+  },
+  remove(w){
+    const i = this.list.indexOf(w);
+    if (i >= 0) this.list.splice(i, 1);
+    if (this.active === w){
+      this.active = null;
+      // activate the topmost remaining window
+      let top = null;
+      this.list.forEach(x => { if (!x.hidden && (!top || +x.el.style.zIndex > +top.el.style.zIndex)) top = x; });
+      if (top) this.activate(top); else MenuBar.refresh();
+    }
+  },
+  byItem(id){
+    return this.list.find(w => w.item && w.item.id === id) ||
+           this.parked.find(w => w.item && w.item.id === id) || null;
+  }
+};
+
+class LisaWindow {
+  /* opts: {item, kind:'doc'|'container'|'special', rect, hasV, hasH, grow} */
+  constructor(opts){
+    this.item = opts.item || null;
+    this.kind = opts.kind;
+    this.hidden = false;
+    const r = this.rect = Object.assign({ x: 80, y: 40, w: 380, h: 240 }, opts.rect);
+    const w = this.el = el(stage, 'div', 'lwin');
+    el(w, 'div', 'wsh');
+    const tab = this.tabEl = el(w, 'div', 'tab');
+    if (this.item) hel(tab, 'span', 'ticon', tabIconSVG(this.item));
+    this.nameEl = el(tab, 'span', 'tname', opts.title || (this.item ? this.item.name : ''));
+    el(w, 'div', 'frame');
+    this.bodyEl = el(w, 'div', 'wbody');
+    this.innerEl = el(this.bodyEl, 'div', 'inner');
+    if (opts.hasV !== false){ w.classList.add('hasV'); this.makeScroll('v'); }
+    if (opts.hasH){ w.classList.add('hasH'); this.makeScroll('h'); }
+    if (opts.grow !== false){
+      const g = hel(w, 'div', 'grow',
+        '<svg width="11" height="11" viewBox="0 0 11 11"><rect x="0.5" y="0.5" width="7" height="7" fill="#fff" stroke="#000"/><rect x="3.5" y="3.5" width="7" height="7" fill="#fff" stroke="#000"/></svg>');
+      g.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        Wins.activate(this);
+        const r0 = Object.assign({}, this.rect);
+        drag(e, {
+          move: (dx, dy) => {
+            this.rect.w = clamp(r0.w + dx, this.minW || 170, 716);
+            this.rect.h = clamp(r0.h + dy, this.minH || 100, 345);
+            this.applyRect();
+            if (this.onResize) this.onResize();
+          },
+          up: () => { State.dirty(); if (this.onResize) this.onResize(); }
+        });
+      });
+    }
+    tab.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      Wins.activate(this);
+      const r0 = Object.assign({}, this.rect);
+      drag(e, {
+        move: (dx, dy) => {
+          this.rect.x = clamp(r0.x + dx, -this.rect.w + 60, 700);
+          this.rect.y = clamp(r0.y + dy, 17, 350);
+          this.applyRect();
+        },
+        up: () => State.dirty()
+      });
+    });
+    w.addEventListener('mousedown', () => { if (Wins.active !== this) Wins.activate(this); }, true);
+    this.applyRect();
+    Wins.add(w && this);
+  }
+
+  makeScroll(axis){
+    const isV = axis === 'v';
+    const sb = el(this.el, 'div', isV ? 'sbV' : 'sbH');
+    const a1 = hel(sb, 'div', 'sbArr', isV
+      ? '<svg width="9" height="9"><path d="M4.5 1 L8 7 L1 7 Z" fill="#fff" stroke="#000"/></svg>'
+      : '<svg width="9" height="9"><path d="M1 4.5 L7 1 L7 8 Z" fill="#fff" stroke="#000"/></svg>');
+    const a2 = hel(sb, 'div', 'sbArr', isV
+      ? '<svg width="9" height="9"><path d="M4.5 8 L8 2 L1 2 Z" fill="#fff" stroke="#000"/></svg>'
+      : '<svg width="9" height="9"><path d="M8 4.5 L2 1 L2 8 Z" fill="#fff" stroke="#000"/></svg>');
+    if (isV){ a1.style.top = '0'; a1.style.borderBottom = '1px solid #000'; a2.style.bottom = '0'; a2.style.borderTop = '1px solid #000'; }
+    else { a1.style.left = '0'; a1.style.borderRight = '1px solid #000'; a2.style.right = '0'; a2.style.borderLeft = '1px solid #000'; }
+    const track = el(sb, 'div', 'sbTrack');
+    const thumb = el(track, 'div', 'sbThumb');
+    const self = this;
+    const S = isV ? (this._sv = {}) : (this._sh = {});
+    S.sb = sb; S.track = track; S.thumb = thumb; S.isV = isV;
+    function target(){ return self.scrollEl || self.innerEl; }
+    function metrics(){
+      const t = target();
+      const view = isV ? t.clientHeight : t.clientWidth;
+      const full = isV ? t.scrollHeight : t.scrollWidth;
+      const pos = isV ? t.scrollTop : t.scrollLeft;
+      return { view, full, pos, max: Math.max(0, full - view) };
+    }
+    S.sync = function(){
+      const m = metrics();
+      const tl = isV ? track.clientHeight : track.clientWidth;
+      if (m.max <= 0){ thumb.style.display = 'none'; return; }
+      thumb.style.display = 'block';
+      const th = Math.max(14, tl * m.view / m.full);
+      const off = (tl - th) * (m.pos / m.max);
+      if (isV){ thumb.style.height = th + 'px'; thumb.style.top = off + 'px'; }
+      else { thumb.style.width = th + 'px'; thumb.style.left = off + 'px'; }
+    };
+    function scrollBy(d){
+      const t = target();
+      if (isV) t.scrollTop += d; else t.scrollLeft += d;
+      S.sync();
+      if (self.onScroll) self.onScroll();
+      State.dirty();
+    }
+    a1.addEventListener('mousedown', e => { e.stopPropagation(); scrollBy(-24); });
+    a2.addEventListener('mousedown', e => { e.stopPropagation(); scrollBy(24); });
+    track.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      if (e.target === thumb){
+        const m0 = metrics();
+        const tl = isV ? track.clientHeight : track.clientWidth;
+        const th = isV ? thumb.clientHeight : thumb.clientWidth;
+        drag(e, {
+          move: (dx, dy) => {
+            const dpix = isV ? dy : dx;
+            const t = target();
+            const npos = clamp(m0.pos + dpix * (m0.max / Math.max(1, tl - th)), 0, m0.max);
+            if (isV) t.scrollTop = npos; else t.scrollLeft = npos;
+            S.sync();
+            if (self.onScroll) self.onScroll();
+          },
+          up: () => State.dirty()
+        });
+      } else {
+        const m = metrics();
+        scrollBy((isV ? (e.offsetY < parseFloat(thumb.style.top || 0) ? -1 : 1) : (e.offsetX < parseFloat(thumb.style.left || 0) ? -1 : 1)) * m.view * 0.8);
+      }
+    });
+    this.bodyEl.addEventListener('wheel', e => {
+      e.preventDefault();
+      if (isV && !e.shiftKey) scrollBy(e.deltaY > 0 ? 24 : -24);
+    }, { passive: false });
+  }
+
+  syncScroll(){
+    if (this._sv) this._sv.sync();
+    if (this._sh) this._sh.sync();
+  }
+
+  applyRect(){
+    const r = this.rect;
+    this.el.style.left = r.x + 'px'; this.el.style.top = r.y + 'px';
+    this.el.style.width = r.w + 'px'; this.el.style.height = r.h + 'px';
+    this.syncScroll();
+  }
+
+  setTitle(t){ this.nameEl.textContent = t; }
+
+  hide(){
+    this.hidden = true; this.el.style.display = 'none';
+    Wins.remove(this);
+    if (Wins.parked.indexOf(this) < 0) Wins.parked.push(this);
+  }
+  show(){
+    this.hidden = false; this.el.style.display = 'block';
+    const p = Wins.parked.indexOf(this);
+    if (p >= 0) Wins.parked.splice(p, 1);
+    if (Wins.list.indexOf(this) < 0) Wins.list.push(this);
+    Wins.activate(this);
+    this.syncScroll();
+  }
+  destroy(){
+    if (this.tool && this.tool.destroy) this.tool.destroy();
+    Wins.remove(this);
+    const p = Wins.parked.indexOf(this);
+    if (p >= 0) Wins.parked.splice(p, 1);
+    this.el.remove();
+  }
+
+  persist(){
+    if (!this.item) return;
+    const it = this.item;
+    it.win = it.win || {};
+    Object.assign(it.win, this.rect);
+    it.win.z = +this.el.style.zIndex || 100;
+    const sc = this.scrollEl || this.innerEl;
+    it.win.sx = sc.scrollLeft; it.win.sy = sc.scrollTop;
+    if (this.tool && this.tool.getView) it.win.view = this.tool.getView();
+    if (this.tool && this.tool.flush) this.tool.flush();
+  }
+  restoreScroll(){
+    const it = this.item;
+    if (!it || !it.win) return;
+    const sc = this.scrollEl || this.innerEl;
+    if (it.win.sx) sc.scrollLeft = it.win.sx;
+    if (it.win.sy) sc.scrollTop = it.win.sy;
+    this.syncScroll();
+  }
+}
+/* ============================================================
+   Document model & filing
+   ============================================================ */
+function itemById(id){ return FS[id] || null; }
+function childrenOf(cid){ return Object.values(FS).filter(i => i.parent === cid); }
+function deepCopy(o){ return JSON.parse(JSON.stringify(o)); }
+function computeSizeK(item){
+  if (item.kind === 'folder') return childrenOf(item.id).reduce((s, c) => s + computeSizeK(c), 1);
+  return Math.max(1, Math.round(JSON.stringify(item.content || {}).length / 400));
+}
+function diskOf(item){
+  let it = item;
+  while (it && it.parent && it.parent !== 'desktop'){ it = itemById(it.parent); }
+  if (it && (it.kind === 'diskette')) return it.id;
+  if (it && it.kind === 'profile') return 'profile';
+  return 'profile'; // the desktop belongs to the ProFile's world
+}
+function isDescendant(maybeChild, ancestorId){
+  let p = maybeChild.parent;
+  while (p && p !== 'desktop'){
+    if (p === ancestorId) return true;
+    const it = itemById(p); p = it ? it.parent : null;
+  }
+  return false;
+}
+function whereLabel(item){
+  const names = [];
+  let p = item.parent;
+  while (p){
+    if (p === 'desktop'){ names.push('the desktop'); break; }
+    const it = itemById(p); if (!it) break;
+    names.push('“' + it.name + '”');
+    p = it.parent;
+  }
+  return names.join(', inside ') || 'the desktop';
+}
+function uniqueName(base, cid){
+  const names = childrenOf(cid).map(i => i.name);
+  if (names.indexOf(base) < 0) return base;
+  let n = 2;
+  while (names.indexOf(base + ' ' + n) >= 0) n++;
+  return base + ' ' + n;
+}
+function kindLabel(item){
+  switch (item.kind){
+    case 'doc': return Tools.defs[item.tool].name + ' document';
+    case 'guide': return 'guided introduction';
+    case 'pad': return 'stationery pad (' + Tools.defs[item.tool].name + ')';
+    case 'tool': return 'tool';
+    case 'folder': return 'folder';
+    case 'folderpad': return 'pad of empty folders';
+    case 'profile': return 'ProFile hard disk';
+    case 'diskette': return 'diskette';
+    case 'waste': return 'wastebasket';
+    case 'clip': return 'clipboard';
+    default: return item.kind;
+  }
+}
+
+/* ============================================================
+   The Clipboard — visible on the desktop, openable like a window
+   ============================================================ */
+const Clip = {
+  c: null,
+  set(c){
+    this.c = c;
+    G.clip = c;
+    const w = Wins.byItem('clipicon');
+    if (w) this.renderInto(w);
+    Desk.renderContainer('desktop');
+    State.dirty();
+  },
+  describe(){
+    const c = this.c;
+    if (!c) return 'The Clipboard is empty. Whatever you cut or copy next will be kept here.';
+    const kind = c.type === 'text' ? 'some text' : c.type === 'table' ? 'a table of values' : 'a picture';
+    return 'The Clipboard is holding ' + kind + ', taken from ' + (c.from || 'a document') + '. It will stay here until you cut or copy something else.';
+  },
+  renderInto(w){
+    const host = w.innerEl;
+    host.innerHTML = '';
+    const wrap = el(host, 'div', 'cb-wrap');
+    el(wrap, 'div', null, this.describe());
+    if (this.c){
+      const prev = el(wrap, 'div', 'cb-prev');
+      const c = this.c;
+      if (c.type === 'text') prev.innerHTML = c.html || esc(c.text);
+      else if (c.type === 'table') prev.innerHTML = tableHTML(c.rows);
+      else if (c.type === 'picture') prev.innerHTML = c.svg;
+    }
+  },
+  open(){
+    let w = Wins.byItem('clipicon');
+    if (w){ w.show(); return; }
+    const item = itemById('clipicon');
+    w = new LisaWindow({ item, kind: 'special', rect: item.win || { x: 180, y: 90, w: 330, h: 200 } });
+    w.menus = () => Desk.desktopMenus();
+    this.renderInto(w);
+    item.openState = 'open';
+    Desk.renderContainer('desktop');
+    MenuBar.refresh();
+  }
+};
+function tableHTML(rows){
+  return '<table>' + rows.map(r => '<tr>' + r.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') + '</table>';
+}
+
+/* ============================================================
+   Desktop Manager
+   ============================================================ */
+const Desk = {
+  sel: null,
+
+  select(id){
+    if (this.sel === id) return;
+    this.sel = id;
+    stage.querySelectorAll('.icon.selected').forEach(x => x.classList.remove('selected'));
+    if (id){
+      const ic = stage.querySelector('.icon[data-id="' + id + '"]');
+      if (ic) ic.classList.add('selected');
+    }
+    MenuBar.refresh();
+  },
+
+  hostFor(cid){
+    if (cid === 'desktop') return qs('#desktop');
+    const w = Wins.byItem(cid);
+    return (w && w.kind === 'container') ? w.icHost : null;
+  },
+
+  renderContainer(cid){
+    const host = this.hostFor(cid);
+    if (!host) return;
+    host.querySelectorAll('.icon').forEach(x => x.remove());
+    let maxX = 0, maxY = 0;
+    childrenOf(cid).forEach(it => {
+      const ic = this.makeIcon(it);
+      host.appendChild(ic);
+      maxX = Math.max(maxX, it.pos.x + 70); maxY = Math.max(maxY, it.pos.y + 50);
+    });
+    if (cid !== 'desktop'){
+      host.style.width = Math.max(maxX, 300) + 'px';
+      host.style.height = Math.max(maxY, 120) + 'px';
+      const w = Wins.byItem(cid);
+      if (w) w.syncScroll();
+    }
+  },
+  renderAll(){
+    this.renderContainer('desktop');
+    Wins.list.forEach(w => { if (w.kind === 'container') this.renderContainer(w.item.id); });
+  },
+
+  makeIcon(item){
+    const ic = el(null, 'div', 'icon');
+    ic.dataset.id = item.id;
+    ic.style.left = item.pos.x + 'px';
+    ic.style.top = item.pos.y + 'px';
+    hel(ic, 'div', null, iconSVG(item));
+    const lbl = el(ic, 'div', 'lbl', item.name);
+    if (item.openState) ic.classList.add('ghost');
+    if (this.sel === item.id) ic.classList.add('selected');
+    ic.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      if (Dialogs.openCount) return;
+      const wasSel = this.sel === item.id;
+      this.select(item.id);
+      // click on the name of a selected icon begins renaming
+      if (wasSel && e.target === lbl && this.canRename(item)){
+        this.beginRename(item, lbl);
+        return;
+      }
+      this.dragIcon(e, item, ic);
+    });
+    ic.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      if (Dialogs.openCount) return;
+      this.openItem(item);
+    });
+    return ic;
+  },
+
+  canRename(item){
+    return ['doc', 'pad', 'folder', 'diskette', 'guide'].indexOf(item.kind) >= 0;
+  },
+
+  beginRename(item, lbl){
+    lbl.textContent = '';
+    const inp = el(lbl, 'input');
+    inp.value = item.name;
+    lbl.style.pointerEvents = 'auto';
+    const commit = () => {
+      const v = inp.value.trim();
+      if (v) { item.name = v; item.modified = simNow().toISOString(); }
+      const w = Wins.byItem(item.id);
+      if (w) w.setTitle(item.name);
+      this.renderContainer(item.parent);
+      MenuBar.refresh();
+      State.dirty();
+    };
+    inp.addEventListener('keydown', ev => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') inp.blur();
+      if (ev.key === 'Escape'){ inp.value = item.name; inp.blur(); }
+    });
+    inp.addEventListener('blur', commit);
+    inp.addEventListener('mousedown', ev => ev.stopPropagation());
+    setTimeout(() => { inp.focus(); inp.select(); }, 20);
+  },
+
+  dragIcon(e, item, ic){
+    let ghost = null;
+    const self = this;
+    drag(e, {
+      begin(){
+        ghost = ic.cloneNode(true);
+        ghost.id = 'dragGhost';
+        ghost.classList.remove('selected');
+        stage.appendChild(ghost);
+      },
+      move(dx, dy, p){
+        ghost.style.left = (p.x - 33) + 'px';
+        ghost.style.top = (p.y - 18) + 'px';
+      },
+      up(moved, p, ev){
+        if (!ghost) return;
+        ghost.remove();
+        const target = self.dropTarget(ev, item);
+        if (!target) return;
+        self.handleDrop(item, target, p);
+      }
+    });
+  },
+
+  dropTarget(ev, item){
+    const elAt = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (!elAt || !elAt.closest) return null;
+    const icEl = elAt.closest('.icon');
+    if (icEl && icEl.dataset.id !== item.id){
+      const t = itemById(icEl.dataset.id);
+      if (t && ['folder', 'profile', 'diskette', 'waste', 'clip'].indexOf(t.kind) >= 0)
+        return { kind: 'item', item: t };
+    }
+    const winEl = elAt.closest('.lwin');
+    if (winEl){
+      const w = Wins.list.find(x => x.el === winEl);
+      if (w && w.kind === 'container') return { kind: 'container', id: w.item.id, win: w };
+      return null;
+    }
+    if (elAt.closest('#desktop')) return { kind: 'container', id: 'desktop' };
+    return null;
+  },
+
+  handleDrop(item, target, p){
+    if (target.kind === 'item'){
+      const t = target.item;
+      if (t.kind === 'waste'){ this.discard(item); return; }
+      if (t.kind === 'clip'){
+        Dialogs.alert('The Clipboard holds only what you cut or copy from within a document. To put “' + esc(item.name) + '” somewhere, please drag it to a folder or a disk instead.');
+        return;
+      }
+      if (['profile', 'diskette', 'folder'].indexOf(t.kind) >= 0){
+        this.moveTo(item, t.id, null);
+      }
+      return;
+    }
+    // container drop with a position
+    let pos = null;
+    if (target.id === 'desktop'){
+      pos = { x: clamp(p.x - 33, 0, 650), y: clamp(p.y - 17 - 18, 0, 300) };
+    } else if (target.win){
+      const host = target.win.icHost;
+      const r = host.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      const k = sr.width / 720, kv = sr.height / 364;
+      pos = { x: clamp((p.x - (r.left - sr.left) / k) - 33, 0, 2000), y: clamp((p.y - (r.top - sr.top) / kv) - 18, 0, 2000) };
+    }
+    this.moveTo(item, target.id, pos);
+  },
+
+  moveTo(item, cid, pos){
+    if (cid === item.id || (itemById(cid) && isDescendant(itemById(cid), item.id))){
+      Dialogs.alert('A folder cannot be placed inside itself, however neatly it might seem to fit.');
+      return;
+    }
+    if (['profile', 'diskette', 'waste', 'clip', 'tool', 'folderpad'].indexOf(item.kind) >= 0 && cid !== 'desktop' && item.kind !== 'tool'){
+      // disks and desk furniture stay on the desktop
+      if (item.kind !== 'tool'){
+        if (pos && item.parent === 'desktop'){ item.pos = pos; this.renderContainer('desktop'); State.dirty(); return; }
+        Dialogs.alert('“' + esc(item.name) + '” prefers to remain on the desktop, where it can be reached at any time.');
+        return;
+      }
+    }
+    const srcDisk = diskOf(item), dstDisk = cid === 'desktop' ? 'profile' : diskOf(itemById(cid) || { parent: cid });
+    if (srcDisk !== dstDisk){
+      // moving between disks copies, as it did on the Lisa
+      this.copyBetweenDisks(item, cid, pos);
+      return;
+    }
+    const oldParent = item.parent;
+    item.parent = cid;
+    item.pos = pos || this.findFreeSlot(cid);
+    if (item.home && cid !== 'desktop') item.home = null;
+    this.renderContainer(oldParent);
+    this.renderContainer(cid);
+    State.dirty();
+  },
+
+  copyBetweenDisks(item, cid, pos){
+    const destDiskItem = cid === 'desktop' ? itemById('profile') : itemById(diskOf(itemById(cid)));
+    const capacity = destDiskItem && destDiskItem.kind === 'diskette' ? 400 : 5120;
+    const used = usedK(destDiskItem ? destDiskItem.id : 'profile');
+    const need = computeSizeK(item);
+    if (used + need > capacity){
+      Dialogs.alert('There is not enough room on “' + esc(destDiskItem.name) + '” for “' + esc(item.name) + '”. The diskette holds 400K, and ' + used + 'K of it is already in use. You might discard something first, or use a fresh diskette.');
+      return;
+    }
+    const n = Dialogs.narrate('The Lisa is copying “' + esc(item.name) + '” — one moment, please…');
+    setTimeout(() => {
+      const copy = this.cloneItem(item, cid);
+      copy.pos = pos || this.findFreeSlot(cid);
+      n.close();
+      this.renderContainer(cid);
+      State.dirty();
+    }, 700);
+  },
+
+  cloneItem(item, cid, nameOverride){
+    const copy = deepCopy(item);
+    copy.id = uid();
+    copy.parent = cid;
+    copy.name = nameOverride || uniqueName(item.name, cid);
+    copy.openState = null; copy.home = null; copy.win = null;
+    copy.created = simNow().toISOString(); copy.modified = copy.created;
+    FS[copy.id] = copy;
+    if (item.kind === 'folder'){
+      childrenOf(item.id).forEach(c => {
+        const cc = this.cloneItem(c, copy.id, c.name);
+        cc.pos = Object.assign({}, c.pos);
+      });
+    }
+    return copy;
+  },
+
+  findFreeSlot(cid){
+    const kids = childrenOf(cid);
+    const taken = {};
+    kids.forEach(k => { taken[Math.round(k.pos.x / 72) + ',' + Math.round(k.pos.y / 48)] = 1; });
+    const cols = cid === 'desktop' ? 8 : 5;
+    for (let row = 0; row < 12; row++)
+      for (let col = 0; col < cols; col++)
+        if (!taken[col + ',' + row]) return { x: 10 + col * 72, y: 8 + row * 48 };
+    return { x: 10, y: 8 };
+  },
+
+  /* set-aside icons wait along the bottom of the desktop, as they did */
+  findAsideSlot(){
+    const kids = childrenOf('desktop');
+    for (let row = 6; row >= 0; row--){
+      for (let col = 0; col < 8; col++){
+        const x = 10 + col * 72, y = 8 + row * 48;
+        if (!kids.some(k => Math.abs(k.pos.x - x) < 60 && Math.abs(k.pos.y - y) < 40))
+          return { x, y };
+      }
+    }
+    return this.findFreeSlot('desktop');
+  },
+
+  straighten(cid){
+    const kids = childrenOf(cid).sort((a, b) => a.name.localeCompare(b.name));
+    const cols = cid === 'desktop' ? 8 : 5;
+    kids.forEach((k, i) => {
+      if (cid === 'desktop' && ['profile', 'waste', 'clip', 'diskette'].indexOf(k.kind) >= 0) return;
+      k.pos = { x: 10 + (i % cols) * 72, y: 8 + Math.floor(i / cols) * 48 };
+    });
+    this.renderContainer(cid);
+    State.dirty();
+  },
+
+  /* ---------- opening things ---------- */
+  openItem(item){
+    switch (item.kind){
+      case 'doc': case 'guide': this.openDoc(item); break;
+      case 'pad': this.tearPad(item); break;
+      case 'folderpad': this.tearFolder(item); break;
+      case 'folder': case 'profile': case 'diskette': case 'waste': this.openContainer(item); break;
+      case 'clip': Clip.open(); break;
+      case 'tool':
+        Dialogs.alert('“' + esc(item.name) + '” is a tool, and tools are never opened directly. To begin a document, tear a sheet from one of the stationery pads — double-click the pad, and a fresh sheet will appear beside it, ready to be named and opened.');
+        break;
+    }
+  },
+
+  openContainer(item){
+    let w = Wins.byItem(item.id);
+    if (w){ w.show(); return; }
+    const defRect = { x: 60 + (Wins.list.length % 5) * 22, y: 40 + (Wins.list.length % 5) * 16, w: 380, h: 220 };
+    w = new LisaWindow({ item, kind: 'container', rect: item.win || defRect });
+    w.menus = () => this.desktopMenus();
+    w.icHost = el(w.innerEl, 'div');
+    w.icHost.style.position = 'relative';
+    if (item.kind === 'waste') this.renderWaste(w);
+    else this.renderContainer(item.id);
+    item.openState = 'open';
+    w.innerEl.addEventListener('mousedown', e => {
+      if (e.target === w.innerEl || e.target === w.icHost) this.select(null);
+    });
+    this.renderContainer(item.parent);
+    w.restoreScroll();
+    MenuBar.refresh();
+  },
+
+  renderWaste(w){
+    const item = itemById('waste');
+    w.icHost.innerHTML = '';
+    const kids = childrenOf('waste');
+    if (!kids.length){
+      const msg = el(w.icHost, 'div', null, 'The Wastebasket is empty.');
+      msg.style.cssText = 'padding:14px;font-size:10px';
+    } else {
+      const note = el(w.icHost, 'div', null, 'Whatever is here may still be rescued — drag it out. It will be gone for good when something else is discarded.');
+      note.style.cssText = 'padding:6px 10px;font-size:9px;border-bottom:1px dashed #000';
+      kids.forEach(k => { const ic = this.makeIcon(k); ic.style.top = (k.pos.y + 34) + 'px'; w.icHost.appendChild(ic); });
+    }
+    w.icHost.style.width = '300px'; w.icHost.style.height = '130px';
+  },
+
+  discard(item){
+    if (item.openState){
+      Dialogs.alert('“' + esc(item.name) + '” is open at the moment. Please put it away first; the Lisa would not like to discard something you are still working on.');
+      return;
+    }
+    if (['profile', 'waste', 'clip'].indexOf(item.kind) >= 0){
+      Dialogs.alert('The Lisa needs “' + esc(item.name) + '” and would rather not throw it away.');
+      return;
+    }
+    const prior = childrenOf('waste');
+    prior.forEach(p => { deleteItemDeep(p); });
+    const oldParent = item.parent;
+    item.parent = 'waste';
+    item.pos = { x: 10, y: 8 };
+    item.home = null;
+    this.renderContainer(oldParent);
+    const w = Wins.byItem('waste');
+    if (w) this.renderWaste(w);
+    Sound.click();
+    if (!G.flags.wasteExplained){
+      G.flags.wasteExplained = true;
+      Dialogs.alert('“' + esc(item.name) + '” has been placed in the Wastebasket. It will wait there patiently, and you may take it back at any time — until the next thing is discarded, when the Wastebasket will quietly make room.');
+    }
+    State.dirty();
+  },
+
+  /* ---------- stationery ---------- */
+  tearPad(pad){
+    const cid = pad.parent;
+    const doc = {
+      id: uid(), kind: 'doc', tool: pad.tool, parent: cid,
+      pos: this.findFreeSlot(cid),
+      name: uniqueName('Untitled', cid),
+      content: pad.template ? deepCopy(pad.template) : Tools.defs[pad.tool].blank(),
+      created: simNow().toISOString(), modified: simNow().toISOString(),
+      openState: null, home: null, win: null
+    };
+    FS[doc.id] = doc;
+    Sound.tear();
+    // the tear: a little sheet flies from the pad to the new icon
+    const host = this.hostFor(cid);
+    if (host){
+      const bit = hel(host, 'div', 'tearBit', iconSVG({ kind: 'doc', tool: pad.tool }));
+      bit.style.left = pad.pos.x + 12 + 'px'; bit.style.top = pad.pos.y + 'px';
+      requestAnimationFrame(() => {
+        bit.style.transform = 'translate(' + (doc.pos.x - pad.pos.x) + 'px,' + (doc.pos.y - pad.pos.y) + 'px) rotate(8deg)';
+      });
+      setTimeout(() => {
+        bit.remove();
+        this.renderContainer(cid);
+        this.select(doc.id);
+        const ic = stage.querySelector('.icon[data-id="' + doc.id + '"]');
+        if (ic) this.beginRename(doc, ic.querySelector('.lbl'));
+      }, 340);
+    } else {
+      this.renderContainer(cid);
+    }
+    State.dirty();
+    return doc;
+  },
+
+  tearFolder(padItem){
+    const cid = padItem.parent;
+    const f = {
+      id: uid(), kind: 'folder', tool: null, parent: cid,
+      pos: this.findFreeSlot(cid), name: uniqueName('Empty Folder', cid),
+      created: simNow().toISOString(), modified: simNow().toISOString(),
+      openState: null, home: null, win: null
+    };
+    FS[f.id] = f;
+    Sound.tear();
+    this.renderContainer(cid);
+    this.select(f.id);
+    const ic = stage.querySelector('.icon[data-id="' + f.id + '"]');
+    if (ic) this.beginRename(f, ic.querySelector('.lbl'));
+    State.dirty();
+  },
+
+  /* ---------- documents ---------- */
+  async openDoc(item){
+    const existing = Wins.byItem(item.id);
+    if (existing){ existing.show(); item.openState = 'open'; this.renderAll(); return; }
+    if (item.password){
+      let tries = 0, ok = false;
+      while (tries < 3){
+        const p = await Dialogs.prompt('“' + esc(item.name) + '” is protected by a password. Please type it, and the document will open.', { password: true, label: 'Password:' });
+        if (p === null) return;
+        if (p === item.password){ ok = true; break; }
+        tries++;
+        if (tries < 3) await Dialogs.alert('That is not quite the password this document remembers. Please try again.');
+      }
+      if (!ok){
+        await Dialogs.alert('The password still does not match. The document will keep itself closed for now; perhaps the password will come to mind later.');
+        return;
+      }
+    }
+    this.createDocWindow(item, true);
+  },
+
+  createDocWindow(item, activate){
+    const def = Tools.defs[item.tool];
+    const n = Wins.list.length % 6;
+    const rect = item.win && item.win.w ? { x: item.win.x, y: item.win.y, w: item.win.w, h: item.win.h }
+      : { x: def.rect.x + n * 14, y: def.rect.y + n * 10, w: def.rect.w, h: def.rect.h };
+    const w = new LisaWindow({ item, kind: 'doc', rect, hasV: def.hasV !== false, hasH: !!def.hasH, grow: def.grow !== false });
+    item._saved = deepCopy(item.content);
+    w.tool = Tools.make(item, w);
+    w.menus = () => Tools.menus(item, w);
+    w.onResize = () => { if (w.tool.layout) w.tool.layout(); w.syncScroll(); };
+    item.openState = 'open';
+    if (item.win && item.win.view && w.tool.setView) w.tool.setView(item.win.view);
+    w.restoreScroll();
+    this.renderAll();
+    MenuBar.refresh();
+    State.dirty();
+    return w;
+  },
+
+  setAside(w){
+    if (!w || w.kind !== 'doc' && w.kind !== 'container' && w.kind !== 'special') return;
+    const item = w.item;
+    if (w.kind === 'doc'){
+      w.persist();
+      w.hide();
+      item.openState = 'aside';
+      if (item.parent !== 'desktop'){
+        item.home = item.parent;
+        item.parent = 'desktop';
+        item.pos = this.findAsideSlot();
+      }
+    } else {
+      // containers and the clipboard simply close
+      w.persist();
+      w.destroy();
+      item.openState = null;
+    }
+    this.renderAll();
+    State.dirty();
+  },
+
+  setAsideEverything(){
+    Wins.list.slice().forEach(w => this.setAside(w));
+  },
+
+  saveContinue(w){
+    const item = w.item;
+    if (w.tool && w.tool.flush) w.tool.flush();
+    item._saved = deepCopy(item.content);
+    item.modified = simNow().toISOString();
+    Dialogs.note('Saving “' + esc(item.name) + '”…', 800);
+    State.save();
+  },
+
+  savePutAway(w){
+    const item = w.item;
+    if (w.kind === 'doc'){
+      if (w.tool && w.tool.flush) w.tool.flush();
+      item.modified = simNow().toISOString();
+    }
+    w.persist();
+    w.destroy();
+    item.openState = null;
+    if (item.home){ item.parent = item.home; item.home = null; item.pos = this.findFreeSlot(item.parent); }
+    this.renderAll();
+    State.save();
+  },
+
+  async revert(w){
+    const item = w.item;
+    const v = await Dialogs.ask('Should “' + esc(item.name) + '” go back to the way it was when it was last saved? The changes made since then would be gently forgotten.',
+      [{ label: 'Keep Working', value: false, cancel: true }, { label: 'Revert', value: true, def: true }]);
+    if (!v) return;
+    item.content = deepCopy(item._saved || item.content);
+    if (w.tool && w.tool.refresh) w.tool.refresh();
+    State.dirty();
+  },
+
+  duplicate(item){
+    if (!item) return;
+    if (['profile', 'waste', 'clip', 'diskette'].indexOf(item.kind) >= 0){
+      Dialogs.alert('The Lisa can duplicate documents, folders and pads, but “' + esc(item.name) + '” is one of a kind.');
+      return;
+    }
+    const copy = this.cloneItem(item, item.parent);
+    copy.pos = this.findFreeSlot(item.parent);
+    this.renderContainer(item.parent);
+    this.select(copy.id);
+    State.dirty();
+  },
+
+  makePad(item){
+    if (!item || item.kind !== 'doc'){
+      Dialogs.alert('To make a stationery pad, first select a document. The pad will then tear off sheets already set up just like it.');
+      return;
+    }
+    const w = Wins.byItem(item.id);
+    if (w && w.tool && w.tool.flush) w.tool.flush();
+    const pad = {
+      id: uid(), kind: 'pad', tool: item.tool, parent: item.parent,
+      pos: this.findFreeSlot(item.parent),
+      name: uniqueName(item.name + ' Pad', item.parent),
+      template: deepCopy(item.content),
+      created: simNow().toISOString(), modified: simNow().toISOString(),
+      openState: null, home: null, win: null
+    };
+    FS[pad.id] = pad;
+    this.renderContainer(item.parent);
+    this.select(pad.id);
+    Dialogs.alert('A stationery pad has been made from “' + esc(item.name) + '”. Every sheet torn from it will begin exactly as that document is now.');
+    State.dirty();
+  },
+
+  /* ---------- menus ---------- */
+  desktopMenus(){
+    const sel = this.sel ? itemById(this.sel) : null;
+    const name = sel ? '“' + sel.name + '”' : '';
+    const anyOpen = Wins.list.length > 0;
+    const diskette = Object.values(FS).find(i => i.kind === 'diskette');
+    const activeContainer = Wins.active && (Wins.active.kind === 'container' || Wins.active.kind === 'special') ? Wins.active : null;
+    return [
+      { title: 'File/Print', items: [
+        { label: 'Set Aside Everything', cmd: 'setAsideAll', enabled: anyOpen },
+        { label: activeContainer ? 'Set Aside ' + '“' + activeContainer.item.name + '”' : 'Set Aside', cmd: 'setAside', enabled: !!activeContainer },
+        { sep: true },
+        { label: sel ? 'Open ' + name : 'Open', cmd: 'open', enabled: !!sel, key: 'O' },
+        { label: 'Duplicate', cmd: 'duplicate', enabled: !!sel, key: 'D' },
+        { label: 'Make Stationery Pad', cmd: 'makePad', enabled: !!sel && sel.kind === 'doc' },
+        { label: 'Tear Off Stationery', cmd: 'tearOff', enabled: !!sel && (sel.kind === 'pad' || sel.kind === 'folderpad') },
+        { sep: true },
+        { label: sel ? 'Attributes of ' + name + '…' : 'Attributes…', cmd: 'attributes', enabled: !!sel },
+        { label: sel ? 'Print ' + name + '…' : 'Print…', cmd: 'print', enabled: !!sel && sel.kind === 'doc' },
+        { sep: true },
+        { label: 'Save & Put Away', cmd: 'savePutAway', enabled: !!sel && sel.openState === 'aside' }
+      ]},
+      { title: 'Edit', items: [
+        { label: 'Undo Last Change', cmd: 'undo', enabled: false, key: 'Z' },
+        { sep: true },
+        { label: 'Cut', cmd: 'cut', enabled: false, key: 'X' },
+        { label: 'Copy', cmd: 'copy', enabled: false, key: 'C' },
+        { label: 'Paste', cmd: 'paste', enabled: false, key: 'V' },
+        { label: 'Clear', cmd: 'clear', enabled: false },
+        { sep: true },
+        { label: 'Select All Icons', cmd: 'selectAll', enabled: false, key: 'A' }
+      ]},
+      { title: 'Housekeeping', items: [
+        { label: 'Straighten Up Icons', cmd: 'straighten' },
+        { label: 'Empty the Wastebasket', cmd: 'emptyWaste' },
+        { sep: true },
+        { label: 'Insert a Diskette', cmd: 'insertDisk', enabled: !diskette },
+        { label: 'Put Away the Diskette', cmd: 'ejectDisk', enabled: !!diskette },
+        { label: 'Repair the Diskette…', cmd: 'repairDisk', enabled: !!diskette },
+        { sep: true },
+        { label: 'Erase the ProFile…', cmd: 'eraseProfile' }
+      ]}
+    ];
+  }
+};
+
+function deleteItemDeep(item){
+  childrenOf(item.id).forEach(c => deleteItemDeep(c));
+  const w = Wins.byItem(item.id);
+  if (w) w.destroy();
+  delete FS[item.id];
+}
+function usedK(diskId){
+  let sum = diskId === 'profile' ? 1180 : 12; // the system keeps a little for itself
+  const walk = cid => childrenOf(cid).forEach(c => {
+    if (c.kind === 'folder') walk(c.id); else sum += computeSizeK(c);
+  });
+  walk(diskId);
+  // desktop items belong to the ProFile
+  if (diskId === 'profile') childrenOf('desktop').forEach(c => {
+    if (['profile','waste','clip','diskette'].indexOf(c.kind) < 0) sum += computeSizeK(c);
+  });
+  return sum;
+}
+
+/* ============================================================
+   Attributes — never “Get Info”
+   ============================================================ */
+function showAttributes(item){
+  Dialogs.custom((d, done) => {
+    const created = item.created ? fmtDateTime(new Date(item.created)) : 'June 14, 1983  9:04 AM';
+    const modified = item.modified ? fmtDateTime(new Date(item.modified)) : created;
+    let sizeLine;
+    if (item.kind === 'profile') sizeLine = usedK('profile') + 'K in use of 5,120K. A full five megabytes — the ProFile mentions this to everyone.';
+    else if (item.kind === 'diskette') sizeLine = usedK(item.id) + 'K in use of 400K.';
+    else if (item.kind === 'waste') sizeLine = 'The Wastebasket never quite fills up. Contents may settle during shipping.';
+    else if (item.kind === 'clip') sizeLine = Clip.c ? 'Holding one thing, carefully.' : 'Empty at the moment.';
+    else sizeLine = computeSizeK(item) + 'K on the disk.';
+    let rows =
+      '<div class="dtxt"><b>' + esc(item.name) + '</b><br><br>' +
+      'Kind: ' + esc(kindLabel(item)) + '<br>' +
+      'Size: ' + sizeLine + '<br>' +
+      'Where: ' + esc(whereLabel(item)) + '<br>' +
+      'Created: ' + esc(created) + '<br>' +
+      'Last changed: ' + esc(modified) + '</div>';
+    hel(d, 'div', null, rows);
+    let pw = null;
+    if (item.kind === 'doc'){
+      pw = hel(d, 'div', 'drow', '<span class="chkbox' + (item.password ? ' on' : '') + '"><span class="bx"></span><span>Protect this document with a password</span></span>');
+      pw.querySelector('.chkbox').addEventListener('click', async ev => {
+        const box = ev.currentTarget;
+        if (item.password){
+          item.password = null; box.classList.remove('on');
+          State.dirty();
+        } else {
+          const p = await Dialogs.prompt('Please choose a password for “' + esc(item.name) + '”. The document will ask for it, politely but firmly, whenever it is opened.', { password: true, label: 'Password:' });
+          if (p){ item.password = p; box.classList.add('on'); State.dirty(); }
+        }
+      });
+    }
+    const btns = el(d, 'div', 'dbtns');
+    const ok = el(btns, 'button', 'lbtn def', 'OK');
+    ok.onclick = () => done(true);
+    d._key = ev => { if (ev.key === 'Enter'){ ok.click(); return true; } return false; };
+  });
+}
+
+/* ============================================================
+   Printing, diskettes, erasing — narrated politely
+   ============================================================ */
+function printItem(item){
+  const n = Dialogs.narrate('The Lisa is preparing “' + esc(item.name) + '” for the printer…');
+  setTimeout(() => n.set('Printing “' + esc(item.name) + '” — page 1 of 1…'), 1100);
+  setTimeout(() => {
+    n.close();
+    Dialogs.alert('“' + esc(item.name) + '” has been printed. The Lisa hopes it looks as handsome on paper as it does on the screen.');
+  }, 2400);
+}
+
+function insertDiskette(){
+  if (Object.values(FS).find(i => i.kind === 'diskette')){
+    Dialogs.alert('A diskette is already in the drive. The Lisa has only the one drive, and it is spoken for.');
+    return;
+  }
+  Sound.insertS();
+  G.insertCount = (G.insertCount || 0) + 1;
+  const proceed = () => {
+    const d = {
+      id: uid(), kind: 'diskette', tool: null, parent: 'desktop',
+      pos: { x: 576, y: 8 }, name: 'Office Diskette',
+      created: simNow().toISOString(), modified: simNow().toISOString(),
+      openState: null, home: null, win: null
+    };
+    FS[d.id] = d;
+    Desk.renderContainer('desktop');
+    State.dirty();
+  };
+  if (G.insertCount === 2 && !G.flags.repairShown){
+    G.flags.repairShown = true;
+    Dialogs.ask('The diskette needs minor repairs. Do you want to repair it? (Its faded stripes suggest it once passed through the Twiggy drive of a Lisa 1 — it has led an interesting life.)',
+      [{ label: 'Eject It', value: false }, { label: 'Repair It', value: true, def: true }]).then(v => {
+        if (!v){ Sound.ejectS(); return; }
+        const n = Dialogs.narrate('The Lisa is repairing the diskette. This will take only a moment, and the diskette will be grateful…');
+        setTimeout(() => { n.close(); proceed(); }, 1800);
+      });
+  } else {
+    proceed();
+  }
+}
+
+function ejectDiskette(){
+  const d = Object.values(FS).find(i => i.kind === 'diskette');
+  if (!d) return;
+  const openChild = Object.values(FS).find(i => i.openState && diskOf(i) === d.id);
+  if (openChild){
+    Dialogs.alert('A document from the diskette is still open. Please put it away first, so the diskette may leave with everything it arrived with.');
+    return;
+  }
+  const w = Wins.byItem(d.id);
+  if (w) w.destroy();
+  deleteItemDeep(d);
+  Sound.ejectS();
+  Desk.renderContainer('desktop');
+  Dialogs.note('The diskette has been put away.', 1300);
+  State.dirty();
+}
+
+function repairDiskette(){
+  const n = Dialogs.narrate('The Lisa is looking the diskette over…');
+  setTimeout(() => {
+    n.close();
+    Dialogs.alert('The diskette appears to be in fine health. No repairs are needed today.');
+  }, 1400);
+}
+
+async function eraseProfile(){
+  const v1 = await Dialogs.ask('You are asking the Lisa to erase the ProFile. Every document, every folder, every stationery pad — the entire office — would be gone, permanently and completely. This is not a small thing.',
+    [{ label: 'Keep Everything', value: false, def: true, cancel: true }, { label: 'Continue…', value: true }]);
+  if (!v1) return;
+  const v2 = await Dialogs.ask('The Lisa asks once more, to be quite certain: erase the ProFile and lose everything on it?',
+    [{ label: 'Keep Everything', value: false, def: true, cancel: true }, { label: 'Erase the ProFile', value: true }]);
+  if (!v2) return;
+  const n = Dialogs.narrate('The Lisa is erasing the ProFile. It was a pleasure keeping your things…');
+  Sound.hum(false);
+  setTimeout(() => {
+    State.reset();
+    location.reload();
+  }, 2200);
+}
+
+/* ============================================================
+   Command dispatch
+   ============================================================ */
+const Commands = {
+  run(cmd, arg){
+    const w = Wins.active;
+    // give the active tool first refusal
+    if (w && w.tool && w.tool.command && w.tool.command(cmd, arg)) { State.dirty(); return; }
+    const sel = Desk.sel ? itemById(Desk.sel) : null;
+    switch (cmd){
+      case 'open': if (sel) Desk.openItem(sel); break;
+      case 'setAside': if (w) Desk.setAside(w); break;
+      case 'setAsideAll': Desk.setAsideEverything(); break;
+      case 'saveContinue': if (w && w.kind === 'doc') Desk.saveContinue(w); break;
+      case 'savePutAway':
+        if (w && (w.kind === 'doc' || w.kind === 'container' || w.kind === 'special')) Desk.savePutAway(w);
+        else if (sel && sel.openState === 'aside'){
+          // an aside icon put away from the desktop
+          const hw = Wins.byItem(sel.id);
+          if (hw) { Desk.savePutAway(hw); }
+          else { sel.openState = null; if (sel.home){ sel.parent = sel.home; sel.home = null; sel.pos = Desk.findFreeSlot(sel.parent); } Desk.renderAll(); State.dirty(); }
+        }
+        break;
+      case 'revert': if (w && w.kind === 'doc') Desk.revert(w); break;
+      case 'duplicate': if (sel) Desk.duplicate(sel); break;
+      case 'makePad': if (w && w.kind === 'doc') Desk.makePad(w.item); else Desk.makePad(sel); break;
+      case 'tearOff': if (sel && sel.kind === 'pad') Desk.tearPad(sel); else if (sel && sel.kind === 'folderpad') Desk.tearFolder(sel); break;
+      case 'attributes': showAttributes(w && w.kind === 'doc' ? w.item : (sel || itemById('profile'))); break;
+      case 'print': printItem(w && w.kind === 'doc' ? w.item : sel); break;
+      case 'straighten': Desk.straighten(Wins.active && Wins.active.kind === 'container' ? Wins.active.item.id : 'desktop'); break;
+      case 'insertDisk': insertDiskette(); break;
+      case 'ejectDisk': ejectDiskette(); break;
+      case 'repairDisk': repairDiskette(); break;
+      case 'emptyWaste':
+        Dialogs.alert('The Lisa’s Wastebasket empties itself: whatever rests inside is kept until the next thing is discarded, and then it quietly makes room. There is nothing you need to do — which is, the Lisa feels, how housekeeping ought to work.');
+        break;
+      case 'eraseProfile': eraseProfile(); break;
+      case 'paste':
+        if (Clip.c) Dialogs.alert('The Clipboard is holding something, but it can only be pasted into an open document.');
+        break;
+      default: break;
+    }
+  }
+};
+/* ============================================================
+   The tool framework — tools are invisible plumbing
+   ============================================================ */
+const Tools = {
+  defs: {},
+  impls: {},
+  register(id, def, impl){ this.defs[id] = def; this.impls[id] = impl; },
+  make(item, win){ return new (this.impls[item.tool])(item, win); },
+  menus(item, win){
+    const t = win.tool || {};
+    const trees = [];
+    trees.push({ title: 'File/Print', items: [
+      { label: 'Set Aside Everything', cmd: 'setAsideAll' },
+      { label: 'Set Aside “' + item.name + '”', cmd: 'setAside' },
+      { sep: true },
+      { label: 'Save & Continue', cmd: 'saveContinue', key: 'S', enabled: item.kind === 'doc' },
+      { label: 'Save & Put Away', cmd: 'savePutAway' },
+      { label: 'Revert to Previous Version', cmd: 'revert', enabled: item.kind === 'doc' },
+      { sep: true },
+      { label: 'Format for the Printer…', cmd: 'print' },
+      { label: 'Print As Is…', cmd: 'print', key: 'P' },
+      { sep: true },
+      { label: 'Attributes of “' + item.name + '”…', cmd: 'attributes' }
+    ]});
+    trees.push({ title: 'Edit', items: [
+      { label: 'Undo Last Change', cmd: 'undo', key: 'Z', enabled: () => !!(t.canUndo && t.canUndo()) },
+      { sep: true },
+      { label: 'Cut', cmd: 'cut', key: 'X', enabled: () => !!(t.canCopy && t.canCopy()) },
+      { label: 'Copy', cmd: 'copy', key: 'C', enabled: () => !!(t.canCopy && t.canCopy()) },
+      { label: 'Paste', cmd: 'paste', key: 'V', enabled: () => !!(t.canPaste && t.canPaste(Clip.c)) },
+      { label: 'Clear', cmd: 'clear', enabled: () => !!(t.canCopy && t.canCopy()) },
+      { sep: true },
+      { label: 'Select All', cmd: 'selectAll', key: 'A', enabled: () => !!t.selectAll }
+    ]});
+    (t.menus ? t.menus() : []).forEach(x => trees.push(x));
+    return trees;
+  }
+};
+
+/* ============================================================
+   LisaWrite — WYSIWYG proportional text, 1983
+   ============================================================ */
+Tools.register('write', {
+  name: 'LisaWrite',
+  rect: { x: 64, y: 34, w: 470, h: 305 },
+  blank(){ return { html: '', mL: 34, mR: 34, tabs: [120, 220] }; }
+}, class LisaWrite {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    const c = item.content;
+    const wrap = el(win.innerEl, 'div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;height:100%';
+    this.ruler = el(wrap, 'div', 'wr-ruler');
+    this.scroll = el(wrap, 'div', 'wr-scroll');
+    win.scrollEl = this.scroll;
+    this.page = el(this.scroll, 'div', 'wr-page');
+    this.edit = el(this.page, 'div', 'wr-edit');
+    this.edit.contentEditable = 'true';
+    this.edit.spellcheck = false;
+    this.edit.innerHTML = c.html || '';
+    this.breaks = el(this.page, 'div');
+    this.edit.addEventListener('input', () => { this.layoutBreaks(); State.dirty(); });
+    this.edit.addEventListener('mousedown', e => e.stopPropagation());
+    this.edit.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if ((e.metaKey || e.ctrlKey)){
+        const k = e.key.toLowerCase();
+        const map = { b: 'bold', i: 'italic', u: 'underline', z: 'undo', x: 'cut', c: 'copy', v: 'paste', a: 'selectAll', s: 'saveContinue' };
+        if (map[k]){ e.preventDefault(); Commands.run(map[k]); return; }
+      }
+      if (e.key === 'Tab'){
+        e.preventDefault();
+        document.execCommand('insertHTML', false, '  ');
+      }
+    });
+    this.buildRuler();
+    this.applyMargins();
+    setTimeout(() => this.layoutBreaks(), 50);
+    win.onResize = () => { this.buildRuler(); this.layoutBreaks(); win.syncScroll(); };
+  }
+  buildRuler(){
+    const c = this.item.content, r = this.ruler;
+    r.innerHTML = '';
+    el(r, 'div', 'ticks');
+    const w = this.win.rect.w - 20;
+    for (let i = 0; i * 72 < w; i++){
+      const n = el(r, 'span', 'num', String(i));
+      n.style.left = (i * 72 + 2) + 'px';
+    }
+    const mL = el(r, 'div', 'wr-mark mL'); mL.style.left = c.mL + 'px';
+    const mR = el(r, 'div', 'wr-mark mR'); mR.style.left = (w - c.mR) + 'px';
+    const self = this;
+    mL.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      const v0 = c.mL;
+      drag(e, { move(dx){ c.mL = clamp(v0 + dx, 4, 160); mL.style.left = c.mL + 'px'; self.applyMargins(); }, up(){ State.dirty(); } });
+    });
+    mR.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      const v0 = c.mR;
+      drag(e, { move(dx){ c.mR = clamp(v0 - dx, 4, 160); mR.style.left = (w - c.mR) + 'px'; self.applyMargins(); }, up(){ State.dirty(); } });
+    });
+    (c.tabs || []).forEach((tx, i) => {
+      const t = el(r, 'div', 'wr-tab', '⊥');
+      t.style.left = tx + 'px';
+      t.title = 'Click to remove this tab stop';
+      t.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        c.tabs.splice(i, 1);
+        self.buildRuler(); State.dirty();
+      });
+    });
+    r.addEventListener('mousedown', e => {
+      if (e.target !== r && !e.target.classList.contains('ticks') && !e.target.classList.contains('num')) return;
+      e.stopPropagation();
+      const p = pt(e);
+      const rr = r.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      const x = p.x - (rr.left - sr.left) / (sr.width / 720);
+      c.tabs = c.tabs || [];
+      c.tabs.push(Math.round(x));
+      c.tabs.sort((a, b) => a - b);
+      self.buildRuler(); State.dirty();
+    });
+  }
+  applyMargins(){
+    const c = this.item.content;
+    this.edit.style.paddingLeft = c.mL + 'px';
+    this.edit.style.paddingRight = c.mR + 'px';
+  }
+  layoutBreaks(){
+    this.breaks.innerHTML = '';
+    const pageH = 264;
+    const h = this.edit.scrollHeight;
+    for (let i = 1; i * pageH < h; i++){
+      const b = el(this.breaks, 'div', 'wr-break');
+      b.style.top = (i * pageH) + 'px';
+      hel(b, 'span', null, 'page ' + i + ' ends');
+    }
+    this.win.syncScroll();
+  }
+  flush(){ this.item.content.html = this.edit.innerHTML; }
+  refresh(){ this.edit.innerHTML = this.item.content.html || ''; this.applyMargins(); this.layoutBreaks(); }
+  canUndo(){ return true; }
+  canCopy(){
+    const s = document.getSelection();
+    return !!(s && !s.isCollapsed && this.edit.contains(s.anchorNode));
+  }
+  canPaste(c){ return !!c; }
+  selectAll(){
+    const r = document.createRange();
+    r.selectNodeContents(this.edit);
+    const s = document.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  exec(c, v){ this.edit.focus(); document.execCommand(c, false, v); this.flush(); State.dirty(); }
+  command(cmd){
+    switch (cmd){
+      case 'undo': this.exec('undo'); return true;
+      case 'bold': this.exec('bold'); return true;
+      case 'italic': this.exec('italic'); return true;
+      case 'underline': this.exec('underline'); return true;
+      case 'plain': this.exec('removeFormat'); return true;
+      case 'sizeS': this.exec('fontSize', 2); return true;
+      case 'sizeM': this.exec('fontSize', 3); return true;
+      case 'sizeL': this.exec('fontSize', 5); return true;
+      case 'alignL': this.exec('justifyLeft'); return true;
+      case 'alignC': this.exec('justifyCenter'); return true;
+      case 'alignR': this.exec('justifyRight'); return true;
+      case 'alignJ': this.exec('justifyFull'); return true;
+      case 'selectAll': this.selectAll(); return true;
+      case 'clear': this.exec('delete'); return true;
+      case 'cut': case 'copy': {
+        if (!this.canCopy()) return true;
+        const s = document.getSelection();
+        const div = document.createElement('div');
+        for (let i = 0; i < s.rangeCount; i++) div.appendChild(s.getRangeAt(i).cloneContents());
+        Clip.set({ type: 'text', text: div.textContent, html: div.innerHTML, from: '“' + this.item.name + '” (LisaWrite)' });
+        if (cmd === 'cut') this.exec('delete');
+        return true;
+      }
+      case 'paste': {
+        const c = Clip.c; if (!c) return true;
+        this.edit.focus();
+        if (c.type === 'text') this.exec('insertHTML', c.html || esc(c.text));
+        else if (c.type === 'table') this.exec('insertHTML', tableHTML(c.rows));
+        else if (c.type === 'picture') this.exec('insertHTML', '<div>' + c.svg + '</div><br>');
+        this.layoutBreaks();
+        return true;
+      }
+      case 'spell': this.spell(); return true;
+      default: return false;
+    }
+  }
+  spell(){
+    const text = this.edit.textContent.toLowerCase();
+    const typos = { 'teh': 'the', 'adn': 'and', 'recieve': 'receive', 'seperate': 'separate', 'wierd': 'weird' };
+    const found = Object.keys(typos).filter(t => new RegExp('\\b' + t + '\\b').test(text));
+    if (found.length){
+      Dialogs.alert('LisaWrite has read the document carefully and would like to mention ' +
+        (found.length === 1 ? 'one word' : found.length + ' words') + ' it does not recognize: ' +
+        found.map(f => '“' + f + '” (perhaps “' + typos[f] + '”?)').join(', ') + '. No changes have been made — the document is yours.');
+    } else {
+      Dialogs.alert('LisaWrite has read the document from beginning to end and found no words it does not recognize. It offers its compliments on the typing.');
+    }
+  }
+  menus(){
+    return [
+      { title: 'Search', items: [
+        { label: 'Find…', cmd: 'find', key: 'F' },
+        { sep: true },
+        { label: 'Check Spelling…', cmd: 'spell' }
+      ]},
+      { title: 'Type Style', items: [
+        { label: 'Plain Text', cmd: 'plain' },
+        { label: 'Bold', cmd: 'bold', key: 'B' },
+        { label: 'Italic', cmd: 'italic', key: 'I' },
+        { label: 'Underline', cmd: 'underline', key: 'U' },
+        { sep: true },
+        { label: 'Small (10 point)', cmd: 'sizeS' },
+        { label: 'Medium (12 point)', cmd: 'sizeM' },
+        { label: 'Large (18 point)', cmd: 'sizeL' }
+      ]},
+      { title: 'Format', items: [
+        { label: 'Flush Left', cmd: 'alignL' },
+        { label: 'Centered', cmd: 'alignC' },
+        { label: 'Flush Right', cmd: 'alignR' },
+        { label: 'Justified', cmd: 'alignJ' }
+      ]}
+    ];
+  }
+  key(){ return false; }
+  find(){
+    const self = this;
+    Dialogs.prompt('What should LisaWrite look for? It will select the first place the words appear.', { label: 'Find:' }).then(q => {
+      if (!q) return;
+      const idx = self.edit.textContent.toLowerCase().indexOf(q.toLowerCase());
+      if (idx < 0){ Dialogs.alert('LisaWrite searched the whole document and did not find “' + esc(q) + '”. Perhaps it is spelled differently.'); return; }
+      self.setCaret(idx, idx + q.length);
+    });
+  }
+  /* caret helpers — so Soft Power can put the cursor back */
+  textOffset(){
+    const s = document.getSelection();
+    if (!s || !s.anchorNode || !this.edit.contains(s.anchorNode)) return null;
+    try {
+      const r = s.getRangeAt(0);
+      const pre = r.cloneRange();
+      pre.selectNodeContents(this.edit);
+      pre.setEnd(r.startContainer, r.startOffset);
+      return pre.toString().length;
+    } catch (e) { return null; }
+  }
+  setCaret(start, end){
+    const walker = document.createTreeWalker(this.edit, NodeFilter.SHOW_TEXT);
+    let pos = 0, sN = null, sO = 0, eN = null, eO = 0, node;
+    end = end === undefined ? start : end;
+    while ((node = walker.nextNode())){
+      const len = node.textContent.length;
+      if (!sN && pos + len >= start){ sN = node; sO = start - pos; }
+      if (pos + len >= end){ eN = node; eO = end - pos; break; }
+      pos += len;
+    }
+    if (sN){
+      const r = document.createRange();
+      r.setStart(sN, clamp(sO, 0, sN.textContent.length));
+      r.setEnd(eN || sN, clamp(eO, 0, (eN || sN).textContent.length));
+      const s = document.getSelection(); s.removeAllRanges(); s.addRange(r);
+      this.edit.focus();
+    }
+  }
+  getView(){ return { caret: this.textOffset() }; }
+  setView(v){ if (v && v.caret != null) setTimeout(() => this.setCaret(v.caret), 80); }
+});
+// route the Find command
+const _wrRun = Commands.run.bind(Commands);
+Commands.run = function(cmd, arg){
+  if (cmd === 'find' && Wins.active && Wins.active.tool && Wins.active.tool.find){ Wins.active.tool.find(); return; }
+  _wrRun(cmd, arg);
+};
+
+/* ============================================================
+   LisaCalc — the spreadsheet
+   ============================================================ */
+const CALC_COLS = 'ABCDEFGHIJKLMNOPQRST'.split('');
+const CALC_ROWS = 40;
+function refOf(col, row){ return CALC_COLS[col] + (row + 1); }
+function parseRef(ref){
+  const m = /^([A-T])([0-9]+)$/.exec(ref);
+  return m ? { c: CALC_COLS.indexOf(m[1]), r: +m[2] - 1 } : null;
+}
+Tools.register('calc', {
+  name: 'LisaCalc',
+  rect: { x: 90, y: 36, w: 520, h: 300 },
+  hasH: true,
+  blank(){ return { cells: {}, fmt: {} }; }
+}, class LisaCalc {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    this.sel = 'A1'; this.selEnd = null;
+    const wrap = el(win.innerEl, 'div', 'lc-wrap');
+    const entry = el(wrap, 'div', 'lc-entry');
+    this.refEl = el(entry, 'div', 'lc-ref', 'A1');
+    this.input = el(entry, 'input');
+    this.scroll = el(wrap, 'div', 'lc-scroll');
+    win.scrollEl = this.scroll;
+    this.buildGrid();
+    this.input.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter'){ e.preventDefault(); this.commit(); this.move(0, 1); }
+      else if (e.key === 'Tab'){ e.preventDefault(); this.commit(); this.move(1, 0); }
+      else if (e.key === 'Escape'){ this.input.value = this.raw(this.sel); this.input.blur(); }
+    });
+    this.input.addEventListener('mousedown', e => e.stopPropagation());
+    this.recalc();
+    this.select('A1');
+    this.scroll.addEventListener('scroll', () => win.syncScroll());
+  }
+  buildGrid(){
+    let h = '<table class="grid" style="width:' + (26 + CALC_COLS.length * 56) + 'px"><thead><tr><th class="corner" style="width:26px"></th>';
+    CALC_COLS.forEach(c => h += '<th style="width:56px">' + c + '</th>');
+    h += '</tr></thead><tbody>';
+    for (let r = 0; r < CALC_ROWS; r++){
+      h += '<tr><th>' + (r + 1) + '</th>';
+      for (let c = 0; c < CALC_COLS.length; c++) h += '<td data-ref="' + refOf(c, r) + '"></td>';
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+    this.scroll.innerHTML = h;
+    this.scroll.addEventListener('mousedown', e => {
+      const td = e.target.closest('td[data-ref]');
+      if (!td) return;
+      e.stopPropagation();
+      if (e.shiftKey){ this.selEnd = td.dataset.ref; this.paint(); }
+      else { this.commitIfEditing(); this.select(td.dataset.ref); }
+    });
+    this.scroll.addEventListener('dblclick', e => {
+      const td = e.target.closest('td[data-ref]');
+      if (td){ this.input.focus(); this.input.select(); }
+    });
+  }
+  raw(ref){ return this.item.content.cells[ref] || ''; }
+  commitIfEditing(){
+    if (document.activeElement === this.input && this.input.value !== this.raw(this.sel)) this.commit();
+  }
+  commit(){
+    const v = this.input.value.trim();
+    const cells = this.item.content.cells;
+    if (v === '') delete cells[this.sel]; else cells[this.sel] = v;
+    this.recalc();
+    State.dirty();
+  }
+  select(ref){
+    this.sel = ref; this.selEnd = null;
+    this.refEl.textContent = ref;
+    this.input.value = this.raw(ref);
+    this.paint();
+    MenuBar.refresh();
+  }
+  move(dc, dr){
+    const p = parseRef(this.sel);
+    const c = clamp(p.c + dc, 0, CALC_COLS.length - 1), r = clamp(p.r + dr, 0, CALC_ROWS - 1);
+    this.select(refOf(c, r));
+  }
+  rangeRefs(){
+    if (!this.selEnd) return [[this.sel]];
+    const a = parseRef(this.sel), b = parseRef(this.selEnd);
+    const rows = [];
+    for (let r = Math.min(a.r, b.r); r <= Math.max(a.r, b.r); r++){
+      const row = [];
+      for (let c = Math.min(a.c, b.c); c <= Math.max(a.c, b.c); c++) row.push(refOf(c, r));
+      rows.push(row);
+    }
+    return rows;
+  }
+  paint(){
+    this.scroll.querySelectorAll('.cellSel,.cellRange').forEach(x => x.classList.remove('cellSel', 'cellRange'));
+    const td = this.scroll.querySelector('td[data-ref="' + this.sel + '"]');
+    if (td) td.classList.add('cellSel');
+    if (this.selEnd) this.rangeRefs().flat().forEach(r => {
+      const t = this.scroll.querySelector('td[data-ref="' + r + '"]');
+      if (t && r !== this.sel) t.classList.add('cellRange');
+    });
+  }
+  value(ref, visiting){
+    const raw = this.raw(ref);
+    if (raw === '') return 0;
+    if (/^-?[0-9.]+$/.test(raw)) return parseFloat(raw) || 0;
+    if (raw[0] !== '=') return 0; // text counts for nothing, arithmetically
+    if (visiting[ref]) { const e = new Error('circ'); e.circ = true; e.ref = ref; throw e; }
+    visiting[ref] = true;
+    try { return this.evalExpr(raw.slice(1), visiting); }
+    finally { delete visiting[ref]; }
+  }
+  evalExpr(expr, visiting){
+    if (!/^[A-Za-z0-9+\-*/(). ,:]*$/.test(expr)) throw new Error('bad');
+    const self = this;
+    let src = expr.toUpperCase()
+      .replace(/\b(SUM|AVERAGE|COUNT|MIN|MAX)\(([A-T][0-9]+):([A-T][0-9]+)\)/g, 'FN("$1","$2","$3")');
+    // rewrite bare cell references, leaving the quoted ones alone
+    src = src.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/\b([A-T][0-9]+)\b/g, 'V("$1")')).join('"');
+    if (/[A-Z]/.test(src.replace(/"[^"]*"/g, '').replace(/FN|V/g, ''))) throw new Error('bad');
+    const V = r => self.value(r, visiting);
+    const FN = (fn, a, b) => {
+      const pa = parseRef(a), pb = parseRef(b);
+      const vals = [];
+      for (let r = Math.min(pa.r, pb.r); r <= Math.max(pa.r, pb.r); r++)
+        for (let c = Math.min(pa.c, pb.c); c <= Math.max(pa.c, pb.c); c++)
+          vals.push(self.value(refOf(c, r), visiting));
+      if (fn === 'SUM') return vals.reduce((s, v) => s + v, 0);
+      if (fn === 'AVERAGE') return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+      if (fn === 'COUNT') return vals.length;
+      if (fn === 'MIN') return Math.min.apply(null, vals);
+      return Math.max.apply(null, vals);
+    };
+    const out = new Function('V', 'FN', 'return (' + src + ');')(V, FN);
+    if (typeof out !== 'number' || !isFinite(out)) throw new Error('bad');
+    return out;
+  }
+  display(ref){
+    const raw = this.raw(ref);
+    if (raw === '') return { text: '', num: false };
+    if (/^-?[0-9.]+$/.test(raw)) return { text: this.fmtNum(ref, parseFloat(raw)), num: true };
+    if (raw[0] === '='){
+      try { return { text: this.fmtNum(ref, this.value(ref, {})), num: true }; }
+      catch (e) { return { text: e.circ ? 'CIRCULAR' : '???', num: false, err: true, circ: e.circ }; }
+    }
+    return { text: raw, num: false };
+  }
+  fmtNum(ref, v){
+    const f = (this.item.content.fmt || {})[ref];
+    const round2 = x => (Math.round(x * 100) / 100).toFixed(2);
+    if (f === '$') return '$' + Number(round2(v)).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    if (f === '%') return round2(v * 100) + '%';
+    return String(Math.round(v * 10000) / 10000);
+  }
+  recalc(){
+    let circWarned = false;
+    for (let r = 0; r < CALC_ROWS; r++) for (let c = 0; c < CALC_COLS.length; c++){
+      const ref = refOf(c, r);
+      const td = this.scroll.querySelector('td[data-ref="' + ref + '"]');
+      if (!td) continue;
+      const d = this.display(ref);
+      td.textContent = d.text;
+      td.classList.toggle('num', !!d.num);
+      if (d.circ && !circWarned && !this._circShown){
+        circWarned = true; this._circShown = true;
+        Dialogs.alert('The formula in cell ' + ref + ' refers, by way of other cells, back to its own cell. LisaCalc went around the circle once, grew dizzy, and stopped. Perhaps one of the cells could refer somewhere else.');
+        setTimeout(() => { this._circShown = false; }, 100);
+      }
+    }
+    this.win.syncScroll();
+  }
+  flush(){ /* cells are edited in place */ }
+  refresh(){ this.recalc(); this.select(this.sel); }
+  canUndo(){ return false; }
+  canCopy(){ return true; }
+  canPaste(c){ return !!c && (c.type === 'table' || c.type === 'text'); }
+  selectAll(){ this.selEnd = refOf(CALC_COLS.length - 1, CALC_ROWS - 1); const s = this.sel; this.sel = 'A1'; this.paint(); this.sel = s; }
+  command(cmd){
+    switch (cmd){
+      case 'copy': case 'cut': {
+        const rows = this.rangeRefs().map(row => row.map(ref => this.display(ref).text));
+        Clip.set({ type: 'table', rows, from: '“' + this.item.name + '” (LisaCalc)' });
+        if (cmd === 'cut'){ this.rangeRefs().flat().forEach(ref => delete this.item.content.cells[ref]); this.recalc(); State.dirty(); }
+        return true;
+      }
+      case 'paste': {
+        const c = Clip.c; if (!c) return true;
+        const p = parseRef(this.sel);
+        const rows = c.type === 'table' ? c.rows : String(c.text || '').split('\n').map(l => [l]);
+        rows.forEach((row, dr) => row.forEach((v, dc) => {
+          if (p.r + dr < CALC_ROWS && p.c + dc < CALC_COLS.length){
+            const ref = refOf(p.c + dc, p.r + dr);
+            const s = String(v).replace(/[$,]/g, '');
+            this.item.content.cells[ref] = s;
+          }
+        }));
+        this.recalc(); State.dirty();
+        return true;
+      }
+      case 'clear': this.rangeRefs().flat().forEach(ref => delete this.item.content.cells[ref]); this.recalc(); State.dirty(); return true;
+      case 'selectAll': this.selectAll(); return true;
+      case 'fmtPlain': case 'fmtDollar': case 'fmtPct': {
+        const f = cmd === 'fmtDollar' ? '$' : cmd === 'fmtPct' ? '%' : null;
+        const fmt = this.item.content.fmt = this.item.content.fmt || {};
+        this.rangeRefs().flat().forEach(ref => { if (f) fmt[ref] = f; else delete fmt[ref]; });
+        this.recalc(); State.dirty();
+        return true;
+      }
+      default: return false;
+    }
+  }
+  menus(){
+    return [
+      { title: 'Calculate', items: [
+        { label: 'Calculate Now', cmd: 'recalcNow' },
+        { sep: true },
+        { label: 'About Formulas…', cmd: 'calcHelp' }
+      ]},
+      { title: 'Format', items: [
+        { label: 'Plain Numbers', cmd: 'fmtPlain' },
+        { label: 'Dollars and Cents', cmd: 'fmtDollar' },
+        { label: 'Percent', cmd: 'fmtPct' }
+      ]}
+    ];
+  }
+  key(e){
+    if (document.activeElement === this.input) return true;
+    if (e.key.startsWith('Arrow')){
+      this.commitIfEditing();
+      if (e.key === 'ArrowUp') this.move(0, -1);
+      if (e.key === 'ArrowDown') this.move(0, 1);
+      if (e.key === 'ArrowLeft') this.move(-1, 0);
+      if (e.key === 'ArrowRight') this.move(1, 0);
+      return true;
+    }
+    if (e.key === 'Enter'){ this.input.focus(); return true; }
+    if (e.key.length === 1 && !e.metaKey && !e.ctrlKey){
+      this.input.value = e.key;
+      this.input.focus();
+      setTimeout(() => this.input.setSelectionRange(1, 1), 0);
+      return true;
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete'){ this.command('clear'); return true; }
+    return false;
+  }
+  getView(){ return { sel: this.sel }; }
+  setView(v){ if (v && v.sel && parseRef(v.sel)) this.select(v.sel); }
+});
+// two small LisaCalc commands that need Dialogs
+const _calcRun = Commands.run.bind(Commands);
+Commands.run = function(cmd, arg){
+  const t = Wins.active && Wins.active.tool;
+  if (cmd === 'recalcNow' && t && t.recalc){ t.recalc(); Dialogs.note('LisaCalc has recalculated everything.', 1000); return; }
+  if (cmd === 'calcHelp'){
+    Dialogs.alert('A cell may hold words, a number, or a formula. Formulas begin with an equals sign — for example, =B2*1.06 or =SUM(A1:A8). LisaCalc also understands AVERAGE, COUNT, MIN and MAX, and it recalculates the moment anything changes.');
+    return;
+  }
+  _calcRun(cmd, arg);
+};
+
+/* ============================================================
+   LisaDraw — structured drawing, the ancestor of them all
+   ============================================================ */
+const DRAW_TOOLS = [
+  { id: 'sel',  glyph: '<path d="M3 1 L3 12 L6.5 9 L9 14 L11 13 L8.6 8.4 L12 8 Z" fill="#000" stroke="#000"/>' },
+  { id: 'text', glyph: '<path d="M3 3 h8 M7 3 v9" stroke="#000" fill="none" stroke-width="1.4"/>' },
+  { id: 'line', glyph: '<path d="M2 12 L12 3" stroke="#000"/>' },
+  { id: 'rect', glyph: '<rect x="2.5" y="3.5" width="9" height="7" fill="none" stroke="#000"/>' },
+  { id: 'rrect', glyph: '<rect x="2.5" y="3.5" width="9" height="7" rx="2.5" fill="none" stroke="#000"/>' },
+  { id: 'ellipse', glyph: '<ellipse cx="7" cy="7" rx="4.8" ry="3.6" fill="none" stroke="#000"/>' },
+  { id: 'poly', glyph: '<path d="M2 11 L5 3 L9 6 L12 4 L10 12 Z" fill="none" stroke="#000"/>' }
+];
+Tools.register('draw', {
+  name: 'LisaDraw',
+  rect: { x: 100, y: 32, w: 560, h: 315 },
+  hasH: true,
+  blank(){ return { objects: [], snap: true }; }
+}, class LisaDraw {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    this.mode = 'sel'; this.fill = 'pw';
+    this.selIdx = [];
+    this.undoStack = [];
+    this.polyPts = null;
+    const wrap = el(win.innerEl, 'div', 'dw-wrap');
+    this.toolsEl = el(wrap, 'div', 'dw-tools');
+    DRAW_TOOLS.forEach(t => {
+      const b = hel(this.toolsEl, 'div', 'dw-tool' + (t.id === 'sel' ? ' on' : ''),
+        '<svg width="15" height="15" viewBox="0 0 14 15">' + t.glyph + '</svg>');
+      b.dataset.tool = t.id;
+      b.addEventListener('mousedown', e => { e.stopPropagation(); this.setMode(t.id); });
+    });
+    const main = el(wrap, 'div', 'dw-main');
+    this.canvas = el(main, 'div', 'dw-canvas');
+    win.scrollEl = this.canvas;
+    this.svgHost = el(this.canvas, 'div');
+    const pats = el(main, 'div', 'dw-pats');
+    el(pats, 'span', null, 'Shade:').style.fontSize = '9px';
+    PATTERNS.forEach(p => {
+      const sw = hel(pats, 'div', 'dw-pat' + (p.id === 'pw' ? ' on' : ''),
+        '<svg width="16" height="11"><rect width="16" height="11" fill="' + patFill(p.id) + '"/></svg>');
+      sw.dataset.pat = p.id;
+      sw.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        pats.querySelectorAll('.dw-pat').forEach(x => x.classList.remove('on'));
+        sw.classList.add('on');
+        this.fill = p.id;
+        if (this.selIdx.length){
+          this.snapshot();
+          this.selIdx.forEach(i => {
+            const o = this.item.content.objects[i];
+            if (o && o.t !== 'line' && o.t !== 'text') o.fill = p.id;
+          });
+          this.render(); State.dirty();
+        }
+      });
+    });
+    this.render();
+    this.canvas.addEventListener('mousedown', e => this.onDown(e));
+    this.canvas.addEventListener('dblclick', e => this.onDbl(e));
+  }
+  setMode(m){
+    this.mode = m;
+    this.toolsEl.querySelectorAll('.dw-tool').forEach(x => x.classList.toggle('on', x.dataset.tool === m));
+    if (m !== 'poly') this.polyPts = null;
+  }
+  snap(v){ return this.item.content.snap ? Math.round(v / 8) * 8 : Math.round(v); }
+  localPt(e){
+    const r = this.svgHost.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const kx = sr.width / 720, ky = sr.height / 364;
+    return { x: (e.clientX - r.left) / kx, y: (e.clientY - r.top) / ky };
+  }
+  snapshot(){
+    this.undoStack.push(deepCopy(this.item.content.objects));
+    if (this.undoStack.length > 12) this.undoStack.shift();
+  }
+  render(){
+    const objs = this.item.content.objects;
+    let inner = '';
+    objs.forEach((o, i) => {
+      const f = o.fill ? patFill(o.fill) : 'none';
+      if (o.t === 'rect') inner += '<rect data-i="' + i + '" x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + o.h + '" fill="' + f + '" stroke="#000"/>';
+      else if (o.t === 'rrect') inner += '<rect data-i="' + i + '" x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + o.h + '" rx="7" fill="' + f + '" stroke="#000"/>';
+      else if (o.t === 'ellipse') inner += '<ellipse data-i="' + i + '" cx="' + (o.x + o.w / 2) + '" cy="' + (o.y + o.h / 2) + '" rx="' + o.w / 2 + '" ry="' + o.h / 2 + '" fill="' + f + '" stroke="#000"/>';
+      else if (o.t === 'line') inner += '<line data-i="' + i + '" x1="' + o.x + '" y1="' + o.y + '" x2="' + (o.x + o.w) + '" y2="' + (o.y + o.h) + '" stroke="#000" stroke-width="1.4"/>';
+      else if (o.t === 'poly') inner += '<polygon data-i="' + i + '" points="' + o.pts.map(p => p.join(',')).join(' ') + '" fill="' + f + '" stroke="#000"/>';
+      else if (o.t === 'text') inner += '<text data-i="' + i + '" x="' + o.x + '" y="' + o.y + '" font-size="' + (o.size || 12) + '" font-family="Georgia,serif">' + esc(o.text) + '</text>';
+    });
+    // selection handles
+    this.selIdx.forEach(i => {
+      const b = this.bbox(objs[i]);
+      if (!b) return;
+      inner += '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" fill="none" stroke="#000" stroke-dasharray="2 2"/>';
+      [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].forEach((h, hi) => {
+        inner += '<rect data-h="' + hi + '" data-hi="' + i + '" x="' + (h[0] - 2.5) + '" y="' + (h[1] - 2.5) + '" width="5" height="5" fill="#000"/>';
+      });
+    });
+    if (this.polyPts && this.polyPts.length)
+      inner += '<polyline points="' + this.polyPts.map(p => p.join(',')).join(' ') + '" fill="none" stroke="#000" stroke-dasharray="2 2"/>';
+    this.svgHost.innerHTML = '<svg width="720" height="500" viewBox="0 0 720 500">' + inner + '</svg>';
+    this.win.syncScroll();
+  }
+  bbox(o){
+    if (!o) return null;
+    if (o.t === 'poly'){
+      const xs = o.pts.map(p => p[0]), ys = o.pts.map(p => p[1]);
+      return { x: Math.min.apply(null, xs), y: Math.min.apply(null, ys), w: Math.max.apply(null, xs) - Math.min.apply(null, xs), h: Math.max.apply(null, ys) - Math.min.apply(null, ys) };
+    }
+    if (o.t === 'text') return { x: o.x - 1, y: o.y - (o.size || 12), w: (o.text.length * (o.size || 12) * 0.55) + 2, h: (o.size || 12) + 4 };
+    if (o.t === 'line'){
+      return { x: Math.min(o.x, o.x + o.w), y: Math.min(o.y, o.y + o.h), w: Math.abs(o.w), h: Math.abs(o.h) };
+    }
+    return { x: o.x, y: o.y, w: o.w, h: o.h };
+  }
+  onDown(e){
+    e.stopPropagation();
+    const p = this.localPt(e);
+    const objs = this.item.content.objects;
+    if (this.mode === 'sel'){
+      const t = e.target;
+      if (t.dataset && t.dataset.h !== undefined && t.dataset.hi !== undefined){
+        this.resizeDrag(e, +t.dataset.hi, +t.dataset.h); return;
+      }
+      const idx = t.dataset && t.dataset.i !== undefined ? +t.dataset.i : -1;
+      if (idx >= 0){
+        if (this.selIdx.indexOf(idx) < 0) this.selIdx = e.shiftKey ? this.selIdx.concat([idx]) : [idx];
+        this.render();
+        this.moveDrag(e);
+      } else {
+        this.selIdx = [];
+        this.render();
+      }
+      MenuBar.refresh();
+      return;
+    }
+    if (this.mode === 'text'){
+      this.placeText(p); return;
+    }
+    if (this.mode === 'poly'){
+      const x = this.snap(p.x), y = this.snap(p.y);
+      if (!this.polyPts) this.polyPts = [];
+      this.polyPts.push([x, y]);
+      this.render();
+      return;
+    }
+    // rubber-band creation
+    const self = this;
+    const x0 = this.snap(p.x), y0 = this.snap(p.y);
+    let obj = null;
+    this.snapshot();
+    drag(e, {
+      move(dx, dy, pp){
+        const lp = self.localPt({ clientX: 0, clientY: 0 });
+        const x1 = self.snap(p.x + dx), y1 = self.snap(p.y + dy);
+        if (!obj){
+          obj = { t: self.mode, x: x0, y: y0, w: 0, h: 0, fill: self.mode === 'line' ? null : self.fill };
+          objs.push(obj);
+        }
+        if (self.mode === 'line'){ obj.w = x1 - x0; obj.h = y1 - y0; }
+        else {
+          obj.x = Math.min(x0, x1); obj.y = Math.min(y0, y1);
+          obj.w = Math.abs(x1 - x0); obj.h = Math.abs(y1 - y0);
+        }
+        self.render();
+      },
+      up(moved){
+        if (!moved || !obj){ self.undoStack.pop(); return; }
+        if (obj.t !== 'line' && (obj.w < 3 || obj.h < 3)){ objs.pop(); self.render(); return; }
+        self.selIdx = [objs.length - 1];
+        self.setMode('sel');
+        self.render();
+        State.dirty();
+      }
+    });
+  }
+  onDbl(e){
+    if (this.mode === 'poly' && this.polyPts && this.polyPts.length >= 3){
+      this.snapshot();
+      this.item.content.objects.push({ t: 'poly', pts: this.polyPts, fill: this.fill });
+      this.polyPts = null;
+      this.setMode('sel');
+      this.selIdx = [this.item.content.objects.length - 1];
+      this.render();
+      State.dirty();
+    }
+  }
+  placeText(p){
+    const inp = el(this.canvas, 'input', 'dw-txtin');
+    inp.style.left = p.x + 'px'; inp.style.top = (p.y - 8) + 'px';
+    inp.addEventListener('mousedown', ev => ev.stopPropagation());
+    inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter' || ev.key === 'Escape') inp.blur(); });
+    const done = () => {
+      const v = inp.value.trim();
+      inp.remove();
+      if (v){
+        this.snapshot();
+        this.item.content.objects.push({ t: 'text', x: this.snap(p.x), y: this.snap(p.y + 4), text: v, size: 12 });
+        this.setMode('sel');
+        this.render(); State.dirty();
+      }
+    };
+    inp.addEventListener('blur', done);
+    setTimeout(() => inp.focus(), 20);
+  }
+  moveDrag(e){
+    const self = this, objs = this.item.content.objects;
+    const orig = this.selIdx.map(i => deepCopy(objs[i]));
+    let snapped = false;
+    drag(e, {
+      begin(){ self.snapshot(); snapped = true; },
+      move(dx, dy){
+        self.selIdx.forEach((i, k) => {
+          const o = objs[i], s = orig[k];
+          if (o.t === 'poly') o.pts = s.pts.map(pp => [self.snap(pp[0] + dx), self.snap(pp[1] + dy)]);
+          else { o.x = self.snap(s.x + dx); o.y = self.snap(s.y + dy); }
+        });
+        self.render();
+      },
+      up(moved){ if (!moved && snapped) self.undoStack.pop(); if (moved) State.dirty(); }
+    });
+  }
+  resizeDrag(e, idx, corner){
+    const self = this, objs = this.item.content.objects;
+    const o = objs[idx];
+    if (!o || o.t === 'text' || o.t === 'poly' || o.t === 'line') return;
+    const s = deepCopy(o);
+    this.snapshot();
+    drag(e, {
+      move(dx, dy){
+        let x1 = s.x, y1 = s.y, x2 = s.x + s.w, y2 = s.y + s.h;
+        if (corner === 0){ x1 += dx; y1 += dy; }
+        if (corner === 1){ x2 += dx; y1 += dy; }
+        if (corner === 2){ x1 += dx; y2 += dy; }
+        if (corner === 3){ x2 += dx; y2 += dy; }
+        o.x = self.snap(Math.min(x1, x2)); o.y = self.snap(Math.min(y1, y2));
+        o.w = Math.max(4, self.snap(Math.abs(x2 - x1))); o.h = Math.max(4, self.snap(Math.abs(y2 - y1)));
+        self.render();
+      },
+      up(){ State.dirty(); }
+    });
+  }
+  svgOfSelection(){
+    const objs = this.item.content.objects;
+    const idxs = this.selIdx.length ? this.selIdx : objs.map((o, i) => i);
+    if (!idxs.length) return null;
+    const boxes = idxs.map(i => this.bbox(objs[i]));
+    const x = Math.min.apply(null, boxes.map(b => b.x)) - 2;
+    const y = Math.min.apply(null, boxes.map(b => b.y)) - 2;
+    const x2 = Math.max.apply(null, boxes.map(b => b.x + b.w)) + 2;
+    const y2 = Math.max.apply(null, boxes.map(b => b.y + b.h)) + 2;
+    const saveSel = this.selIdx; this.selIdx = [];
+    const savePoly = this.polyPts; this.polyPts = null;
+    this.render();
+    const svgIn = this.svgHost.querySelector('svg').innerHTML;
+    this.selIdx = saveSel; this.polyPts = savePoly;
+    this.render();
+    // keep only the chosen objects
+    const div = document.createElement('div');
+    div.innerHTML = '<svg>' + svgIn + '</svg>';
+    const keep = [];
+    div.querySelector('svg').childNodes.forEach(n => {
+      if (n.dataset && idxs.indexOf(+n.dataset.i) >= 0) keep.push(n.outerHTML);
+    });
+    const w = Math.ceil(x2 - x), h = Math.ceil(y2 - y);
+    return { svg: '<svg width="' + w + '" height="' + h + '" viewBox="' + x + ' ' + y + ' ' + w + ' ' + h + '">' + keep.join('') + '</svg>', objs: idxs.map(i => deepCopy(objs[i])) };
+  }
+  flush(){ /* edited in place */ }
+  refresh(){ this.selIdx = []; this.render(); }
+  canUndo(){ return this.undoStack.length > 0; }
+  canCopy(){ return this.selIdx.length > 0; }
+  canPaste(c){ return !!c && (c.type === 'picture' || c.type === 'text'); }
+  selectAll(){ this.selIdx = this.item.content.objects.map((o, i) => i); this.render(); }
+  command(cmd){
+    const objs = this.item.content.objects;
+    switch (cmd){
+      case 'undo':
+        if (this.undoStack.length){
+          this.item.content.objects = this.undoStack.pop();
+          this.selIdx = []; this.render(); State.dirty();
+        }
+        return true;
+      case 'copy': case 'cut': {
+        const s = this.svgOfSelection();
+        if (s) Clip.set({ type: 'picture', svg: s.svg, objs: s.objs, from: '“' + this.item.name + '” (LisaDraw)' });
+        if (cmd === 'cut') this.command('clear');
+        return true;
+      }
+      case 'clear':
+        if (this.selIdx.length){
+          this.snapshot();
+          this.item.content.objects = objs.filter((o, i) => this.selIdx.indexOf(i) < 0);
+          this.selIdx = []; this.render(); State.dirty();
+        }
+        return true;
+      case 'paste': {
+        const c = Clip.c; if (!c) return true;
+        if (c.type === 'picture' && c.objs){
+          this.snapshot();
+          c.objs.forEach(o => {
+            const n = deepCopy(o);
+            if (n.t === 'poly') n.pts = n.pts.map(p => [p[0] + 12, p[1] + 12]);
+            else { n.x += 12; n.y += 12; }
+            objs.push(n);
+          });
+          this.selIdx = objs.map((o, i) => i).slice(-c.objs.length);
+          this.render(); State.dirty();
+        } else if (c.type === 'text'){
+          this.snapshot();
+          objs.push({ t: 'text', x: 40, y: 40, text: c.text.slice(0, 80), size: 12 });
+          this.render(); State.dirty();
+        } else {
+          Dialogs.alert('LisaDraw can paste its own pictures and plain text, but not this. The Clipboard will keep holding it, in case another tool wants it.');
+        }
+        return true;
+      }
+      case 'selectAll': this.selectAll(); return true;
+      case 'toFront': case 'toBack': {
+        if (!this.selIdx.length) return true;
+        this.snapshot();
+        const chosen = this.selIdx.map(i => objs[i]);
+        const rest = objs.filter((o, i) => this.selIdx.indexOf(i) < 0);
+        this.item.content.objects = cmd === 'toFront' ? rest.concat(chosen) : chosen.concat(rest);
+        this.selIdx = cmd === 'toFront'
+          ? chosen.map((o, k) => rest.length + k)
+          : chosen.map((o, k) => k);
+        this.render(); State.dirty();
+        return true;
+      }
+      case 'gridSnap':
+        this.item.content.snap = !this.item.content.snap;
+        State.dirty(); MenuBar.refresh();
+        return true;
+      default: return false;
+    }
+  }
+  menus(){
+    const has = this.selIdx.length > 0;
+    return [
+      { title: 'Arrangement', items: [
+        { label: 'Bring to the Front', cmd: 'toFront', enabled: has },
+        { label: 'Send to the Back', cmd: 'toBack', enabled: has },
+        { sep: true },
+        { label: 'Snap to the Grid', cmd: 'gridSnap', checked: !!this.item.content.snap }
+      ]}
+    ];
+  }
+  key(e){
+    if (e.key === 'Backspace' || e.key === 'Delete'){ this.command('clear'); return true; }
+    return false;
+  }
+  getView(){ return { mode: this.mode, fill: this.fill }; }
+  setView(v){ if (v && v.mode) this.setMode(v.mode); if (v && v.fill) this.fill = v.fill; }
+});
+/* ============================================================
+   LisaGraph — business graphs from a little grid
+   ============================================================ */
+function graphSVG(rows, type, W, H){
+  const data = rows.filter(r => r[0] !== '' || r[1] !== '').map(r => [String(r[0]), parseFloat(r[1]) || 0]);
+  if (!data.length) return '<svg width="' + W + '" height="' + H + '"><text x="16" y="30" font-size="10">Type labels and amounts at the left, and a graph will appear here.</text></svg>';
+  const padL = 34, padB = 30, padT = 14, padR = 10;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const max = Math.max.apply(null, data.map(d => d[1]).concat([1]));
+  const min = Math.min.apply(null, data.map(d => d[1]).concat([0]));
+  const span = (max - min) || 1;
+  const y = v => padT + ch - ((v - min) / span) * ch;
+  const pats = ['p50', 'p25', 'pd', 'ph', 'p75', 'pv', 'p12', 'pb'];
+  let s = '';
+  if (type === 'pie'){
+    const cx = W / 2, cy = H / 2 - 4, R = Math.min(cw, ch) / 2;
+    const total = data.reduce((t, d) => t + Math.max(0, d[1]), 0) || 1;
+    let a = -Math.PI / 2;
+    data.forEach((d, i) => {
+      const frac = Math.max(0, d[1]) / total;
+      const a2 = a + frac * Math.PI * 2;
+      const x1 = cx + R * Math.cos(a), y1 = cy + R * Math.sin(a);
+      const x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+      const large = frac > 0.5 ? 1 : 0;
+      s += '<path d="M' + cx + ' ' + cy + ' L' + x1 + ' ' + y1 + ' A' + R + ' ' + R + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2 + ' Z" fill="' + patFill(pats[i % pats.length]) + '" stroke="#000"/>';
+      const mid = (a + a2) / 2;
+      if (frac > 0.04) s += '<text x="' + (cx + (R + 11) * Math.cos(mid)) + '" y="' + (cy + (R + 11) * Math.sin(mid)) + '" font-size="8" text-anchor="middle">' + esc(d[0]) + '</text>';
+      a = a2;
+    });
+  } else {
+    // axes
+    s += '<path d="M' + padL + ' ' + padT + ' V' + (padT + ch) + ' H' + (padL + cw) + '" fill="none" stroke="#000"/>';
+    for (let t = 0; t <= 4; t++){
+      const v = min + span * t / 4;
+      const yy = y(v);
+      s += '<path d="M' + (padL - 3) + ' ' + yy + ' h3" stroke="#000"/>' +
+           '<text x="' + (padL - 5) + '" y="' + (yy + 3) + '" font-size="8" text-anchor="end">' + (Math.round(v * 10) / 10) + '</text>';
+    }
+    const n = data.length;
+    const step = cw / n;
+    data.forEach((d, i) => {
+      const x0 = padL + i * step;
+      s += '<text x="' + (x0 + step / 2) + '" y="' + (padT + ch + 11) + '" font-size="8" text-anchor="middle">' + esc(d[0].slice(0, 8)) + '</text>';
+      if (type === 'bar'){
+        const bw = Math.max(6, step * 0.55);
+        const yy = y(d[1]);
+        const base = y(Math.max(0, min));
+        s += '<rect x="' + (x0 + (step - bw) / 2) + '" y="' + Math.min(yy, base) + '" width="' + bw + '" height="' + Math.max(1, Math.abs(base - yy)) + '" fill="' + patFill('p50') + '" stroke="#000"/>';
+      } else if (type === 'scatter'){
+        s += '<rect x="' + (x0 + step / 2 - 2.5) + '" y="' + (y(d[1]) - 2.5) + '" width="5" height="5" fill="#000"/>';
+      }
+    });
+    if (type === 'line'){
+      const ptsS = data.map((d, i) => (padL + i * step + step / 2) + ',' + y(d[1])).join(' ');
+      s += '<polyline points="' + ptsS + '" fill="none" stroke="#000" stroke-width="1.4"/>';
+      data.forEach((d, i) => {
+        s += '<rect x="' + (padL + i * step + step / 2 - 2) + '" y="' + (y(d[1]) - 2) + '" width="4" height="4" fill="#fff" stroke="#000"/>';
+      });
+    }
+  }
+  return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' + s + '</svg>';
+}
+Tools.register('graph', {
+  name: 'LisaGraph',
+  rect: { x: 96, y: 40, w: 520, h: 290 },
+  blank(){ return { rows: [['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', '']], type: 'bar' }; }
+}, class LisaGraph {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    const wrap = el(win.innerEl, 'div', 'gr-wrap');
+    this.left = el(wrap, 'div', 'gr-left');
+    this.chart = el(wrap, 'div', 'gr-chart');
+    this.buildGrid();
+    this.redraw();
+    win.onResize = () => { this.redraw(); win.syncScroll(); };
+  }
+  buildGrid(){
+    const rows = this.item.content.rows;
+    let h = '<table class="grid" style="width:100%"><thead><tr><th style="width:88px">Label</th><th>Amount</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      h += '<tr><td><input data-r="' + i + '" data-c="0" value="' + esc(r[0]) + '" style="width:100%;border:none;outline:none;font:10px Verdana;background:#fff"></td>' +
+           '<td><input data-r="' + i + '" data-c="1" value="' + esc(r[1]) + '" style="width:100%;border:none;outline:none;font:10px Verdana;text-align:right;background:#fff"></td></tr>';
+    });
+    h += '</tbody></table>';
+    this.left.innerHTML = h;
+    this.left.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        rows[+inp.dataset.r][+inp.dataset.c] = inp.value;
+        this.redraw(); State.dirty();
+      });
+      inp.addEventListener('mousedown', e => e.stopPropagation());
+      inp.addEventListener('keydown', e => e.stopPropagation());
+    });
+  }
+  redraw(){
+    const W = Math.max(220, this.win.rect.w - 200), H = Math.max(160, this.win.rect.h - 40);
+    this.chart.innerHTML = graphSVG(this.item.content.rows, this.item.content.type, W, H);
+  }
+  flush(){}
+  refresh(){ this.buildGrid(); this.redraw(); }
+  canCopy(){ return true; }
+  canPaste(c){ return !!c && c.type === 'table'; }
+  command(cmd){
+    if (cmd.startsWith('gtype:')){
+      this.item.content.type = cmd.slice(6);
+      this.redraw(); State.dirty(); MenuBar.refresh();
+      return true;
+    }
+    if (cmd === 'copy' || cmd === 'cut'){
+      const svg = this.chart.querySelector('svg');
+      if (svg) Clip.set({ type: 'picture', svg: svg.outerHTML, from: '“' + this.item.name + '” (LisaGraph)' });
+      return true;
+    }
+    if (cmd === 'paste'){
+      const c = Clip.c;
+      if (c && c.type === 'table'){
+        const rows = this.item.content.rows;
+        c.rows.slice(0, rows.length).forEach((r, i) => {
+          rows[i][0] = String(r[0] || '');
+          rows[i][1] = String(r[1] !== undefined ? r[1] : '').replace(/[$,%]/g, '');
+        });
+        this.buildGrid(); this.redraw(); State.dirty();
+      }
+      return true;
+    }
+    return false;
+  }
+  menus(){
+    const t = this.item.content.type;
+    return [{ title: 'Graph', items: [
+      { label: 'Bar Graph', cmd: 'gtype:bar', checked: t === 'bar' },
+      { label: 'Line Graph', cmd: 'gtype:line', checked: t === 'line' },
+      { label: 'Pie Chart', cmd: 'gtype:pie', checked: t === 'pie' },
+      { label: 'Scatter Graph', cmd: 'gtype:scatter', checked: t === 'scatter' }
+    ]}];
+  }
+  key(){ return false; }
+  getView(){ return {}; }
+  setView(){}
+});
+
+/* ============================================================
+   LisaProject — schedules, critical path emphasized
+   ============================================================ */
+function projectCompute(tasks){
+  const n = tasks.length;
+  const es = new Array(n).fill(0), ef = new Array(n).fill(0);
+  for (let pass = 0; pass < n + 1; pass++){
+    for (let i = 0; i < n; i++){
+      let start = 0;
+      (tasks[i].after || []).forEach(a => {
+        const j = a - 1;
+        if (j >= 0 && j < n && j !== i) start = Math.max(start, ef[j]);
+      });
+      es[i] = start; ef[i] = start + (tasks[i].days || 0);
+    }
+  }
+  const end = Math.max.apply(null, ef.concat([0]));
+  const lf = new Array(n).fill(end), ls = new Array(n).fill(0);
+  for (let pass = 0; pass < n + 1; pass++){
+    for (let i = n - 1; i >= 0; i--){
+      let late = end;
+      for (let k = 0; k < n; k++){
+        if ((tasks[k].after || []).indexOf(i + 1) >= 0) late = Math.min(late, ls[k]);
+      }
+      lf[i] = late; ls[i] = late - (tasks[i].days || 0);
+    }
+  }
+  return { es, ef, ls, lf, end, slack: es.map((e, i) => ls[i] - e) };
+}
+Tools.register('project', {
+  name: 'LisaProject',
+  rect: { x: 80, y: 30, w: 580, h: 315 },
+  hasH: true,
+  blank(){ return { tasks: [{ name: 'First task', days: 5, after: [] }], start: '1983-10-03' }; }
+}, class LisaProject {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    const wrap = el(win.innerEl, 'div', 'pj-wrap');
+    this.top = el(wrap, 'div', 'pj-top');
+    this.chart = el(wrap, 'div', 'pj-chart');
+    win.scrollEl = this.chart;
+    this.buildTable();
+    this.redraw();
+  }
+  buildTable(){
+    const tasks = this.item.content.tasks;
+    let h = '<table class="grid" style="width:100%"><thead><tr><th style="width:22px">#</th><th>Task</th><th style="width:44px">Days</th><th style="width:80px">Follows</th></tr></thead><tbody>';
+    tasks.forEach((t, i) => {
+      h += '<tr><th>' + (i + 1) + '</th>' +
+        '<td><input data-i="' + i + '" data-f="name" value="' + esc(t.name) + '" style="width:100%;border:none;outline:none;font:10px Verdana;background:#fff"></td>' +
+        '<td><input data-i="' + i + '" data-f="days" value="' + t.days + '" style="width:100%;border:none;outline:none;font:10px Verdana;text-align:right;background:#fff"></td>' +
+        '<td><input data-i="' + i + '" data-f="after" value="' + esc((t.after || []).join(',')) + '" style="width:100%;border:none;outline:none;font:10px Verdana;background:#fff"></td></tr>';
+    });
+    h += '</tbody></table>';
+    this.top.innerHTML = h;
+    this.top.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const t = tasks[+inp.dataset.i], f = inp.dataset.f;
+        if (f === 'name') t.name = inp.value;
+        else if (f === 'days') t.days = Math.max(0, parseInt(inp.value, 10) || 0);
+        else t.after = inp.value.split(/[ ,]+/).map(x => parseInt(x, 10)).filter(x => x >= 1 && x <= tasks.length);
+        this.redraw(); State.dirty();
+      });
+      inp.addEventListener('mousedown', e => e.stopPropagation());
+      inp.addEventListener('keydown', e => e.stopPropagation());
+    });
+  }
+  redraw(){
+    const tasks = this.item.content.tasks;
+    const R = projectCompute(tasks);
+    const dayW = 9, rowH = 17, labelW = 120;
+    const start = new Date(this.item.content.start + 'T00:00:00');
+    const W = labelW + Math.max(20, R.end) * dayW + 40;
+    const H = tasks.length * rowH + 40;
+    let s = '';
+    // weekly grid + date labels
+    for (let d = 0; d <= R.end + 2; d += 7){
+      const x = labelW + d * dayW;
+      const dt = new Date(start.getTime() + d * 86400000);
+      s += '<line x1="' + x + '" y1="14" x2="' + x + '" y2="' + (H - 20) + '" stroke="#000" stroke-dasharray="1 3"/>' +
+           '<text x="' + x + '" y="10" font-size="7" text-anchor="middle">' + (dt.getMonth() + 1) + '/' + dt.getDate() + '</text>';
+    }
+    tasks.forEach((t, i) => {
+      const y = 20 + i * rowH;
+      const crit = R.slack[i] <= 0;
+      s += '<text x="4" y="' + (y + 9) + '" font-size="9"' + (crit ? ' font-weight="bold"' : '') + '>' + esc(String(t.name).slice(0, 20)) + '</text>';
+      const x = labelW + R.es[i] * dayW, w = Math.max(2, t.days * dayW);
+      s += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="11" fill="' + (crit ? patFill('pb') : patFill('p25')) + '" stroke="#000"' + (crit ? ' stroke-width="1.6"' : '') + '/>';
+      (t.after || []).forEach(a => {
+        const j = a - 1;
+        if (j >= 0 && j < tasks.length){
+          const px = labelW + R.ef[j] * dayW, py = 20 + j * rowH + 5;
+          s += '<path d="M' + px + ' ' + py + ' L' + px + ' ' + (y + 5) + ' L' + x + ' ' + (y + 5) + '" fill="none" stroke="#000" stroke-dasharray="2 2"/>';
+        }
+      });
+    });
+    const endDate = new Date(start.getTime() + R.end * 86400000);
+    s += '<text x="' + labelW + '" y="' + (H - 6) + '" font-size="9">The heavy bars are the critical path. As things stand, the work finishes on ' + fmtDate(endDate) + '.</text>';
+    this.chart.innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' + s + '</svg>';
+    this.win.syncScroll();
+  }
+  flush(){}
+  refresh(){ this.buildTable(); this.redraw(); }
+  canCopy(){ return true; }
+  canPaste(){ return false; }
+  command(cmd){
+    const tasks = this.item.content.tasks;
+    if (cmd === 'addTask'){
+      tasks.push({ name: 'New task', days: 3, after: tasks.length ? [tasks.length] : [] });
+      this.buildTable(); this.redraw(); State.dirty();
+      return true;
+    }
+    if (cmd === 'delTask'){
+      if (tasks.length > 1){ tasks.pop(); this.buildTable(); this.redraw(); State.dirty(); }
+      return true;
+    }
+    if (cmd === 'critHelp'){
+      Dialogs.alert('The critical path is the chain of tasks with no slack at all: if any of them slips a day, the whole schedule slips a day with it. LisaProject draws those tasks with heavy black bars, so the eye goes straight to what matters. Apple is said to have planned its own products this way.');
+      return true;
+    }
+    if (cmd === 'copy' || cmd === 'cut'){
+      const svg = this.chart.querySelector('svg');
+      if (svg) Clip.set({ type: 'picture', svg: svg.outerHTML, from: '“' + this.item.name + '” (LisaProject)' });
+      return true;
+    }
+    return false;
+  }
+  menus(){
+    return [{ title: 'Schedule', items: [
+      { label: 'Add a Task', cmd: 'addTask' },
+      { label: 'Remove the Last Task', cmd: 'delTask' },
+      { sep: true },
+      { label: 'About the Critical Path…', cmd: 'critHelp' }
+    ]}];
+  }
+  key(){ return false; }
+  getView(){ return {}; }
+  setView(){}
+});
+
+/* ============================================================
+   LisaList — the flat-file database
+   ============================================================ */
+Tools.register('list', {
+  name: 'LisaList',
+  rect: { x: 110, y: 44, w: 480, h: 270 },
+  hasH: true,
+  blank(){
+    return { cols: [{ name: 'Name', type: 'text' }, { name: 'Amount', type: 'number' }, { name: 'Date', type: 'date' }],
+             rows: [['', '', '']], sortCol: null, sortDir: 1, filter: null };
+  }
+}, class LisaList {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    this.scroll = el(win.innerEl, 'div', 'lc-scroll');
+    this.scroll.style.height = '100%';
+    win.scrollEl = this.scroll;
+    this.build();
+  }
+  viewRows(){
+    const c = this.item.content;
+    let idx = c.rows.map((r, i) => i);
+    if (c.filter && c.filter.text){
+      const ci = c.filter.col, q = c.filter.text.toLowerCase();
+      idx = idx.filter(i => String(c.rows[i][ci] || '').toLowerCase().indexOf(q) >= 0);
+    }
+    if (c.sortCol != null){
+      const sc = c.sortCol, num = c.cols[sc] && c.cols[sc].type === 'number';
+      idx.sort((a, b) => {
+        const va = c.rows[a][sc] || '', vb = c.rows[b][sc] || '';
+        const r = num ? (parseFloat(va) || 0) - (parseFloat(vb) || 0) : String(va).localeCompare(String(vb));
+        return r * c.sortDir;
+      });
+    }
+    return idx;
+  }
+  build(){
+    const c = this.item.content;
+    const idx = this.viewRows();
+    let h = '<table class="grid" style="width:' + (22 + c.cols.length * 104) + 'px"><thead><tr><th style="width:22px"></th>';
+    c.cols.forEach((col, i) => {
+      const arrow = c.sortCol === i ? (c.sortDir > 0 ? ' ▲' : ' ▼') : '';
+      h += '<th data-col="' + i + '" style="width:104px;cursor:default">' + esc(col.name) + arrow + '</th>';
+    });
+    h += '</tr></thead><tbody>';
+    idx.forEach((ri, vi) => {
+      h += '<tr><th>' + (vi + 1) + '</th>';
+      c.cols.forEach((col, ci) => {
+        h += '<td><input data-r="' + ri + '" data-c="' + ci + '" value="' + esc(c.rows[ri][ci] || '') + '" style="width:100%;border:none;outline:none;font:10px Verdana;background:#fff' + (col.type === 'number' ? ';text-align:right' : '') + '"></td>';
+      });
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    if (c.filter && c.filter.text) h += '<div style="padding:4px 8px;font-size:9px;border-top:1px dashed #000">Showing only records whose ' + esc(c.cols[c.filter.col].name) + ' contains “' + esc(c.filter.text) + '”. (' + idx.length + ' of ' + c.rows.length + ')</div>';
+    this.scroll.innerHTML = h;
+    this.scroll.querySelectorAll('th[data-col]').forEach(th => {
+      th.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        const col = +th.dataset.col;
+        if (c.sortCol === col) c.sortDir = -c.sortDir; else { c.sortCol = col; c.sortDir = 1; }
+        this.build(); State.dirty();
+      });
+    });
+    this.scroll.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        c.rows[+inp.dataset.r][+inp.dataset.c] = inp.value;
+        // keep one blank record at the end, ready for more
+        const last = c.rows[c.rows.length - 1];
+        if (last.some(v => v !== '')) c.rows.push(c.cols.map(() => ''));
+        State.dirty();
+      });
+      inp.addEventListener('mousedown', e => e.stopPropagation());
+      inp.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter'){ inp.dispatchEvent(new Event('change')); this.build(); }
+      });
+    });
+    this.win.syncScroll();
+  }
+  flush(){ this.scroll.querySelectorAll('input').forEach(inp => { this.item.content.rows[+inp.dataset.r][+inp.dataset.c] = inp.value; }); }
+  refresh(){ this.build(); }
+  canCopy(){ return true; }
+  canPaste(c){ return !!c && c.type === 'table'; }
+  command(cmd){
+    const c = this.item.content;
+    switch (cmd){
+      case 'addRec': c.rows.push(c.cols.map(() => '')); this.build(); State.dirty(); return true;
+      case 'addCol':
+        Dialogs.custom((d, done) => {
+          hel(d, 'div', 'dtxt', 'What should the new column be called, and what sort of thing will it hold?');
+          const row = el(d, 'div', 'drow');
+          el(row, 'span', null, 'Name:');
+          const inp = el(row, 'input'); inp.type = 'text'; inp.value = 'Column';
+          const row2 = el(d, 'div', 'drow');
+          let type = 'text';
+          ['text', 'number', 'date'].forEach(t => {
+            const r = hel(row2, 'span', 'radio' + (t === 'text' ? ' on' : ''), '<span class="rd"></span><span>' + t + '</span>');
+            r.addEventListener('click', () => { row2.querySelectorAll('.radio').forEach(x => x.classList.remove('on')); r.classList.add('on'); type = t; });
+          });
+          const btns = el(d, 'div', 'dbtns');
+          el(btns, 'button', 'lbtn', 'Cancel').onclick = () => done(null);
+          el(btns, 'button', 'lbtn def', 'Add It').onclick = () => done({ name: inp.value.trim() || 'Column', type });
+          setTimeout(() => { inp.focus(); inp.select(); }, 30);
+          inp.addEventListener('keydown', ev => ev.stopPropagation());
+        }).then(v => {
+          if (!v) return;
+          c.cols.push(v);
+          c.rows.forEach(r => r.push(''));
+          this.build(); State.dirty();
+        });
+        return true;
+      case 'delCol':
+        if (c.cols.length > 1){
+          c.cols.pop(); c.rows.forEach(r => r.pop());
+          if (c.sortCol >= c.cols.length) c.sortCol = null;
+          if (c.filter && c.filter.col >= c.cols.length) c.filter = null;
+          this.build(); State.dirty();
+        }
+        return true;
+      case 'selRecs':
+        Dialogs.custom((d, done) => {
+          hel(d, 'div', 'dtxt', 'LisaList can show only the records that match. Which column should it look in, and for what?');
+          const row = el(d, 'div', 'drow');
+          let col = 0;
+          c.cols.forEach((cc, i) => {
+            const r = hel(row, 'span', 'radio' + (i === 0 ? ' on' : ''), '<span class="rd"></span><span>' + esc(cc.name) + '</span>');
+            r.addEventListener('click', () => { row.querySelectorAll('.radio').forEach(x => x.classList.remove('on')); r.classList.add('on'); col = i; });
+          });
+          const row2 = el(d, 'div', 'drow');
+          el(row2, 'span', null, 'Contains:');
+          const inp = el(row2, 'input'); inp.type = 'text';
+          const btns = el(d, 'div', 'dbtns');
+          el(btns, 'button', 'lbtn', 'Cancel').onclick = () => done(null);
+          el(btns, 'button', 'lbtn def', 'Select').onclick = () => done({ col, text: inp.value });
+          setTimeout(() => inp.focus(), 30);
+          inp.addEventListener('keydown', ev => ev.stopPropagation());
+        }).then(v => {
+          if (v === null) return;
+          c.filter = v.text ? v : null;
+          this.build(); State.dirty();
+        });
+        return true;
+      case 'showAll': c.filter = null; this.build(); State.dirty(); return true;
+      case 'copy': case 'cut': {
+        this.flush();
+        const rows = [c.cols.map(x => x.name)].concat(this.viewRows().map(i => c.rows[i]));
+        Clip.set({ type: 'table', rows, from: '“' + this.item.name + '” (LisaList)' });
+        return true;
+      }
+      case 'paste': {
+        const cc = Clip.c;
+        if (cc && cc.type === 'table'){
+          cc.rows.forEach(r => c.rows.splice(c.rows.length - 1, 0, c.cols.map((x, i) => String(r[i] !== undefined ? r[i] : ''))));
+          this.build(); State.dirty();
+        }
+        return true;
+      }
+      default: return false;
+    }
+  }
+  menus(){
+    const c = this.item.content;
+    return [
+      { title: 'Records', items: [
+        { label: 'Add a Record', cmd: 'addRec' },
+        { sep: true },
+        { label: 'Select Records…', cmd: 'selRecs' },
+        { label: 'Show All Records', cmd: 'showAll', enabled: !!c.filter }
+      ]},
+      { title: 'Columns', items: [
+        { label: 'Add a Column…', cmd: 'addCol' },
+        { label: 'Remove the Last Column', cmd: 'delCol', enabled: c.cols.length > 1 }
+      ]}
+    ];
+  }
+  key(){ return false; }
+  getView(){ return {}; }
+  setView(){}
+});
+
+/* ============================================================
+   LisaTerminal — a canned 1983 timesharing session
+   ============================================================ */
+Tools.register('term', {
+  name: 'LisaTerminal',
+  rect: { x: 140, y: 48, w: 440, h: 270 },
+  blank(){ return { baud: 1200, duplex: 'full', text: 'LisaTerminal ready.\nUse the Phone menu to place a call.\n' }; }
+}, class LisaTerminal {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    this.connected = false;
+    this.lineBuf = '';
+    this.queue = []; this.typing = false;
+    const wrap = el(win.innerEl, 'div', 'tm-wrap');
+    this.scr = el(wrap, 'div', 'tm-scr');
+    win.scrollEl = this.scr;
+    this.paint();
+  }
+  paint(){
+    this.scr.textContent = this.item.content.text + this.lineBuf;
+    const cur = el(this.scr, 'span', 'tm-cur');
+    this.scr.scrollTop = this.scr.scrollHeight;
+    this.win.syncScroll();
+  }
+  out(s){ this.item.content.text += s; this.paint(); State.dirty(); }
+  typeOut(s, cb){
+    // characters arrive at the chosen baud rate
+    this.queue.push({ s, cb });
+    if (!this.typing) this.drain();
+  }
+  drain(){
+    const job = this.queue.shift();
+    if (!job){ this.typing = false; return; }
+    this.typing = true;
+    const delay = this.item.content.baud === 300 ? 26 : 7;
+    let i = 0;
+    const self = this;
+    (function tick(){
+      if (!self.scr.isConnected){ self.typing = false; return; }
+      const chunk = job.s.slice(i, i + 2);
+      i += 2;
+      self.item.content.text += chunk;
+      self.paint();
+      if (i < job.s.length) setTimeout(tick, delay * 2);
+      else { State.dirty(); if (job.cb) job.cb(); self.drain(); }
+    })();
+  }
+  dial(){
+    if (this.connected) return;
+    this.connected = true;
+    Sound.click();
+    this.typeOut('\nATDT 555-0142 … carrier at ' + this.item.content.baud + ' baud.\n\n' +
+      '  ═══ DATALINE TIMESHARING SERVICE ═══\n' +
+      '  Palo Alto, California — est. 1978\n\n' +
+      'Welcome back, subscriber L1SA. You have 2 pieces of mail.\n' +
+      'Type HELP for a list of commands.\n\n@ ');
+  }
+  hangup(silent){
+    if (!this.connected) return;
+    this.connected = false;
+    if (!silent) this.typeOut('\nNO CARRIER\n');
+  }
+  respond(cmdLine){
+    const c = cmdLine.trim().toUpperCase();
+    const now = simNow();
+    let r;
+    if (c === 'HELP') r = 'Commands: HELP  TIME  NEWS  WEATHER  MAIL  USERS  BYE\n';
+    else if (c === 'TIME') r = 'DATALINE clock: ' + fmtDateTime(now) + ' (Pacific).\n';
+    else if (c === 'NEWS') r = '── DATALINE NEWSWIRE ──\n· Personal computer sales expected to double this year.\n· Rumor: Apple to show a low-cost machine in January.\n· 1200-baud modems now under $500. The future is roomy.\n';
+    else if (c === 'WEATHER') r = 'Palo Alto: fair, 68°F. Fog toward the coast, as usual.\n';
+    else if (c === 'MAIL') r = 'From: SYSOP — Your monthly connect charges: $14.85. Thank you!\nFrom: KAY@PARC — “The best way to predict the future is to invent it. Nice terminal program, by the way.”\n';
+    else if (c === 'USERS') r = '3 users on line: L1SA, SYSOP, and someone dialing in from Cupertino.\n';
+    else if (c === 'BYE'){ this.typeOut('Goodbye! Connect time 00:0' + (2 + (now.getMinutes() % 7)) + '. DATALINE thanks you.\n'); this.hangup(); return; }
+    else if (c === '') r = '';
+    else r = '?Unrecognized command: ' + cmdLine.trim() + '  (Type HELP.)\n';
+    this.typeOut(r + '\n@ ');
+  }
+  key(e){
+    if (e.metaKey || e.ctrlKey) return false;
+    if (e.key === 'Enter'){
+      const line = this.lineBuf;
+      this.lineBuf = '';
+      this.out(line + '\n');
+      if (this.connected) this.respond(line);
+      else this.typeOut('LisaTerminal is not connected. Use the Phone menu to place a call.\n');
+      return true;
+    }
+    if (e.key === 'Backspace'){
+      this.lineBuf = this.lineBuf.slice(0, -1);
+      this.paint();
+      return true;
+    }
+    if (e.key.length === 1){
+      const ch = this.item.content.duplex === 'half' ? e.key + e.key : e.key;
+      this.lineBuf += ch;
+      this.paint();
+      return true;
+    }
+    return false;
+  }
+  settings(){
+    const c = this.item.content;
+    Dialogs.custom((d, done) => {
+      hel(d, 'div', 'dtxt', 'How should LisaTerminal speak on the telephone?');
+      const r1 = el(d, 'div', 'drow');
+      el(r1, 'span', null, 'Speed:');
+      [300, 1200].forEach(b => {
+        const r = hel(r1, 'span', 'radio' + (c.baud === b ? ' on' : ''), '<span class="rd"></span><span>' + b + ' baud</span>');
+        r.addEventListener('click', () => { r1.querySelectorAll('.radio').forEach(x => x.classList.remove('on')); r.classList.add('on'); c.baud = b; });
+      });
+      const r2 = el(d, 'div', 'drow');
+      el(r2, 'span', null, 'Duplex:');
+      ['full', 'half'].forEach(x => {
+        const r = hel(r2, 'span', 'radio' + (c.duplex === x ? ' on' : ''), '<span class="rd"></span><span>' + x + '</span>');
+        r.addEventListener('click', () => { r2.querySelectorAll('.radio').forEach(y => y.classList.remove('on')); r.classList.add('on'); c.duplex = x; });
+      });
+      hel(d, 'div', 'dtxt', '<br><span style="font-size:9px">With half duplex, the far end echoes what you type — so everything appears twice. Some services insist on it. Nobody remembers why.</span>');
+      const btns = el(d, 'div', 'dbtns');
+      el(btns, 'button', 'lbtn def', 'OK').onclick = () => { State.dirty(); done(true); };
+    });
+  }
+  flush(){}
+  refresh(){ this.paint(); }
+  canCopy(){ return false; }
+  canPaste(c){ return !!c && c.type === 'text'; }
+  command(cmd){
+    if (cmd === 'dial'){ this.dial(); return true; }
+    if (cmd === 'hangup'){ this.hangup(); return true; }
+    if (cmd === 'tsettings'){ this.settings(); return true; }
+    if (cmd === 'tclear'){ this.item.content.text = ''; this.paint(); State.dirty(); return true; }
+    if (cmd === 'paste'){
+      const c = Clip.c;
+      if (c && c.type === 'text'){ this.lineBuf += c.text.replace(/\n/g, ' '); this.paint(); }
+      return true;
+    }
+    return false;
+  }
+  menus(){
+    return [{ title: 'Phone', items: [
+      { label: 'Dial DataLine…', cmd: 'dial', enabled: !this.connected },
+      { label: 'Hang Up', cmd: 'hangup', enabled: this.connected },
+      { sep: true },
+      { label: 'Settings…', cmd: 'tsettings' },
+      { label: 'Clear the Screen', cmd: 'tclear' }
+    ]}];
+  }
+  destroy(){ this.hangup(true); }
+  getView(){ return {}; }
+  setView(){}
+});
+
+/* ============================================================
+   Desk accessories: the Clock, the Calculator, Preferences
+   ============================================================ */
+Tools.register('clock', {
+  name: 'the Clock',
+  rect: { x: 250, y: 60, w: 170, h: 150 },
+  blank(){ return {}; }
+}, class TheClock {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    const wrap = el(win.innerEl, 'div', 'clk-wrap');
+    this.face = el(wrap, 'div');
+    this.date = el(wrap, 'div', 'clk-date');
+    this.tick();
+    this.iv = setInterval(() => this.tick(), 1000);
+  }
+  tick(){
+    const d = simNow();
+    const cx = 45, cy = 45, r = 42;
+    let s = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#fff" stroke="#000" stroke-width="2"/>';
+    for (let i = 0; i < 12; i++){
+      const a = i * Math.PI / 6;
+      s += '<line x1="' + (cx + (r - 5) * Math.sin(a)) + '" y1="' + (cy - (r - 5) * Math.cos(a)) + '" x2="' + (cx + (r - 1) * Math.sin(a)) + '" y2="' + (cy - (r - 1) * Math.cos(a)) + '" stroke="#000"/>';
+    }
+    const ha = ((d.getHours() % 12) + d.getMinutes() / 60) * Math.PI / 6;
+    const ma = d.getMinutes() * Math.PI / 30;
+    const sa = d.getSeconds() * Math.PI / 30;
+    s += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + 20 * Math.sin(ha)) + '" y2="' + (cy - 20 * Math.cos(ha)) + '" stroke="#000" stroke-width="3"/>';
+    s += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + 32 * Math.sin(ma)) + '" y2="' + (cy - 32 * Math.cos(ma)) + '" stroke="#000" stroke-width="1.6"/>';
+    s += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + 36 * Math.sin(sa)) + '" y2="' + (cy - 36 * Math.cos(sa)) + '" stroke="#000" stroke-width="0.7"/>';
+    this.face.innerHTML = '<svg width="90" height="90" viewBox="0 0 90 90">' + s + '</svg>';
+    this.date.textContent = DAYS[d.getDay()] + ', ' + fmtDate(d) + ' — ' + fmtTime(d);
+  }
+  flush(){} refresh(){} key(){ return false; }
+  canCopy(){ return false; } canPaste(){ return false; }
+  command(){ return false; }
+  menus(){ return []; }
+  destroy(){ clearInterval(this.iv); }
+  getView(){ return {}; } setView(){}
+});
+
+Tools.register('calcda', {
+  name: 'the Calculator',
+  rect: { x: 290, y: 50, w: 150, h: 210 },
+  blank(){ return {}; }
+}, class TheCalculator {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    this.acc = null; this.op = null; this.cur = '0'; this.fresh = true;
+    const wrap = el(win.innerEl, 'div', 'ca-wrap');
+    this.disp = el(wrap, 'div', 'ca-disp', '0');
+    const keys = el(wrap, 'div', 'ca-keys');
+    'C ± ÷ ×;7 8 9 −;4 5 6 +;1 2 3 =;0 .'.split(';').forEach(row => {
+      row.split(' ').forEach(k => {
+        const b = el(keys, 'div', 'ca-key', k);
+        if (k === '0') b.style.gridColumn = 'span 2';
+        if (k === '=') b.style.gridRow = 'span 2';
+        b.addEventListener('mousedown', e => { e.stopPropagation(); this.press(k); });
+      });
+    });
+  }
+  show(){ this.disp.textContent = this.cur.length > 12 ? Number(this.cur).toPrecision(8) : this.cur; }
+  press(k){
+    Sound.click();
+    if (/[0-9]/.test(k)){
+      if (this.fresh){ this.cur = k; this.fresh = false; }
+      else this.cur = this.cur === '0' ? k : this.cur + k;
+    } else if (k === '.'){
+      if (this.fresh){ this.cur = '0.'; this.fresh = false; }
+      else if (this.cur.indexOf('.') < 0) this.cur += '.';
+    } else if (k === 'C'){
+      this.acc = null; this.op = null; this.cur = '0'; this.fresh = true;
+    } else if (k === '±'){
+      this.cur = this.cur.startsWith('-') ? this.cur.slice(1) : (this.cur === '0' ? '0' : '-' + this.cur);
+    } else if (k === '='){
+      this.apply(); this.op = null;
+    } else {
+      this.apply(); this.op = k; this.fresh = true;
+    }
+    this.show();
+  }
+  apply(){
+    const v = parseFloat(this.cur) || 0;
+    if (this.acc === null || !this.op){ this.acc = v; this.fresh = true; return; }
+    let r = this.acc;
+    if (this.op === '+') r += v;
+    if (this.op === '−') r -= v;
+    if (this.op === '×') r *= v;
+    if (this.op === '÷') r = v === 0 ? 0 : r / v;
+    this.acc = r; this.cur = String(Math.round(r * 1e8) / 1e8); this.fresh = true;
+  }
+  key(e){
+    const map = { '*': '×', '/': '÷', '-': '−', '+': '+', 'Enter': '=', '=': '=', 'Escape': 'C', '.': '.' };
+    if (/^[0-9]$/.test(e.key)){ this.press(e.key); return true; }
+    if (map[e.key]){ this.press(map[e.key]); return true; }
+    return false;
+  }
+  flush(){} refresh(){}
+  canCopy(){ return true; } canPaste(){ return false; }
+  command(cmd){
+    if (cmd === 'copy'){ Clip.set({ type: 'text', text: this.disp.textContent, html: esc(this.disp.textContent), from: 'the Calculator' }); return true; }
+    return false;
+  }
+  menus(){ return []; }
+  getView(){ return {}; } setView(){}
+});
+
+Tools.register('prefs', {
+  name: 'Preferences',
+  rect: { x: 130, y: 28, w: 470, h: 322 },
+  blank(){ return {}; }
+}, class Preferences {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    this.build();
+  }
+  build(){
+    const w = el(this.win.innerEl, 'div', 'pf-wrap');
+    this.wrap = w;
+    w.innerHTML = '';
+    hel(w, 'div', null, '<b>Convenience Settings</b> — the Lisa remembers these, of course.');
+    // speaker
+    el(w, 'div', 'pf-h', 'Speaker Volume');
+    const vr = el(w, 'div', 'pf-row');
+    ['Off', 'Soft', 'Medium', 'Loud'].forEach((lab, i) => {
+      const r = hel(vr, 'span', 'radio' + (G.prefs.volume === i ? ' on' : ''), '<span class="rd"></span><span>' + lab + '</span>');
+      r.addEventListener('click', () => {
+        vr.querySelectorAll('.radio').forEach(x => x.classList.remove('on')); r.classList.add('on');
+        G.prefs.volume = i; Sound.beep(); State.dirty();
+      });
+    });
+    const hr = el(w, 'div', 'pf-row');
+    const humC = hel(hr, 'span', 'chkbox' + (G.prefs.hum ? ' on' : ''), '<span class="bx"></span><span>Let the drive hum quietly while the Lisa is on</span>');
+    humC.addEventListener('click', () => {
+      G.prefs.hum = !G.prefs.hum; humC.classList.toggle('on', G.prefs.hum);
+      Sound.hum(false); if (G.prefs.hum && Power.isOn) Sound.hum(true);
+      State.dirty();
+    });
+    // screen
+    el(w, 'div', 'pf-h', 'Screen');
+    const cr = el(w, 'div', 'pf-row');
+    el(cr, 'span', null, 'Contrast:');
+    ['Bright', ' ', ' ', ' ', 'Dim'].forEach((lab, i) => {
+      const r = hel(cr, 'span', 'radio' + (G.prefs.contrast === i ? ' on' : ''), '<span class="rd"></span><span>' + (lab.trim() ? lab : '·') + '</span>');
+      r.addEventListener('click', () => {
+        cr.querySelectorAll('.radio').forEach(x => x.classList.remove('on')); r.classList.add('on');
+        G.prefs.contrast = i; applyPrefs(); State.dirty();
+      });
+    });
+    const sq = el(w, 'div', 'pf-row');
+    const sqC = hel(sq, 'span', 'chkbox' + (G.prefs.squarePixels ? ' on' : ''), '<span class="bx"></span><span>Square pixels (for modern eyes — the Lisa’s own pixels were not square)</span>');
+    sqC.addEventListener('click', () => {
+      G.prefs.squarePixels = !G.prefs.squarePixels; sqC.classList.toggle('on', G.prefs.squarePixels);
+      layoutMachine(); State.dirty();
+    });
+    hel(w, 'div', 'pf-row', '<span style="font-size:9px">After a while without a touch, the screen dims by itself to preserve the tube. Any movement brightens it again.</span>');
+    // clock
+    el(w, 'div', 'pf-h', 'The Clock');
+    const tr = el(w, 'div', 'pf-row');
+    el(tr, 'span', null, 'The Lisa believes it is:');
+    this.timeLabel = el(tr, 'b', null, fmtDateTime(simNow()));
+    const setBtn = el(tr, 'button', 'lbtn', 'Set the Clock…');
+    setBtn.addEventListener('click', async () => {
+      const v = await Dialogs.prompt('What date and time should the Lisa believe? Please type it as month/day/year hour:minute — for example, 1/24/1984 9:30.', { label: 'Date & time:' });
+      if (!v) return;
+      const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})$/.exec(v.trim());
+      if (!m){ Dialogs.alert('The Lisa could not quite read that date. The form it understands is 1/24/1984 9:30 — month, day, year, then the time.'); return; }
+      let yr = +m[3]; if (yr < 100) yr += 1900;
+      const target = new Date(yr, +m[1] - 1, +m[2], +m[4], +m[5]);
+      G.simOffset = target.getTime() - Date.now();
+      this.timeLabel.textContent = fmtDateTime(simNow());
+      State.dirty();
+    });
+    // power
+    el(w, 'div', 'pf-h', 'The Power Button');
+    hel(w, 'div', 'pf-row', '<span style="font-size:9px">The Lisa’s power button is a gentle request, not a command. Press it and the Lisa will put every open document away safely, remember exactly how the desktop looked, and only then go dark. Press it again and everything returns — windows, scroll positions, even the blinking of the cursor. Nothing is ever lost to the off switch.</span>');
+    el(w, 'div', 'pf-price', 'Apple Lisa — suggested retail $9,995. Worth it.');
+  }
+  flush(){} refresh(){}
+  canCopy(){ return false; } canPaste(){ return false; }
+  command(){ return false; }
+  menus(){ return []; }
+  key(){ return false; }
+  getView(){ return {}; } setView(){}
+});
+
+/* ============================================================
+   LisaGuide — the guided introduction
+   ============================================================ */
+const GUIDE_PAGES = [
+  { t: 'Welcome to the Lisa',
+    b: '<p>Good day, and welcome. You are looking at the <b>Lisa Office System</b>, as it stood in 1984 — the machine on which the desktop, the folder, and the polite dialog box first met the public.</p><p>This short tour will show you the handful of ideas that make the Lisa unlike anything that came after it. Press <b>Go Ahead</b> below to continue; LisaGuide will wait patiently between pages.</p><p style="font-size:9px">(A note from the museum: menus here open the Lisa way — <i>press</i> on a menu title, <i>hold</i> the button down, slide to what you want, and <i>release</i>. Clicking and letting go will only make the menu peek out and shy away again.)</p>' },
+  { t: 'There are no applications here',
+    b: '<p>On the Lisa, you never “launch a program.” The seven tools — LisaWrite, LisaCalc, LisaDraw, LisaGraph, LisaProject, LisaList and LisaTerminal — stay quietly on the ProFile disk, and you are never expected to open them.</p><p>Instead, you work with <b>documents</b>, and documents come from <b>stationery pads</b>.</p><div class="fig">' + iconSVG({ kind: 'pad', tool: 'write' }, 63, 40) + '</div><p>To try it: open the ProFile (double-click its icon on the desktop), find the pad called <b>LisaWrite Paper</b>, and double-click it. A fresh sheet tears off beside the pad, ready to be named. Then double-click your new sheet, and it opens in LisaWrite — the tool arrives invisibly, like a well-run office.</p>' },
+  { t: 'Two ways to put things away',
+    b: '<p>When you are done with a document, the Lisa offers two courtesies, both on the <b>File/Print</b> menu:</p><p><b>Set Aside</b> shrinks the window to an icon on the desktop. The document is still open in spirit — double-click it and it returns <i>instantly</i>, exactly as you left it. This is how you keep three or four pieces of work within arm’s reach.</p><p><b>Save &amp; Put Away</b> saves the document and sends its icon home — back to whatever folder or disk it lives in. This is how a tidy desk stays tidy.</p><p>There is also <b>Save &amp; Continue</b>, for the cautious: it saves your work and lets you keep going without a pause.</p>' },
+  { t: 'The desktop, the Wastebasket, and the Clipboard',
+    b: '<p>The grey surface behind the windows is the desktop. On it live the <b>ProFile</b> (five entire megabytes), the <b>Wastebasket</b>, and — a Lisa signature — the <b>Clipboard itself, visible as an icon</b>. Open it any time to see what your last Cut or Copy is holding.</p><div class="fig">' + iconSVG({ kind: 'clip' }, 63, 40) + '</div><p>The Wastebasket is patient but small of memory: it keeps only the most recent thing you discard. Drag something out to rescue it — until the next discard, when the basket quietly makes room.</p>' },
+  { t: 'The tools work together',
+    b: '<p>7/7 was sold on integration, and it is real. Copy a range of cells in <b>LisaCalc</b> and Paste it into a <b>LisaWrite</b> letter: it arrives as a proper table. Copy a chart from <b>LisaGraph</b> or a figure from <b>LisaDraw</b> and it lands in your letter as a picture.</p><p>Try it with the “1984 Budget” sheet and the “Welcome to the Office” letter in the Examples folder — select some cells, Copy, then click into the letter and Paste.</p>' },
+  { t: 'Soft power — the Lisa never forgets',
+    b: '<p>Now for the party trick. The power button (lower right of the case, beside the little light) does not cut the power; it <i>asks</i> the Lisa to stop.</p><p>Press it while you are in the middle of something. Watch the Lisa save every open document, tuck each window away, and go dark. Then press it again: the desktop returns exactly as it was — the same documents open, scrolled to the same place, the cursor where you left it.</p><p>In 1983, no other machine on any desk could do this. Try it with a half-written letter; LisaGuide will still be here when you get back.</p>' },
+  { t: 'A few courtesies',
+    b: '<p>Some things worth knowing, in no particular order:</p><p>· Every icon has <b>Attributes</b> (File/Print menu) — its size, its dates, and for documents, a password, kindly enforced.</p><p>· A new <b>folder</b> is torn from the pad of empty folders on the ProFile, just like stationery.</p><p>· <b>Housekeeping</b> can insert a diskette (400K, hold it gently), straighten your icons, and — gravely — erase the ProFile.</p><p>· <b>Preferences</b>, on the ProFile, sets the volume, the contrast, and the clock.</p><p>· The Lisa keeps one or two small secrets, as machines of its era did. Old hands whispered about the drives of the very first Lisas…</p><p>That is the whole tour. Put LisaGuide away when you like — or Set It Aside, which is very much the Lisa way. Enjoy the office.</p>' }
+];
+Tools.register('guide', {
+  name: 'LisaGuide',
+  rect: { x: 150, y: 30, w: 430, h: 315 },
+  blank(){ return { page: 0 }; }
+}, class LisaGuide {
+  constructor(item, win){
+    this.item = item; this.win = win;
+    const wrap = el(win.innerEl, 'div', 'gd-wrap');
+    this.page = el(wrap, 'div', 'gd-page');
+    const foot = el(wrap, 'div', 'gd-foot');
+    this.back = el(foot, 'button', 'lbtn', 'Go Back');
+    this.count = el(foot, 'span');
+    this.fwd = el(foot, 'button', 'lbtn def', 'Go Ahead');
+    this.back.addEventListener('click', () => this.go(-1));
+    this.fwd.addEventListener('click', () => this.go(1));
+    this.show();
+  }
+  go(d){
+    const c = this.item.content;
+    c.page = clamp((c.page || 0) + d, 0, GUIDE_PAGES.length - 1);
+    this.show(); State.dirty();
+  }
+  show(){
+    const p = GUIDE_PAGES[this.item.content.page || 0];
+    this.page.innerHTML = '<h1>' + p.t + '</h1>' + p.b;
+    this.count.textContent = 'page ' + ((this.item.content.page || 0) + 1) + ' of ' + GUIDE_PAGES.length;
+    this.back.style.visibility = (this.item.content.page || 0) === 0 ? 'hidden' : 'visible';
+    this.fwd.style.visibility = (this.item.content.page || 0) === GUIDE_PAGES.length - 1 ? 'hidden' : 'visible';
+    this.win.innerEl.scrollTop = 0;
+    this.win.syncScroll();
+  }
+  flush(){} refresh(){ this.show(); }
+  canCopy(){ return false; } canPaste(){ return false; }
+  command(){ return false; }
+  menus(){ return []; }
+  key(){ return false; }
+  getView(){ return {}; } setView(){}
+});
+/* ============================================================
+   The default world — first boot, 1984
+   ============================================================ */
+function buildWorld(){
+  G = {
+    seq: 0, powered: false, firstBoot: true,
+    prefs: { volume: 1, hum: true, contrast: 0, squarePixels: false },
+    simOffset: new Date(1984, 3, 26, 8, 58).getTime() - Date.now(),
+    insertCount: 0, flags: {}, clip: null, activeId: null, items: {}
+  };
+  FS = G.items;
+  const D0 = '1983-06-14T09:04:00';
+  function mk(o){
+    const it = Object.assign({ openState: null, home: null, win: null, created: D0, modified: D0, pos: { x: 0, y: 0 }, content: null, password: null }, o);
+    if (!it.id) it.id = uid();
+    FS[it.id] = it;
+    return it;
+  }
+  const slot = (c, r) => ({ x: 10 + c * 72, y: 8 + r * 48 });
+  // desk furniture
+  mk({ id: 'profile', kind: 'profile', name: 'ProFile', parent: 'desktop', pos: { x: 646, y: 6 } });
+  mk({ id: 'clipicon', kind: 'clip', name: 'Clipboard', parent: 'desktop', pos: { x: 646, y: 54 } });
+  mk({ id: 'waste', kind: 'waste', name: 'Wastebasket', parent: 'desktop', pos: { x: 646, y: 280 }, created: '1983-01-19T08:00:00' });
+  mk({ kind: 'guide', tool: 'guide', name: 'LisaGuide', parent: 'desktop', pos: { x: 8, y: 6 }, content: { page: 0 } });
+  // the seven tools
+  const tools = ['write', 'calc', 'draw', 'graph', 'project', 'list', 'term'];
+  const toolNames = { write: 'LisaWrite', calc: 'LisaCalc', draw: 'LisaDraw', graph: 'LisaGraph', project: 'LisaProject', list: 'LisaList', term: 'LisaTerminal' };
+  tools.slice(0, 5).forEach((t, i) => mk({ kind: 'tool', tool: t, name: toolNames[t], parent: 'profile', pos: slot(i, 0) }));
+  tools.slice(5).forEach((t, i) => mk({ kind: 'tool', tool: t, name: toolNames[t], parent: 'profile', pos: slot(i, 1) }));
+  mk({ kind: 'doc', tool: 'prefs', name: 'Preferences', parent: 'profile', pos: slot(2, 1), content: {} });
+  mk({ kind: 'doc', tool: 'clock', name: 'Clock', parent: 'profile', pos: slot(3, 1), content: {} });
+  mk({ kind: 'doc', tool: 'calcda', name: 'Calculator', parent: 'profile', pos: slot(4, 1), content: {} });
+  // stationery pads
+  tools.slice(0, 5).forEach((t, i) => mk({ kind: 'pad', tool: t, name: toolNames[t] + ' Paper', parent: 'profile', pos: slot(i, 2) }));
+  tools.slice(5).forEach((t, i) => mk({ kind: 'pad', tool: t, name: toolNames[t] + ' Paper', parent: 'profile', pos: slot(i, 3) }));
+  mk({ kind: 'folderpad', name: 'Folders', parent: 'profile', pos: slot(2, 3) });
+  const ex = mk({ kind: 'folder', name: 'Examples', parent: 'profile', pos: slot(3, 3) });
+  // example documents
+  mk({ kind: 'doc', tool: 'write', name: 'Welcome to the Office', parent: ex.id, pos: slot(0, 0), created: '1984-04-24T10:15:00', modified: '1984-04-24T10:15:00',
+    content: { mL: 40, mR: 40, tabs: [120],
+      html: '<div style="text-align:right">Cupertino, April 24, 1984</div><br><div><b>Welcome to the Office.</b></div><br><div>Dear Visitor,</div><br>' +
+        '<div>The machine you are using was built around a single conviction: that you should never have to think about programs or files — only about your work.</div><br>' +
+        '<div>Tear a sheet from a stationery pad and it becomes a document. Set a document aside and it waits on the desktop, open in spirit. Press the power button and nothing is lost: the Lisa puts everything away, and sets it all back out when you return.</div><br>' +
+        '<div>This folder also holds a budget, a graph, a schedule, a floor plan and a telephone list. Do change them — the Lisa saves faithfully and complains courteously.</div><br>' +
+        '<div>With our compliments,</div><div><i>The Office Systems Group</i></div>' } });
+  mk({ kind: 'doc', tool: 'calc', name: '1984 Budget', parent: ex.id, pos: slot(1, 0), created: '1984-01-09T14:30:00', modified: '1984-02-02T11:05:00',
+    content: { cells: {
+      A1: 'Monthly costs', B1: 'Amount',
+      A2: 'Rent', B2: '850', A3: 'Salaries', B3: '2600', A4: 'Advertising', B4: '300',
+      A5: 'Telephone', B5: '120', A6: 'Diskettes', B6: '45',
+      A8: 'Total', B8: '=SUM(B2:B6)', A9: 'With 6% cushion', B9: '=B8*1.06'
+    }, fmt: { B2: '$', B3: '$', B4: '$', B5: '$', B6: '$', B8: '$', B9: '$' } } });
+  mk({ kind: 'doc', tool: 'graph', name: 'Sales, First Half', parent: ex.id, pos: slot(2, 0), created: '1984-03-12T09:00:00', modified: '1984-03-12T09:00:00',
+    content: { type: 'bar', rows: [['Jan', '118'], ['Feb', '132'], ['Mar', '141'], ['Apr', '129'], ['May', '158'], ['Jun', '171'], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', '']] } });
+  mk({ kind: 'doc', tool: 'draw', name: 'Office Floor Plan', parent: ex.id, pos: slot(3, 0), created: '1983-11-02T16:20:00', modified: '1983-11-02T16:20:00',
+    content: { snap: true, objects: [
+      { t: 'rect', x: 24, y: 24, w: 360, h: 240, fill: 'pw' },
+      { t: 'rect', x: 40, y: 40, w: 96, h: 56, fill: 'p12' }, { t: 'text', x: 56, y: 72, text: 'Reception', size: 10 },
+      { t: 'rect', x: 168, y: 40, w: 120, h: 56, fill: 'p25' }, { t: 'text', x: 192, y: 72, text: 'The Lisa', size: 10 },
+      { t: 'rrect', x: 40, y: 152, w: 152, h: 88, fill: 'ph' }, { t: 'text', x: 72, y: 200, text: 'Conference', size: 10 },
+      { t: 'ellipse', x: 240, y: 160, w: 96, h: 72, fill: 'p50' }, { t: 'text', x: 256, y: 200, text: 'Coffee', size: 10 },
+      { t: 'line', x: 384, y: 24, w: 0, h: 240 }
+    ] } });
+  mk({ kind: 'doc', tool: 'project', name: 'New Low-Cost Computer', parent: ex.id, pos: slot(0, 1), created: '1983-08-01T08:30:00', modified: '1983-12-19T17:45:00',
+    content: { start: '1983-08-01', tasks: [
+      { name: 'Digital board, final', days: 45, after: [] },
+      { name: 'Case & tooling', days: 90, after: [] },
+      { name: 'ROM: write & burn', days: 60, after: [1] },
+      { name: 'Build the first hundred', days: 55, after: [2, 3] },
+      { name: 'Film the big commercial', days: 14, after: [] },
+      { name: 'Ship to dealers', days: 15, after: [4] },
+      { name: 'Shareholders’ meeting!', days: 1, after: [5, 6] }
+    ] } });
+  mk({ kind: 'doc', tool: 'list', name: 'Office Phone List', parent: ex.id, pos: slot(1, 1), created: '1983-09-15T10:00:00', modified: '1984-01-30T15:10:00',
+    content: { sortCol: null, sortDir: 1, filter: null,
+      cols: [{ name: 'Name', type: 'text' }, { name: 'Extension', type: 'number' }, { name: 'Department', type: 'text' }],
+      rows: [
+        ['A. Fontaine', '204', 'Documentation'],
+        ['R. Delgado', '318', 'Hardware'],
+        ['M. Okabe', '112', 'Office Systems'],
+        ['S. Whitfield', '447', 'Marketing'],
+        ['“Doc” Ives', '509', 'Service'],
+        ['', '', '']
+      ] } });
+  mk({ kind: 'doc', tool: 'term', name: 'DataLine Session', parent: ex.id, pos: slot(2, 1), created: '1983-10-20T19:00:00', modified: '1983-10-20T19:00:00',
+    content: Tools.defs.term.blank() });
+}
+
+/* ============================================================
+   Power & Boot Manager — Soft Power is the whole point
+   ============================================================ */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const Power = {
+  isOn: false, busy: false,
+  press(){
+    if (this.busy) return;
+    Sound.ac();
+    if (this.isOn) this.shutdown(); else this.on();
+  },
+  async on(){
+    this.busy = true;
+    this.isOn = true;
+    qs('#led').classList.add('on');
+    Sound.powerClick();
+    G.powered = true;
+    State.save();
+    await sleep(350);
+    qs('#dark').style.opacity = '0';
+    await this.post();
+    this.busy = false;
+  },
+  /* boot ROM self test */
+  post(){
+    return new Promise(resolve => {
+      const ov = qs('#overlay');
+      ov.style.display = 'block';
+      ov.innerHTML = '';
+      const wrap = el(ov, 'div', 'postWrap');
+      hel(wrap, 'div', null, '<span style="font:italic bold 22px Georgia,serif">the Lisa</span>');
+      const rowIcons = el(wrap, 'div', 'postIcons');
+      const tests = [
+        { n: 'processor', g: '<svg width="30" height="26"><rect x="5" y="6" width="20" height="14" fill="#fff" stroke="#000"/><path d="M8 6V2M13 6V2M18 6V2M23 6V2M8 24v-4M13 24v-4M18 24v-4M23 24v-4" stroke="#000"/></svg>' },
+        { n: 'memory', g: '<svg width="30" height="26"><rect x="3" y="4" width="10" height="8" fill="#fff" stroke="#000"/><rect x="17" y="4" width="10" height="8" fill="#fff" stroke="#000"/><rect x="3" y="15" width="10" height="8" fill="#fff" stroke="#000"/><rect x="17" y="15" width="10" height="8" fill="#fff" stroke="#000"/></svg>' },
+        { n: 'i/o', g: '<svg width="30" height="26"><rect x="4" y="8" width="14" height="10" fill="#fff" stroke="#000"/><path d="M18 11h8M18 15h8" stroke="#000"/><circle cx="10" cy="13" r="2.5" fill="none" stroke="#000"/></svg>' },
+        { n: 'drives', g: '<svg width="30" height="26"><rect x="3" y="7" width="24" height="12" rx="1" fill="#fff" stroke="#000"/><path d="M3 15h24" stroke="#000"/><rect x="20" y="16" width="3" height="1.5" fill="#000"/></svg>' }
+      ];
+      const els = tests.map(t => {
+        const b = el(rowIcons, 'div', 'postIcon');
+        hel(b, 'div', null, t.g);
+        el(b, 'div', 'tick', '✓');
+        return b;
+      });
+      const status = el(wrap, 'div', null, 'The Lisa is checking itself over…');
+      status.style.fontSize = '10px';
+      el(ov, 'div', 'postHint', 'Hold the space bar for other startup choices  ·  ESC hurries things along');
+      this._env = false; this._skip = false;
+      let i = 0;
+      const step = () => {
+        if (!this.isOn){ resolve(); return; }
+        if (i < els.length){
+          els[i].classList.add('ok');
+          Sound.click();
+          status.textContent = 'Testing the ' + tests[i].n + '… it passes.';
+          i++;
+          setTimeout(step, this._skip ? 40 : 460);
+        } else {
+          status.innerHTML = 'Starting up from&nbsp; ' + iconSVG({ kind: 'profile' }, 32, 21) + ' &nbsp;the ProFile…';
+          Sound.hum(true);
+          setTimeout(() => {
+            if (this._env) this.environments(resolve);
+            else { this.office(); resolve(); }
+          }, this._skip ? 100 : 700);
+        }
+      };
+      setTimeout(step, this._skip ? 40 : 500);
+    });
+  },
+  environments(resolve){
+    const ov = qs('#overlay');
+    ov.innerHTML = '';
+    const w = el(ov, 'div', 'envWin');
+    hel(w, 'div', 'dtxt', '<b>Environments</b><br>The Lisa can start up in one of two worlds. Please choose, and then press Start.');
+    const row = el(w, 'div', 'envChoice');
+    let choice = 'office';
+    const mkEnv = (id, label, glyph) => {
+      const e = hel(row, 'div', 'envItem' + (id === 'office' ? ' sel' : ''), glyph + '<div style="margin-top:5px">' + label + '</div>');
+      e.addEventListener('mousedown', () => {
+        row.querySelectorAll('.envItem').forEach(x => x.classList.remove('sel'));
+        e.classList.add('sel');
+        choice = id;
+      });
+      e.addEventListener('dblclick', () => start());
+      return e;
+    };
+    mkEnv('office', 'the Office System', iconSVG({ kind: 'tool', tool: 'write' }, 50, 32));
+    mkEnv('workshop', 'the Workshop', '<svg width="50" height="32" viewBox="0 0 42 27"><rect x="6" y="3" width="30" height="18" fill="#fff" stroke="#000"/><path d="M10 8h14M10 12h10M10 16h6" stroke="#000"/><path d="M28 14l6 6M31 11l3 3" stroke="#000" stroke-width="2"/></svg>');
+    const btns = el(w, 'div', 'dbtns');
+    const off = el(btns, 'button', 'lbtn', 'Power Off');
+    const startB = el(btns, 'button', 'lbtn def', 'Start');
+    const start = () => {
+      if (choice === 'office'){ this.office(); resolve(); }
+      else this.workshop(resolve);
+    };
+    startB.onclick = start;
+    off.onclick = () => { resolve(); this.shutdown(true); };
+    this._envKey = ev => { if (ev.key === 'Enter') start(); };
+  },
+  workshop(resolve){
+    const ov = qs('#overlay');
+    ov.innerHTML = '';
+    const scr = el(ov, 'div', 'wksp');
+    const base = 'the Lisa Workshop — Version 3.0\n' +
+      'Copyright 1983 — for people who make the Office, not use it.\n\n' +
+      'FILE-MGR?  EDIT?  SYSTEM-MGR?  DEBUG?  RUN?  QUIT?\n\n> ';
+    scr.textContent = base;
+    let mode = 'top';
+    this._wkKey = ev => {
+      const k = ev.key.toUpperCase();
+      if (mode === 'quit'){
+        if (k === 'Y'){ this._wkKey = null; this.environments(resolve); return; }
+        scr.textContent += k + '\nStaying, then. The Workshop approves of second thoughts.\n\n> ';
+        mode = 'top';
+        return;
+      }
+      if (k.length !== 1) return;
+      scr.textContent += k + '\n';
+      if (k === 'F') scr.textContent += 'FILE-MGR:  List? Copy? Backup? Prefix? Quit?\n  The catalog, briefly:  OFFICE.SYS   LISAWRITE.OBJ   LISACALC.OBJ\n  LISADRAW.OBJ   SHELL.WORKSHOP   PASLIB.OBJ   (and 214 more)\n\n> ';
+      else if (k === 'E') scr.textContent += 'EDIT: The mouse sleeps down here; the Workshop editor is keys all the way.\n  (It sends its regards to the Office upstairs.)\n\n> ';
+      else if (k === 'S') scr.textContent += 'SYSTEM-MGR:  Time? Memory? Volumes?\n  788K contiguous free. The ProFile spins contentedly at 3600 rpm.\n\n> ';
+      else if (k === 'D') scr.textContent += 'DEBUG: LisaBug is awake and pretending it was not napping.\n  NMI vector polished daily.\n\n> ';
+      else if (k === 'R') scr.textContent += 'RUN: Nothing to run just now — the Office System lives upstairs.\n  (Q, then Y, will take you back toward it.)\n\n> ';
+      else if (k === 'Q'){ scr.textContent += 'Leave the Workshop? (Y to leave, anything else to stay) '; mode = 'quit'; }
+      else scr.textContent += 'The Workshop knows F, E, S, D, R and Q. It is a simple place.\n\n> ';
+      scr.scrollTop = scr.scrollHeight;
+    };
+  },
+  office(){
+    this._wkKey = null; this._envKey = null;
+    const ov = qs('#overlay');
+    ov.style.display = 'none';
+    ov.innerHTML = '';
+    Desk.renderAll();
+    restoreWindows();
+    MenuBar.refresh();
+    if (G.flags.abrupt){
+      G.flags.abrupt = false;
+      State.dirty();
+      Dialogs.alert('The Lisa was not switched off properly last time — the power simply vanished. No matter: your work had already been kept safe, and the desktop is exactly as you left it.');
+    } else if (G.firstBoot){
+      G.firstBoot = false;
+      State.dirty();
+      Dialogs.ask('Good morning, and welcome to the Lisa Office System. If this machine is new to you — and in ' + simNow().getFullYear() + ', it is new to nearly everyone — LisaGuide would be glad to show you around. It is the sheet at the upper left of the desktop.',
+        [{ label: 'Explore on My Own', value: false }, { label: 'Open LisaGuide', value: true, def: true }]).then(v => {
+          if (v){
+            const g = Object.values(FS).find(i => i.kind === 'guide');
+            if (g) Desk.openDoc(g);
+          }
+        });
+    }
+  },
+  async shutdown(quick){
+    if (this.busy && !quick) return;
+    this.busy = true;
+    MenuBar.close();
+    const ov = qs('#overlay');
+    if (!quick){
+      const docWins = Wins.list.filter(w => w.kind === 'doc');
+      const n = Dialogs.narrate('The Lisa is putting your work away. There is no need to do anything.');
+      await sleep(700);
+      for (const w of docWins){
+        n.set('Saving “' + esc(w.item.name) + '” and remembering where you were…');
+        w.persist();
+        await sleep(480);
+        w.el.style.display = 'none';
+        Sound.click();
+      }
+      Wins.list.forEach(w => w.persist());
+      n.set('The desktop will be remembered exactly as it looks now. Good night.');
+      G.activeId = Wins.active && Wins.active.item ? Wins.active.item.id : null;
+      G.powered = false;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(G)); } catch (e) {}
+      await sleep(900);
+      n.close();
+    } else {
+      G.powered = false;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(G)); } catch (e) {}
+    }
+    Sound.hum(false);
+    Sound.powerClick();
+    qs('#dark').style.opacity = '1';
+    qs('#led').classList.remove('on');
+    ov.style.display = 'none'; ov.innerHTML = '';
+    await sleep(650);
+    // clear the stage for the next power-on
+    Wins.list.concat(Wins.parked).forEach(w => { w.el.remove(); });
+    Wins.list = []; Wins.parked = []; Wins.active = null;
+    Desk.sel = null;
+    qs('#desktop').querySelectorAll('.icon').forEach(x => x.remove());
+    Dialogs.layer.innerHTML = ''; Dialogs.openCount = 0; Dialogs.layer.style.display = 'none';
+    this.isOn = false;
+    this.busy = false;
+  }
+};
+
+function restoreWindows(){
+  const opens = Object.values(FS).filter(i => i.openState === 'open');
+  opens.sort((a, b) => ((a.win && a.win.z) || 0) - ((b.win && b.win.z) || 0));
+  opens.forEach(it => {
+    try {
+      if (it.kind === 'doc' || it.kind === 'guide') Desk.createDocWindow(it);
+      else if (it.kind === 'clip') Clip.open();
+      else if (['folder', 'profile', 'diskette', 'waste'].indexOf(it.kind) >= 0) Desk.openContainer(it);
+    } catch (e) { it.openState = null; }
+  });
+  const act = G.activeId ? Wins.byItem(G.activeId) : null;
+  if (act) Wins.activate(act);
+  Desk.renderAll();
+}
+
+/* waste windows render their note, not a plain grid */
+const _rcOrig = Desk.renderContainer.bind(Desk);
+Desk.renderContainer = function(cid){
+  const it = itemById(cid);
+  if (it && it.kind === 'waste'){
+    const w = Wins.byItem(cid);
+    if (w && w.icHost) this.renderWaste(w);
+    return;
+  }
+  _rcOrig(cid);
+};
+
+/* ============================================================
+   Screen scaling — 720×364 through non-square pixels
+   ============================================================ */
+function layoutMachine(){
+  const PA = (G && G.prefs.squarePixels) ? 1.0 : 1.5;
+  const availW = window.innerWidth - 24, availH = window.innerHeight - 24;
+  const chromeW = 52, chromeH = 52 + 46;
+  let sx = Math.min((availW - chromeW) / 720, (availH - chromeH) / (364 * PA));
+  sx = Math.max(0.4, sx);
+  const sy = sx * PA;
+  const clip = qs('#stageClip');
+  clip.style.width = (720 * sx) + 'px';
+  clip.style.height = (364 * sy) + 'px';
+  stage.style.transform = 'scale(' + sx + ',' + sy + ')';
+  const m = qs('#machine');
+  const mw = 720 * sx + chromeW;
+  const mh = 364 * sy + chromeH;
+  m.style.width = mw + 'px';
+  m.style.left = Math.max(4, (window.innerWidth - mw) / 2) + 'px';
+  m.style.top = Math.max(4, (window.innerHeight - mh) / 2) + 'px';
+}
+function applyPrefs(){
+  const base = (G.prefs.contrast || 0) * 0.09;
+  qs('#dim').style.opacity = String(Math.min(0.85, base + (idleDimmed ? 0.55 : 0)));
+}
+
+/* ---- idle dimming, to preserve the tube ---- */
+let lastActivity = Date.now(), idleDimmed = false;
+function poke(){
+  lastActivity = Date.now();
+  if (idleDimmed){ idleDimmed = false; applyPrefs(); }
+}
+setInterval(() => {
+  if (Power.isOn && !idleDimmed && Date.now() - lastActivity > 5 * 60 * 1000){
+    idleDimmed = true; applyPrefs();
+  }
+}, 10000);
+
+/* ============================================================
+   The hidden signature
+   ============================================================ */
+let eggBuf = '';
+function showCredits(){
+  const c = qs('#credits');
+  c.style.display = 'flex';
+  c.innerHTML = '<div class="card">For the late nights, the early mice, and the diskettes<br>that never quite fit —<br><br>' +
+    'the Office Systems crew signs its work:<br>' +
+    '<b>A.&nbsp;Fontaine · R.&nbsp;Delgado · M.&nbsp;Okabe · S.&nbsp;Whitfield · “Doc”&nbsp;Ives</b><br>' +
+    'and the night shift, who kept the ProFile spinning.<br><br>' +
+    '<span style="font-size:11px">— Cupertino, January 1983.<br>You found the hidden signature. The Twiggy drives salute you.</span></div>';
+  c.addEventListener('mousedown', () => { c.style.display = 'none'; c.innerHTML = ''; }, { once: true });
+}
+
+/* ============================================================
+   Global input wiring
+   ============================================================ */
+qs('#menubar').addEventListener('mousedown', e => { e.preventDefault(); MenuBar.begin(e); });
+qs('#desktop').addEventListener('mousedown', e => {
+  if (e.target === qs('#desktop')) Desk.select(null);
+});
+qs('#powerBtn').addEventListener('click', () => Power.press());
+['mousemove', 'mousedown', 'keydown', 'wheel'].forEach(ev => window.addEventListener(ev, poke, true));
+window.addEventListener('resize', layoutMachine);
+document.addEventListener('dragstart', e => e.preventDefault());
+
+document.addEventListener('keydown', e => {
+  // credits card: any key dismisses
+  const cr = qs('#credits');
+  if (cr.style.display === 'flex'){ cr.style.display = 'none'; cr.innerHTML = ''; return; }
+  if (!Power.isOn) return;
+  // overlay worlds (environments / workshop)
+  if (qs('#overlay').style.display === 'block'){
+    if (e.key === 'Escape') Power._skip = true;
+    if (e.key === ' ' || e.key.toLowerCase() === 'e') Power._env = true;
+    if (Power._wkKey) Power._wkKey(e);
+    else if (Power._envKey) Power._envKey(e);
+    e.preventDefault();
+    return;
+  }
+  // dialogs take the keyboard
+  if (Dialogs.openCount){
+    const top = Dialogs.layer.lastElementChild;
+    if (top && top._key) top._key(e);
+    return;
+  }
+  const ae = document.activeElement;
+  const inField = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
+  // Apple-key equivalents
+  if ((e.metaKey || e.ctrlKey) && !e.altKey){
+    const map = { s: 'saveContinue', d: 'duplicate', o: 'open', p: 'print', x: 'cut', c: 'copy', v: 'paste', a: 'selectAll', z: 'undo', b: 'bold', i: 'italic', u: 'underline', f: 'find' };
+    const cmd = map[e.key.toLowerCase()];
+    if (cmd && !inField){ e.preventDefault(); Commands.run(cmd); return; }
+    if (cmd && inField && ['s', 'd', 'o', 'p'].indexOf(e.key.toLowerCase()) >= 0){ e.preventDefault(); Commands.run(cmd); return; }
+  }
+  if (inField) return;
+  // the hidden signature: type the word old Lisa hands whisper
+  if (/^[a-z]$/i.test(e.key)){
+    eggBuf = (eggBuf + e.key.toLowerCase()).slice(-6);
+    if (eggBuf === 'twiggy'){ eggBuf = ''; showCredits(); return; }
+  }
+  // renaming with Enter on a selected icon
+  if (e.key === 'Enter' && Desk.sel && !Wins.active){
+    const it = itemById(Desk.sel);
+    const ic = stage.querySelector('.icon[data-id="' + Desk.sel + '"] .lbl');
+    if (it && ic && Desk.canRename(it)){ Desk.beginRename(it, ic); e.preventDefault(); return; }
+  }
+  // hand the key to the active tool
+  const w = Wins.active;
+  if (w && w.tool && w.tool.key){
+    if (w.tool.key(e)) e.preventDefault();
+    else if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.key) >= 0) e.preventDefault();
+  }
+});
+
+/* ============================================================
+   Start
+   ============================================================ */
+function init(){
+  installPatterns();
+  const saved = State.load();
+  if (saved && saved.items && saved.items.profile){
+    G = saved;
+    FS = G.items;
+    Clip.c = G.clip || null;
+    if (G.powered) G.flags.abrupt = true;   // the browser vanished mid-session
+    G.powered = false;
+  } else {
+    buildWorld();
+  }
+  hel(qs('#dark'), 'div', null,
+    '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#2c2c2c;font-size:12px;letter-spacing:1px">the screen is dark — press the power button, below right</div>');
+  layoutMachine();
+  applyPrefs();
+  MenuBar.refresh();
+}
+init();
+</script>
+</body>
+</html>
