@@ -19,6 +19,7 @@ You can also open any exhibit's `.html` file directly; each one is fully standal
 
 | Year | Exhibit | Vendor | File | What you get |
 |------|---------|--------|------|--------------|
+| 1985 | **Windows 1.01** | Microsoft | [`win101.html`](win101.html) | Boot MS-DOS, type `WIN`: tiled windows that never overlap, MS-DOS Executive for a shell, monochrome Paint, Reversi and a hidden credits screen |
 | 1993 | **Windows for Workgroups 3.11** | Microsoft | [`win311.html`](win311.html) | Program Manager, File Manager and the classic 16-bit desktop on MS-DOS 6.22 |
 | 1994 | **AmigaOS 3.1 / Workbench 3.1** | Commodore | [`amiga.html`](amiga.html) | Kickstart boot, right-button menus, drag-down screens, the Ram Disk, AmigaShell and the Guru Meditation |
 | 1995 | **NeXTSTEP 3.3** | NeXT | [`nextstep.html`](nextstep.html) | The black slab: Workspace Manager, the Dock's ancestor, and the design language that shaped OS X |

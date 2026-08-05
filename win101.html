@@ -1,0 +1,3191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microsoft Windows 1.01 — an interactive simulation</title>
+<meta name="description" content="A single-file, in-browser simulation of Microsoft Windows 1.01 (1985): tiled windows, MS-DOS Executive, monochrome Paint and Reversi. Nothing real runs.">
+<style>
+/* ==========================================================================
+   MICROSOFT WINDOWS 1.01 — WEB SIMULATION (single file, no external assets)
+   Logical stage: 640 x 350 (EGA), scaled to the browser with the era's
+   vertical stretch (350 lines shown on a 4:3 tube).
+   ========================================================================== */
+:root{
+  /* EGA palette is fixed in JS; these vars carry the current colour scheme */
+  --scr-a:#00AAAA; --scr-b:#00AA00;     /* screen background dither pair   */
+  --wbg:#FFFFFF;   --wtx:#000000;       /* window background / text        */
+  --frame:#000000;                      /* window frame                    */
+  --tab-bg:#0000AA; --tab-tx:#FFFFFF;   /* active title bar                */
+  --tib-bg:#FFFFFF; --tib-tx:#000000;   /* inactive title bar              */
+  --mb-bg:#FFFFFF;  --mb-tx:#000000;    /* menu bar                        */
+  --sb-a:#FFFFFF;   --sb-b:#000000;     /* scroll bar dither               */
+  --f:600 12px/14px "Consolas","Courier New",monospace;
+  --fbig:700 13px/14px "Consolas","Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:#000;overflow:hidden;}
+body{font:var(--f);-webkit-font-smoothing:none;}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;}
+#stage{
+  position:relative;width:640px;height:350px;overflow:hidden;
+  transform-origin:center center;background:#000;
+  cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="19"><path d="M1 1 L1 15 L4 12 L6 17 L8 16 L6 11 L11 11 Z" fill="white" stroke="black" stroke-width="1"/></svg>') 1 1, default;
+}
+#stage.waitcur, #stage.waitcur *{
+  cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="13" height="19"><g fill="white" stroke="black" stroke-width="1"><rect x="1" y="1" width="11" height="3"/><rect x="1" y="15" width="11" height="3"/><path d="M2 4 L11 4 L11 6 L7 9 L7 10 L11 13 L11 15 L2 15 L2 13 L6 10 L6 9 L2 6 Z"/></g><path d="M4 5 L9 5 L9 6 L7 8 L6 8 L4 6 Z M6 12 L7 12 L9 14 L4 14 Z" fill="black"/></svg>') 6 9, wait !important;
+}
+.hidden{display:none !important;}
+::selection{background:#000;color:#fff;}
+
+/* ---------- DOS text screen -------------------------------------------- */
+#dos{
+  position:absolute;inset:0;background:#000;color:#AAAAAA;z-index:500;
+  font:13px/14px "Consolas","Courier New",monospace;white-space:pre;
+  padding:0 4px;overflow:hidden;
+}
+#dos .cur{background:#AAAAAA;color:#000;animation:dosblink .8s steps(1) infinite;}
+@keyframes dosblink{50%{opacity:0;}}
+#dos.hires{color:#fff;}
+
+/* ---------- Windows startup title screen -------------------------------- */
+#bootscreen{position:absolute;inset:0;background:#0000AA;z-index:490;color:#fff;
+  display:flex;align-items:center;justify-content:center;text-align:center;}
+#bootscreen .inner{font:700 14px/22px "Consolas","Courier New",monospace;}
+#bootscreen .logo{
+  width:110px;height:74px;margin:0 auto 18px;position:relative;
+  background:
+    linear-gradient(#fff,#fff) 0 0/50px 34px,
+    linear-gradient(#fff,#fff) 58px 0/50px 34px,
+    linear-gradient(#fff,#fff) 0 40px/50px 34px,
+    linear-gradient(#fff,#fff) 58px 40px/50px 34px;
+  background-repeat:no-repeat;
+}
+#bootscreen .logo::after{content:"";position:absolute;inset:6px;
+  background:
+    linear-gradient(#0000AA,#0000AA) 0 0/38px 22px,
+    linear-gradient(#0000AA,#0000AA) 58px 0/38px 22px,
+    linear-gradient(#0000AA,#0000AA) 0 40px/38px 22px,
+    linear-gradient(#0000AA,#0000AA) 58px 40px/38px 22px;
+  background-repeat:no-repeat;}
+
+/* ---------- Windows root ------------------------------------------------ */
+#winroot{position:absolute;inset:0;z-index:10;}
+#desktop{
+  position:absolute;inset:0;
+  background-image:conic-gradient(var(--scr-a) 0 25%, var(--scr-b) 0 50%, var(--scr-a) 0 75%, var(--scr-b) 0);
+  background-size:2px 2px;
+}
+body.mono #desktop{background-image:conic-gradient(#000 0 25%, #666 0 50%, #000 0 75%, #666 0);}
+body.mono #stage{filter:grayscale(1) contrast(1.15);}
+#iconarea{position:absolute;left:0;right:0;bottom:0;height:34px;z-index:40;display:flex;
+  align-items:flex-end;gap:6px;padding:0 4px 1px;pointer-events:none;}
+#iconarea .dicon{pointer-events:auto;width:44px;text-align:center;cursor:inherit;}
+#iconarea .dicon .art{width:32px;height:22px;margin:0 auto;background:var(--wbg);
+  border:1px solid #000;position:relative;}
+#iconarea .dicon .lbl{font:600 9px/10px "Consolas",monospace;color:#000;background:var(--wbg);
+  display:inline-block;padding:0 2px;border:1px solid #000;border-top:none;max-width:44px;
+  overflow:hidden;white-space:nowrap;}
+#iconarea .dicon.sel .lbl{background:#000;color:#fff;}
+#overlay{position:absolute;inset:0;z-index:200;pointer-events:none;}
+#overlay > *{pointer-events:auto;}
+
+/* ---------- windows ------------------------------------------------------ */
+.win{position:absolute;background:var(--wbg);border:1px solid var(--frame);
+  display:flex;flex-direction:column;overflow:hidden;}
+.win.zoomed{z-index:60;}
+.tbar{flex:0 0 16px;background:var(--tib-bg);color:var(--tib-tx);
+  border-bottom:1px solid var(--frame);position:relative;
+  text-align:center;font:var(--fbig);line-height:15px;user-select:none;
+  letter-spacing:1px;overflow:hidden;white-space:nowrap;}
+.win.active .tbar{background:var(--tab-bg);color:var(--tab-tx);}
+.tzoom{position:absolute;right:2px;top:2px;width:13px;height:11px;border:1px solid currentColor;
+  font:9px/9px monospace;text-align:center;cursor:inherit;}
+.tzoom::after{content:"◆";font-size:7px;position:relative;top:-1px;}
+.mbar{flex:0 0 15px;background:var(--mb-bg);color:var(--mb-tx);
+  border-bottom:1px solid var(--frame);display:flex;user-select:none;
+  font:var(--f);line-height:14px;overflow:hidden;}
+.mbar .mtop{padding:0 7px;white-space:nowrap;}
+.mbar .mtop.open, .mbar .mtop:hover{background:var(--mb-tx);color:var(--mb-bg);}
+.mbar .mtop u, .mprop u, .btn u{text-decoration:underline;text-underline-offset:1px;}
+.cbody{flex:1;position:relative;overflow:hidden;background:var(--wbg);color:var(--wtx);}
+
+/* drag outline while moving a window */
+#dragghost{position:absolute;border:2px dashed #000;background:rgba(255,255,255,.25);
+  z-index:300;pointer-events:none;}
+body.mono #dragghost{border-color:#fff;}
+.rhandle{position:absolute;z-index:45;}
+.rhandle.h{cursor:ew-resize;}
+.rhandle.v{cursor:ns-resize;}
+
+/* ---------- menus (dropdowns live in overlay) ---------------------------- */
+.menu{position:absolute;background:var(--mb-bg);color:var(--mb-tx);
+  border:1px solid var(--frame);min-width:120px;box-shadow:2px 2px 0 rgba(0,0,0,.35);
+  font:var(--f);user-select:none;z-index:250;}
+.menu .mi{padding:1px 16px 1px 18px;white-space:nowrap;position:relative;}
+.menu .mi.sel{background:var(--mb-tx);color:var(--mb-bg);}
+.menu .mi.dis{color:#888;}
+.menu .mi.dis.sel{background:var(--mb-bg);color:#888;}
+.menu .mi .chk{position:absolute;left:5px;}
+.menu .mi .acc{float:right;margin-left:22px;}
+.menu .sep{border-top:1px solid var(--frame);margin:2px 0;}
+
+/* ---------- dialogs ------------------------------------------------------ */
+#modality{position:absolute;inset:0;z-index:210;display:none;}
+.dlg{position:absolute;background:#fff;color:#000;border:2px solid #000;
+  box-shadow:1px 1px 0 #000, 3px 3px 0 rgba(0,0,0,.3);
+  font:var(--f);z-index:220;padding:8px 10px;min-width:180px;user-select:none;}
+.dlg .dtitle{text-align:center;font:var(--fbig);margin-bottom:6px;}
+.dlg .dtext{white-space:pre-wrap;margin-bottom:8px;}
+.dlg .drow{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap;}
+.btn{
+  display:inline-block;background:#fff;color:#000;border:1px solid #000;border-radius:8px;
+  padding:1px 12px;font:var(--f);cursor:inherit;user-select:none;text-align:center;min-width:52px;
+}
+.btn:active{background:#000;color:#fff;}
+.btn.def{box-shadow:0 0 0 1px #fff, 0 0 0 2px #000;}
+.btn.focus{outline:1px dotted #000;outline-offset:-3px;}
+.dlg input[type=text], .dlg input[type=number]{
+  font:var(--f);border:1px solid #000;background:#fff;color:#000;padding:0 3px;outline:none;}
+.dlg .fld{margin:3px 0;}
+.dlg select{font:var(--f);border:1px solid #000;background:#fff;}
+.cklbl{cursor:inherit;}
+.ckbx{font-family:"Consolas",monospace;}
+.lbox{border:1px solid #000;background:#fff;overflow-y:auto;font:var(--f);user-select:none;}
+.lbox .li{padding:0 4px;white-space:nowrap;}
+.lbox .li.sel{background:#000;color:#fff;}
+.radios .li::before{content:"( ) ";}
+.radios .li.on::before{content:"(•) ";}
+
+/* ---------- scroll bars (flat, era-style) -------------------------------- */
+.scrl{overflow:auto;}
+.scrl::-webkit-scrollbar{width:13px;height:13px;}
+.scrl::-webkit-scrollbar-track{
+  background-image:conic-gradient(var(--sb-a) 0 25%, var(--sb-b) 0 50%, var(--sb-a) 0 75%, var(--sb-b) 0);
+  background-size:2px 2px;border-left:1px solid #000;}
+.scrl::-webkit-scrollbar-thumb{background:var(--sb-a);border:1px solid #000;}
+.scrl::-webkit-scrollbar-button:single-button{background:var(--sb-a);border:1px solid #000;height:13px;width:13px;}
+.scrl::-webkit-scrollbar-button:vertical:decrement{
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11"><path d="M5.5 2 L9 7 L2 7 Z" fill="black"/></svg>');background-repeat:no-repeat;background-position:center;}
+.scrl::-webkit-scrollbar-button:vertical:increment{
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11"><path d="M5.5 9 L9 4 L2 4 Z" fill="black"/></svg>');background-repeat:no-repeat;background-position:center;}
+.scrl::-webkit-scrollbar-button:horizontal:decrement{
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11"><path d="M2 5.5 L7 2 L7 9 Z" fill="black"/></svg>');background-repeat:no-repeat;background-position:center;}
+.scrl::-webkit-scrollbar-button:horizontal:increment{
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11"><path d="M9 5.5 L4 2 L4 9 Z" fill="black"/></svg>');background-repeat:no-repeat;background-position:center;}
+.scrl{scrollbar-width:thin;scrollbar-color:#000 #fff;}
+
+/* ---------- MS-DOS Executive --------------------------------------------- */
+.msx-head{border-bottom:1px solid #000;padding:2px 6px;display:flex;align-items:center;gap:10px;
+  background:var(--wbg);}
+.msx-drive{display:inline-block;width:26px;height:16px;border:1px solid #000;position:relative;
+  text-align:center;font:600 10px/14px monospace;background:#fff;color:#000;}
+.msx-drive::after{content:"";position:absolute;right:2px;top:2px;width:4px;height:2px;background:#000;}
+.msx-drive.cur{background:#000;color:#fff;}
+.msx-path{font:var(--fbig);}
+.msx-vol{margin-left:auto;font:var(--f);}
+.msx-list{position:absolute;inset:21px 0 0 0;overflow:auto;padding:1px 4px;}
+.msx-cols{column-width:118px;column-gap:8px;}
+.msx-cols.long{column-width:300px;}
+.msx-f{white-space:nowrap;padding:0 3px;user-select:none;}
+.msx-f.sel{background:#000;color:#fff;}
+.msx-f.dir{font-weight:800;}
+
+/* ---------- misc app bits ------------------------------------------------- */
+textarea.plain{position:absolute;inset:0;border:none;outline:none;resize:none;
+  font:var(--f);background:var(--wbg);color:var(--wtx);padding:2px 4px;white-space:pre;overflow:auto;}
+.statusline{position:absolute;left:0;right:0;bottom:0;height:14px;border-top:1px solid #000;
+  font:var(--f);padding:0 4px;background:var(--wbg);}
+canvas{image-rendering:pixelated;}
+
+/* Reversi board */
+.rv-board{position:absolute;inset:0;display:grid;grid-template:repeat(8,1fr)/repeat(8,1fr);
+  background:#00AA00;}
+body.mono .rv-board{background:#777;}
+.rv-c{border:1px solid #000;position:relative;}
+.rv-c .pc{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:78%;aspect-ratio:1.371;border-radius:50%;border:1px solid #000;}
+.rv-c .pc.B{background:#000;}
+.rv-c .pc.W{background:#fff;}
+.rv-c.hint::after{content:"·";position:absolute;inset:0;text-align:center;font:700 14px/1.6 monospace;color:#000;}
+
+/* Write */
+.wr-ruler{height:14px;border-bottom:1px solid #000;font:9px/14px monospace;overflow:hidden;
+  white-space:nowrap;color:#000;background:#fff;user-select:none;}
+.wr-doc{position:absolute;inset:15px 0 0 0;overflow:auto;background:var(--wbg);}
+.wr-page{min-height:100%;padding:4px 14px;outline:none;font:var(--f);color:var(--wtx);}
+.wr-page img{max-width:100%;image-rendering:pixelated;border:1px solid #000;}
+
+/* Calculator */
+.calc{position:absolute;inset:0;display:flex;flex-direction:column;padding:6px;gap:6px;background:var(--wbg);}
+.calc .disp{border:1px solid #000;text-align:right;padding:1px 4px;font:var(--fbig);background:#fff;color:#000;}
+.calc .keys{flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.calc .keys .btn{min-width:0;padding:0;border-radius:6px;display:flex;align-items:center;justify-content:center;}
+
+/* Clock */
+.clockbody{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--wbg);}
+
+/* Terminal */
+.termout{position:absolute;inset:0;background:#000;color:#AAA;font:12px/13px "Consolas",monospace;
+  white-space:pre-wrap;word-break:break-all;padding:2px 4px;overflow-y:auto;}
+
+/* Paint */
+.pt-wrap{position:absolute;inset:0;display:flex;background:#fff;}
+.pt-tools{flex:0 0 54px;border-right:1px solid #000;display:grid;
+  grid-template-columns:1fr 1fr;grid-auto-rows:22px;}
+.pt-tool{border:1px solid #000;margin:-1px 0 0 -1px;text-align:center;font:9px/20px monospace;
+  user-select:none;overflow:hidden;}
+.pt-tool.on{background:#000;color:#fff;}
+.pt-main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.pt-cnv{flex:1;overflow:auto;background:#808080;}
+.pt-pats{flex:0 0 20px;border-top:1px solid #000;display:flex;}
+.pt-pat{width:26px;border-right:1px solid #000;}
+.pt-pat.on{outline:2px solid #000;outline-offset:-3px;}
+
+/* Cardfile */
+.cf-info{height:14px;border-bottom:1px solid #000;padding:0 4px;background:var(--wbg);}
+.cf-card{position:absolute;inset:15px 4px 4px 4px;border:1px solid #000;background:#fff;color:#000;
+  display:flex;flex-direction:column;}
+.cf-index{border-bottom:1px solid #000;padding:0 4px;font-weight:800;background:#fff;}
+.cf-body{flex:1;border:none;outline:none;resize:none;font:var(--f);padding:2px 4px;}
+.cf-list{position:absolute;inset:15px 4px 4px 4px;overflow:auto;}
+
+/* Calendar */
+.cal-head{height:16px;border-bottom:1px solid #000;padding:0 6px;font:var(--fbig);background:var(--wbg);}
+.cal-month{position:absolute;inset:17px 0 0 0;display:grid;grid-template-rows:14px repeat(6,1fr);}
+.cal-wk{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;}
+.cal-d{border:1px solid #000;margin:-1px 0 0 -1px;padding:0 2px;position:relative;user-select:none;}
+.cal-d.dim{color:#999;}
+.cal-d.today{font-weight:800;text-decoration:underline;}
+.cal-d.hasap::after{content:"•";position:absolute;right:2px;bottom:0;}
+.cal-d.sel{background:#000;color:#fff;}
+.cal-day{position:absolute;inset:17px 0 0 0;overflow:auto;}
+.cal-slot{display:flex;border-bottom:1px solid #000;}
+.cal-slot .t{flex:0 0 52px;border-right:1px solid #000;padding:0 3px;}
+.cal-slot .bell{flex:0 0 14px;text-align:center;}
+.cal-slot input{flex:1;border:none;outline:none;font:var(--f);padding:0 3px;background:var(--wbg);color:var(--wtx);}
+
+/* Control panel */
+.cp-body{position:absolute;inset:0;padding:8px 10px;background:var(--wbg);color:var(--wtx);}
+.swatch{display:inline-block;width:18px;height:12px;border:1px solid #000;}
+.swatch.on{outline:2px solid #000;outline-offset:1px;}
+
+/* Spooler */
+.sp-body{position:absolute;inset:0;padding:4px 6px;background:var(--wbg);color:var(--wtx);overflow:auto;}
+.sp-job{white-space:pre;}
+.sp-job.sel{background:#000;color:#fff;}
+
+/* credits easter egg */
+#credits{position:absolute;inset:0;background:#0000AA;z-index:400;overflow:hidden;color:#fff;
+  font:700 13px/20px "Consolas",monospace;text-align:center;}
+#credits .roll{position:absolute;left:0;right:0;animation:roll 26s linear forwards;}
+@keyframes roll{from{top:100%;}to{top:-620px;}}
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    <div id="dos"></div>
+    <div id="bootscreen" class="hidden">
+      <div class="inner">
+        <div class="logo"></div>
+        <div>Microsoft Windows</div>
+        <div>Version 1.01</div>
+        <div style="font-weight:400;font-size:11px;margin-top:14px">Copyright &copy; 1985, Microsoft Corp.<br>All Rights Reserved.<br><br><span style="font-size:10px">A museum simulation. Nothing real is running.</span></div>
+      </div>
+    </div>
+    <div id="winroot" class="hidden">
+      <div id="desktop"></div>
+      <div id="iconarea"></div>
+      <div id="overlay"></div>
+      <div id="modality"></div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+/* =========================================================================
+   0. UTILITIES / GLOBALS
+   ========================================================================= */
+const $=(s,e=document)=>e.querySelector(s);
+const stage=$("#stage"), dosEl=$("#dos"), winroot=$("#winroot"),
+      desktop=$("#desktop"), iconarea=$("#iconarea"), overlay=$("#overlay"),
+      modality=$("#modality"), bootscreen=$("#bootscreen");
+const SW=640, SH=350, VSTRETCH=480/350;   /* EGA aspect correction */
+let scaleX=1, scaleY=1;
+function fit(){
+  const vw=innerWidth, vh=innerHeight;
+  const s=Math.max(0.2,Math.min(vw/SW, vh/(SH*VSTRETCH)));
+  scaleX=s; scaleY=s*VSTRETCH;
+  stage.style.transform=`scale(${scaleX},${scaleY})`;
+}
+addEventListener("resize",fit); fit();
+function pt(e){ /* mouse event -> stage coords */
+  const r=stage.getBoundingClientRect();
+  return {x:(e.clientX-r.left)/scaleX, y:(e.clientY-r.top)/scaleY};
+}
+function el(tag,cls,html){const d=document.createElement(tag);if(cls)d.className=cls;
+  if(html!=null)d.innerHTML=html;return d;}
+function txt(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function amp(label){ /* "&File" -> HTML with underline, returns {html,key} */
+  const i=label.indexOf("&");
+  if(i<0)return {html:txt(label),key:null};
+  return {html:txt(label.slice(0,i))+"<u>"+txt(label[i+1])+"</u>"+txt(label.slice(i+2)),
+          key:label[i+1].toUpperCase()};
+}
+function pad(n,w,c){n=String(n);while(n.length<w)n=(c||" ")+n;return n;}
+function pad0(n,w){return pad(n,w,"0");}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+const NOW=()=>new Date();
+/* simulated "today" clock is real, but file dates live in 1985 */
+
+/* EGA 16-colour palette */
+const EGA=["#000000","#0000AA","#00AA00","#00AAAA","#AA0000","#AA00AA","#AA5500","#AAAAAA",
+           "#555555","#5555FF","#55FF55","#55FFFF","#FF5555","#FF55FF","#FFFF55","#FFFFFF"];
+const EGAN=["Black","Blue","Green","Cyan","Red","Magenta","Brown","White",
+            "Gray","Lt Blue","Lt Green","Lt Cyan","Lt Red","Lt Magenta","Yellow","Bright White"];
+
+/* =========================================================================
+   1. SOUND MANAGER — PC speaker only (square waves)
+   ========================================================================= */
+const SND={
+  ctx:null, on:true,
+  ac(){ if(!this.ctx){ try{this.ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} }
+        return this.ctx; },
+  tone(freq,ms,when=0,vol=.06){
+    if(!this.on)return; const c=this.ac(); if(!c)return;
+    const o=c.createOscillator(),g=c.createGain();
+    o.type="square"; o.frequency.value=freq;
+    g.gain.value=vol; o.connect(g); g.connect(c.destination);
+    const t=c.currentTime+when/1000;
+    o.start(t); o.stop(t+ms/1000);
+  },
+  beep(){this.tone(880,120);},
+  error(){this.tone(220,180);},
+  alarm(){for(let i=0;i<4;i++){this.tone(1200,90,i*180);}},
+  keyclick(){this.tone(2000,4,0,.02);},
+  rattle(){for(let i=0;i<14;i++)this.tone(90+((i*37)%60),18,i*40,.04);},
+  dial(){[350,440].forEach(f=>this.tone(f,350,0,.03));
+    for(let i=0;i<7;i++)this.tone(1200+((i*211)%600),60,500+i*90,.04);}
+};
+
+/* =========================================================================
+   2. STATE MANAGER — LocalStorage persistence
+   ========================================================================= */
+const ST={
+  key:"win101.museum.v1",
+  d:null,
+  load(){
+    try{this.d=JSON.parse(localStorage.getItem(this.key))||{};}catch(e){this.d={};}
+    this.d.files   =this.d.files||{};      /* path -> {content|data,size,date} overrides   */
+    this.d.deleted =this.d.deleted||[];    /* paths removed by the visitor                  */
+    this.d.reversi =this.d.reversi||{skill:1,w:0,l:0};
+    this.d.set     =this.d.set||{};        /* colours, blink, mouse, country, sound, mono   */
+    this.d.appts   =this.d.appts||{};      /* calendar: "YYYY-MM-DD" -> {hour:{t,alarm}}    */
+    return this.d;
+  },
+  save(){ try{localStorage.setItem(this.key,JSON.stringify(this.d));}catch(e){} }
+};
+ST.load();
+if(ST.d.set.sound===false)SND.on=false;
+
+/* =========================================================================
+   3. VIRTUAL FILE SYSTEM — 8.3 upper case, dates in 1985
+   ========================================================================= */
+function F(name,size,content,kind){return {name,dir:false,size,content:content||"",kind:kind||"",
+  date:"11-15-85",time:"11:01a"};}
+function D(name,children){return {name,dir:true,children:children||[],date:"11-15-85",time:"11:01a"};}
+const VFS={
+  drives:{},
+  cur:{drive:"C",path:[]},          /* per-DOS; Executive keeps its own */
+  volnames:{A:"",C:"HARDDISK"},
+  build(){
+    const WININI_DEF=[
+      "[windows]","load=","run=","Beep=yes","Spooler=yes","NullPort=None",
+      "device=EPSON FX-80,EPSON,LPT1:","DoubleClickSpeed=550","CursorBlinkRate=530",
+      "[colors]","; set from the Control Panel","",
+      "[intl]","sCountry=United States","iDate=0","sTime=:","sDate=/","",
+      "[extensions]","txt=notepad.exe ^.txt","wri=write.exe ^.wri",
+      "cal=calendar.exe ^.cal","crd=cardfile.exe ^.crd","msp=paint.exe ^.msp",""
+    ].join("\r\n");
+    const READWIN=[
+      "                       READWIN.TXT",
+      "        Release Notes: Microsoft Windows Version 1.01",
+      "        -----------------------------------------------",
+      "",
+      "WELCOME TO WINDOWS.",
+      "",
+      "Windows is an operating environment.  It runs on top of MS-DOS",
+      "and provides you with the means to run several applications at",
+      "one time, each in its own window, and to transfer information",
+      "between them.",
+      "",
+      "1.  WINDOWS DO NOT OVERLAP.",
+      "",
+      "    Applications share the screen the way panes share a window",
+      "    frame.  When you run a second application, Windows divides",
+      "    the screen between it and the first.  When you close a",
+      "    window, the remaining windows expand to use the space.",
+      "    You will not lose a window behind another window.  There",
+      "    is nothing behind another window.",
+      "",
+      "2.  MOVING A WINDOW.",
+      "",
+      "    Point to the title bar, hold the mouse button, and drag to",
+      "    a new part of the screen.  The window does not float; it",
+      "    trades places with what you drop it on.  From the keyboard,",
+      "    every command is on a menu:  press the ALT key, then the",
+      "    underlined letter.",
+      "",
+      "3.  CHANGING THE SIZE OF A WINDOW.",
+      "",
+      "    Drag the border that two windows share, and both windows",
+      "    change size together.  This is fair and cannot be avoided.",
+      "",
+      "4.  ZOOMING.",
+      "",
+      "    Double-click a title bar (or use the diamond at its right",
+      "    edge) to ZOOM a window to the full screen.  Double-click",
+      "    again to return it to its place in the arrangement.",
+      "",
+      "5.  ICONS.",
+      "",
+      "    The strip along the bottom of the screen is the icon area.",
+      "    Dragging a window there shrinks it to an icon; the icon",
+      "    keeps running.  Double-click an icon to give the window",
+      "    back its place on the screen.",
+      "",
+      "6.  LEAVING WINDOWS.",
+      "",
+      "    In the MS-DOS Executive, choose End Session from the",
+      "    Special menu.  You will be returned to MS-DOS.",
+      "",
+      "7.  MS-DOS EXECUTIVE.",
+      "",
+      "    The window that lists files is the MS-DOS Executive.  It",
+      "    is how you start applications (double-click a .EXE file,",
+      "    or choose Run from the File menu) and how you manage your",
+      "    files.  There are no pictures of programs to arrange; the",
+      "    file list is considered sufficient.",
+      "",
+      "We believe you will find that after an hour with Windows, the",
+      "practice of running one program at a time will seem quaint.",
+      "",
+      "                                   -- The Windows Development Team"
+    ].join("\r\n");
+    const README=[
+      "README.TXT  --  Read this before running SETUP.",
+      "",
+      "This diskette set contains Microsoft Windows Version 1.01.",
+      "",
+      "Windows requires:",
+      "  -  MS-DOS Version 2.0 or later",
+      "  -  256K of memory or greater",
+      "  -  A graphics adapter card",
+      "  -  Two double-sided disk drives, or a hard disk",
+      "",
+      "A mouse is recommended but is not required.  All Windows",
+      "functions may be performed with the keyboard.",
+      "",
+      "Suggested retail price:  $99.00.  A bargain at twice the",
+      "price, according to the marketing department.",
+      "",
+      "To start Windows, type    WIN    at the MS-DOS prompt."
+    ].join("\r\n");
+    const SAMPLE=[
+      "MEMO.TXT",
+      "",
+      "TO:      All staff",
+      "FROM:    Facilities",
+      "DATE:    November 21, 1985",
+      "RE:      The new computer",
+      "",
+      "The department has taken delivery of one (1) IBM Personal",
+      "Computer AT with the new Microsoft Windows software.  Staff",
+      "wishing to see two programs on the screen AT THE SAME TIME",
+      "may sign the sheet outside Room 4.  Please do not bring",
+      "coffee.  The machine cost more than the carpet."
+    ].join("\r\n");
+    const AGENDA=[
+      "AGENDA.TXT",
+      "",
+      "COMPUTER CLUB - AGENDA FOR NOVEMBER MEETING",
+      "",
+      "1. Minutes of October meeting (tabled, again)",
+      "2. Demonstration: 'Windows' by Microsoft - Mr. Pfeiffer",
+      "   (Mr. Pfeiffer requests the good monitor)",
+      "3. Debate: does anyone need 640K?",
+      "4. Coffee"
+    ].join("\r\n");
+    const win=D("WINDOWS",[
+      F("CALC.EXE",25008,"","app"), F("CALENDAR.EXE",37552,"","app"),
+      F("CARDFILE.EXE",36992,"","app"), F("CLIPBRD.EXE",9936,"","app"),
+      F("CLOCK.EXE",7984,"","app"), F("CONTROL.EXE",52416,"","app"),
+      F("MSDOS.EXE",41616,"","app"), F("NOTEPAD.EXE",18544,"","app"),
+      F("PAINT.EXE",92880,"","app"), F("REVERSI.EXE",15760,"","app"),
+      F("SPOOLER.EXE",12912,"","app"), F("TERMINAL.EXE",45568,"","app"),
+      F("WRITE.EXE",192976,"","app"),
+      F("WIN.COM",2178,""), F("WIN.INI",1425,WININI_DEF),
+      F("READWIN.TXT",4608,READWIN), F("README.TXT",1152,README),
+      F("COURA.FON",8720),F("COURB.FON",12304),F("HELVA.FON",7376),
+      F("HELVB.FON",9584),F("TMSRA.FON",8912),F("TMSRB.FON",11120),
+      F("EGA.DRV",12042),F("MOUSE.DRV",3378),F("SOUND.DRV",5853),
+      F("COMM.DRV",4262),F("EPSON.DRV",7514),F("KEYBUS.DRV",1450),
+      D("PIF",[ F("PLAN86.PIF",369), F("WORDPROC.PIF",369), F("DBASE86.PIF",369) ])
+    ]);
+    const dos=D("DOS",[
+      F("COMMAND.COM",23612),F("ANSI.SYS",1651),F("FORMAT.COM",9398),
+      F("CHKDSK.COM",9435),F("DISKCOPY.COM",4165),F("EDLIN.COM",7261),
+      F("PRINT.COM",8291),F("SYS.COM",3727),F("MODE.COM",5194),F("TREE.COM",2831)
+    ]);
+    const docs=D("DOCS",[
+      F("MEMO.TXT",512,SAMPLE), F("AGENDA.TXT",384,AGENDA),
+      F("BUDGET86.WRI",2176,JSON.stringify({html:
+        "<b>PRELIMINARY BUDGET — FISCAL 1986</b><br><br>Item............................Amount<br>Personal computer (1)........$3,995.00<br>Windows software................$99.00<br>Mouse (optional, approved)......$179.00<br>Training (Mr. Pfeiffer).........gratis<br><br><i>Submitted for review. The mouse remains controversial.</i>"}),"wri"),
+      F("PHONE.CRD",1024,JSON.stringify([
+        {i:"Aldrich, H. (Accounting)",b:"ext. 219\nPrefers memos to calls."},
+        {i:"Computer Club (Pfeiffer)",b:"555-0186\nMeets third Thursday.\nBring own diskettes."},
+        {i:"Crossroads BBS",b:"555-2400\n1200 baud, 8-N-1\nOnline after 6 PM."},
+        {i:"Repair - Micro Services",b:"555-0114\nAsk for Gus.\nGus asks for $60/hr."}]),"crd"),
+      F("PLANS.CAL",896,"{}","cal")
+    ]);
+    this.drives.C=D("C:\\",[win,dos,docs,
+      F("AUTOEXEC.BAT",128,"ECHO OFF\r\nPATH C:\\DOS;C:\\WINDOWS\r\nPROMPT $P$G\r\nVER"),
+      F("CONFIG.SYS",64,"FILES=20\r\nBUFFERS=15\r\nDEVICE=C:\\DOS\\ANSI.SYS"),
+      F("INVOICE.TXT",256,[
+        "RETAIL SOFTWARE INVOICE  #10101",
+        "",
+        "  1 x MICROSOFT WINDOWS (RETAIL) ........ $99.00",
+        "      diskettes (5), binder, and a",
+        "      genuine sense of the future.",
+        "",
+        "  PAID IN FULL - NOVEMBER 1985.  NO REFUNDS."].join("\r\n"))
+    ]);
+    this.drives.A=D("A:\\",[]);
+    /* apply persisted user edits */
+    for(const p in ST.d.files){
+      const o=ST.d.files[p];
+      this.put(p,o.content,o.size,true);
+    }
+    for(const p of ST.d.deleted){ this.remove(p,true); }
+  },
+  parse(path){ /* "C:\WINDOWS\FOO.TXT" -> {drive,parts} */
+    path=path.toUpperCase().replace(/\//g,"\\");
+    let drive=null;
+    if(/^[A-Z]:/.test(path)){drive=path[0];path=path.slice(2);}
+    const parts=path.split("\\").filter(s=>s.length);
+    return {drive,parts};
+  },
+  node(path,curDrive,curParts){ /* resolve to node or null */
+    const {drive,parts}=this.parse(path);
+    const d=drive||curDrive||"C";
+    let n=this.drives[d]; if(!n)return null;
+    let list=(path.startsWith("\\")||drive)?parts:[...(curParts||[]),...parts];
+    const stack=[];
+    for(const p of list){
+      if(p===".")continue;
+      if(p===".."){n=stack.pop()||this.drives[d];continue;}
+      if(!n.dir)return null;
+      stack.push(n);
+      const c=n.children.find(c=>c.name===p);
+      if(!c)return null; n=c;
+    }
+    return n;
+  },
+  dirOf(path){ const {drive,parts}=this.parse(path);
+    let n=this.drives[drive||"C"];
+    for(let i=0;i<parts.length-1;i++){
+      if(!n)return null;
+      n=n.children&&n.children.find(c=>c.name===parts[i]&&c.dir);
+    } return n;
+  },
+  put(path,content,size,silent){ /* create or overwrite a file */
+    const {drive,parts}=this.parse(path);
+    let n=this.drives[drive||"C"];
+    for(let i=0;i<parts.length-1;i++){
+      let c=n.children.find(k=>k.name===parts[i]&&k.dir);
+      if(!c){c=D(parts[i]);n.children.push(c);}
+      n=c;
+    }
+    const name=parts[parts.length-1];
+    let f=n.children.find(k=>k.name===name&&!k.dir);
+    if(!f){f=F(name,0,"");n.children.push(f);}
+    f.content=content;
+    f.size=size!=null?size:Math.max(64,content?content.length:64);
+    if(!silent){
+      ST.d.files[path.toUpperCase()]={content:f.content,size:f.size};
+      ST.d.deleted=ST.d.deleted.filter(p=>p!==path.toUpperCase());
+      ST.save();
+    }
+    return f;
+  },
+  mkdir(path){
+    const {drive,parts}=this.parse(path);
+    let n=this.drives[drive||"C"];
+    for(const p of parts){
+      let c=n.children.find(k=>k.name===p&&k.dir);
+      if(!c){c=D(p);n.children.push(c);}
+      n=c;
+    }
+  },
+  remove(path,silent){
+    const {drive,parts}=this.parse(path);
+    let n=this.drives[drive||"C"];
+    for(let i=0;i<parts.length-1;i++){
+      if(!n)return false;
+      n=n.children&&n.children.find(c=>c.name===parts[i]&&c.dir);
+    }
+    if(!n)return false;
+    const name=parts[parts.length-1];
+    const i=n.children.findIndex(c=>c.name===name);
+    if(i<0)return false;
+    n.children.splice(i,1);
+    if(!silent){
+      const up=path.toUpperCase();
+      delete ST.d.files[up];
+      if(!ST.d.deleted.includes(up))ST.d.deleted.push(up);
+      ST.save();
+    }
+    return true;
+  },
+  pathStr(drive,parts){return drive+":\\"+parts.join("\\");},
+  ini:{ /* WIN.INI access */
+    text(){ const f=VFS.node("C:\\WINDOWS\\WIN.INI"); return f?f.content:""; },
+    get(section,key,dflt){
+      const lines=this.text().split(/\r?\n/); let inSec=false;
+      for(const L of lines){
+        const s=L.trim();
+        if(/^\[.*\]$/.test(s)){inSec=s.toLowerCase()==="["+section.toLowerCase()+"]";continue;}
+        if(inSec){
+          const m=s.match(/^([^;=][^=]*)=(.*)$/);
+          if(m&&m[1].trim().toLowerCase()===key.toLowerCase())return m[2].trim();
+        }
+      }
+      return dflt;
+    },
+    set(section,key,val){
+      let lines=this.text().split(/\r?\n/); let inSec=false,done=false,secLine=-1;
+      for(let i=0;i<lines.length;i++){
+        const s=lines[i].trim();
+        if(/^\[.*\]$/.test(s)){
+          if(inSec&&!done){lines.splice(i,0,key+"="+val);done=true;break;}
+          inSec=s.toLowerCase()==="["+section.toLowerCase()+"]";
+          if(inSec)secLine=i;
+          continue;
+        }
+        if(inSec){
+          const m=s.match(/^([^;=][^=]*)=/);
+          if(m&&m[1].trim().toLowerCase()===key.toLowerCase()){
+            lines[i]=key+"="+val;done=true;break;}
+        }
+      }
+      if(!done){
+        if(secLine<0){lines.push("["+section+"]");}
+        else if(inSec){lines.push(key+"="+val);done=true;}
+        if(!done)lines.push(key+"="+val);
+      }
+      VFS.put("C:\\WINDOWS\\WIN.INI",lines.join("\r\n"));
+    }
+  }
+};
+VFS.build();
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   4. TILING WINDOW MANAGER — the heart of Windows 1.x
+   A binary split tree covers the tiling area. Leaves are windows.
+   Windows never overlap; only menus, dialogs and icons may.
+   ========================================================================= */
+const ICON_H=34;
+const MIN_W=110, MIN_H=64;
+
+let winSeq=0;
+class Win{
+  constructor(o){
+    this.id=++winSeq;
+    this.title=o.title||"Untitled";
+    this.app=o.app||null;
+    this.icon=o.icon||"app";
+    this.menus=o.menus||[];
+    this.onClose=o.onClose||null;
+    this.onKey=o.onKey||null;
+    this.onActivate=o.onActivate||null;
+    this.onResize=o.onResize||null;
+    this.zoomed=false; this.min=false;
+    this.rect={x:0,y:0,w:200,h:150};
+    this.el=el("div","win");
+    this.tbar=el("div","tbar");
+    this.tcap=el("span","tcap",txt(this.title));
+    this.tzoom=el("span","tzoom");
+    this.tzoom.title="Zoom";
+    this.tbar.append(this.tcap,this.tzoom);
+    this.mbar=el("div","mbar");
+    this.body=el("div","cbody");
+    this.el.append(this.tbar,this.mbar,this.body);
+    desktop.appendChild(this.el);
+    MENU.buildBar(this);
+    this.el.addEventListener("mousedown",e=>{ WM.focus(this); });
+    this.tzoom.addEventListener("click",e=>{ e.stopPropagation(); WM.toggleZoom(this); });
+    this.tbar.addEventListener("dblclick",e=>{ if(e.target!==this.tzoom) WM.toggleZoom(this); });
+    this.tbar.addEventListener("mousedown",e=>{ if(e.target!==this.tzoom) WM.beginDrag(this,e); });
+  }
+  setTitle(t){ this.title=t; this.tcap.textContent=t; if(this.iconEl)this.iconEl.querySelector(".lbl").textContent=t.split(" - ")[0]; }
+  setRect(r){
+    this.rect=r;
+    Object.assign(this.el.style,{left:r.x+"px",top:r.y+"px",width:r.w+"px",height:r.h+"px"});
+    if(this.onResize)this.onResize(r);
+  }
+  close(){ WM.close(this); }
+}
+
+const WM={
+  root:null, wins:[], iconized:[], active:null, handles:[],
+  area(){ return {x:0,y:0,w:SW,h:SH-ICON_H}; },
+
+  /* ---- tree ops ---- */
+  leaves(n,out){ n=n===undefined?this.root:n; out=out||[];
+    if(!n)return out;
+    if(n.win)out.push(n); else {this.leaves(n.a,out);this.leaves(n.b,out);}
+    return out;
+  },
+  findLeaf(win,n,parent){ n=n===undefined?this.root:n;
+    if(!n)return null;
+    if(n.win===win)return {node:n,parent};
+    if(n.win)return null;
+    return this.findLeaf(win,n.a,n)||this.findLeaf(win,n.b,n);
+  },
+  create(o){
+    const w=new Win(o);
+    this.wins.push(w);
+    this.insert(w);
+    this.focus(w);
+    this.layout();
+    return w;
+  },
+  insert(w){
+    const leaf={win:w};
+    if(!this.root){ this.root=leaf; return; }
+    /* split the largest leaf (by displayed area, honouring vertical stretch) */
+    let best=null,bestA=-1;
+    for(const L of this.leaves()){
+      const a=L.rect?L.rect.w*L.rect.h:1e9;
+      if(a>bestA){bestA=a;best=L;}
+    }
+    const r=best.rect||this.area();
+    const dir=(r.w > r.h*VSTRETCH*1.05)?"row":"col";
+    const old={win:best.win,rect:best.rect};
+    best.win=null; best.dir=dir; best.ratio=.5; best.a=old; best.b=leaf;
+    delete best.rect;
+  },
+  detach(w){ /* remove from tree (not from wins list) */
+    const f=this.findLeaf(w);
+    if(!f)return;
+    if(!f.parent){ this.root=null; return; }
+    const sib=(f.parent.a===f.node)?f.parent.b:f.parent.a;
+    /* collapse parent into sibling */
+    delete f.parent.win; delete f.parent.dir; delete f.parent.ratio;
+    delete f.parent.a; delete f.parent.b;
+    Object.assign(f.parent,sib);
+  },
+  close(w){
+    if(w.onClose)w.onClose();
+    if(w.min)this.unicon(w,false); else this.detach(w);
+    this.wins=this.wins.filter(x=>x!==w);
+    w.el.remove();
+    if(this.active===w){ this.active=null;
+      const L=this.leaves(); if(L.length)this.focus(L[L.length-1].win);
+    }
+    this.layout();
+  },
+  focus(w){
+    if(this.active===w)return;
+    if(this.active)this.active.el.classList.remove("active");
+    this.active=w;
+    if(w){ w.el.classList.add("active");
+      desktop.appendChild(w.el); /* for zoom stacking */
+      if(w.onActivate)w.onActivate();
+    }
+  },
+  /* ---- layout ---- */
+  layout(){
+    const A=this.area();
+    const assign=(n,r)=>{
+      n.rect=r;
+      if(n.win){ if(!n.win.zoomed)n.win.setRect(r); return; }
+      if(n.dir==="row"){
+        const w1=Math.round(r.w*n.ratio);
+        assign(n.a,{x:r.x,y:r.y,w:w1,h:r.h});
+        assign(n.b,{x:r.x+w1,y:r.y,w:r.w-w1,h:r.h});
+      }else{
+        const h1=Math.round(r.h*n.ratio);
+        assign(n.a,{x:r.x,y:r.y,w:r.w,h:h1});
+        assign(n.b,{x:r.x,y:r.y+h1,w:r.w,h:r.h-h1});
+      }
+    };
+    if(this.root)assign(this.root,A);
+    for(const w of this.wins){
+      if(w.min){w.el.classList.add("hidden");continue;}
+      w.el.classList.remove("hidden");
+      if(w.zoomed){ w.el.classList.add("zoomed"); w.setRect({x:0,y:0,w:SW,h:SH}); }
+      else w.el.classList.remove("zoomed");
+    }
+    this.buildHandles();
+    this.renderIcons();
+  },
+  /* ---- shared-border resize handles ---- */
+  buildHandles(){
+    for(const h of this.handles)h.remove(); this.handles=[];
+    const anyZoom=this.wins.some(w=>w.zoomed&&!w.min);
+    if(anyZoom)return;
+    const walk=(n)=>{
+      if(!n||n.win)return;
+      const r=n.rect;
+      const h=el("div","rhandle "+(n.dir==="row"?"h":"v"));
+      if(n.dir==="row"){
+        const bx=r.x+Math.round(r.w*n.ratio);
+        Object.assign(h.style,{left:(bx-2)+"px",top:r.y+"px",width:"5px",height:r.h+"px"});
+      }else{
+        const by=r.y+Math.round(r.h*n.ratio);
+        Object.assign(h.style,{left:r.x+"px",top:(by-2)+"px",width:r.w+"px",height:"5px"});
+      }
+      h.addEventListener("mousedown",e=>this.beginResize(n,e));
+      desktop.appendChild(h); this.handles.push(h);
+      walk(n.a); walk(n.b);
+    };
+    walk(this.root);
+  },
+  beginResize(node,e){
+    e.preventDefault(); e.stopPropagation();
+    const move=ev=>{
+      const p=pt(ev), r=node.rect;
+      if(node.dir==="row"){
+        node.ratio=clamp((p.x-r.x)/r.w, MIN_W/r.w, 1-MIN_W/r.w);
+      }else{
+        node.ratio=clamp((p.y-r.y)/r.h, MIN_H/r.h, 1-MIN_H/r.h);
+      }
+      this.layout();
+    };
+    const up=()=>{removeEventListener("mousemove",move);removeEventListener("mouseup",up);};
+    addEventListener("mousemove",move); addEventListener("mouseup",up);
+  },
+  /* ---- drag a window: swap tiles, or drop on icon area to iconize ---- */
+  beginDrag(w,e){
+    if(w.zoomed)return;
+    e.preventDefault();
+    const start=pt(e); let ghost=null;
+    const move=ev=>{
+      const p=pt(ev);
+      if(!ghost){
+        if(Math.abs(p.x-start.x)+Math.abs(p.y-start.y)<4)return;
+        ghost=el("div"); ghost.id="dragghost"; desktop.appendChild(ghost);
+      }
+      Object.assign(ghost.style,{left:(p.x-45)+"px",top:(p.y-8)+"px",width:"90px",height:"56px"});
+    };
+    const up=ev=>{
+      removeEventListener("mousemove",move); removeEventListener("mouseup",up);
+      if(!ghost)return; ghost.remove();
+      const p=pt(ev);
+      if(p.y>SH-ICON_H){ this.iconize(w); return; }
+      for(const L of this.leaves()){
+        const r=L.rect;
+        if(L.win!==w && p.x>=r.x&&p.x<r.x+r.w&&p.y>=r.y&&p.y<r.y+r.h){
+          const mine=this.findLeaf(w).node;
+          const t=L.win; L.win=mine.win; mine.win=t;
+          this.layout(); this.focus(w);
+          return;
+        }
+      }
+    };
+    addEventListener("mousemove",move); addEventListener("mouseup",up);
+  },
+  toggleZoom(w){
+    w.zoomed=!w.zoomed;
+    this.focus(w); this.layout();
+  },
+  /* ---- icon area ---- */
+  iconize(w){
+    if(w.min)return;
+    this.detach(w); w.min=true; w.zoomed=false;
+    this.iconized.push(w);
+    if(this.active===w){this.active=null;
+      const L=this.leaves(); if(L.length)this.focus(L[L.length-1].win);}
+    this.layout();
+  },
+  unicon(w,relayout=true){
+    this.iconized=this.iconized.filter(x=>x!==w);
+    if(relayout){ w.min=false; this.insert(w); this.focus(w); this.layout(); }
+  },
+  renderIcons(){
+    iconarea.innerHTML="";
+    for(const w of this.iconized){
+      const d=el("div","dicon");
+      const art=el("div","art"); drawIconArt(art,w.icon);
+      const lbl=el("div","lbl",txt(w.title.split(" - ")[0]));
+      d.append(art,lbl); w.iconEl=d;
+      d.addEventListener("dblclick",()=>this.unicon(w));
+      d.addEventListener("mousedown",e=>{
+        iconarea.querySelectorAll(".dicon").forEach(x=>x.classList.remove("sel"));
+        d.classList.add("sel");
+        /* drag icon up into the tiling restores it */
+        const move=ev=>{ const p=pt(ev); if(p.y<SH-ICON_H-10){cleanup();this.unicon(w);} };
+        const cleanup=()=>{removeEventListener("mousemove",move);removeEventListener("mouseup",cleanup);};
+        addEventListener("mousemove",move); addEventListener("mouseup",cleanup);
+      });
+      iconarea.appendChild(d);
+    }
+  },
+  endSession(){
+    for(const w of [...this.wins]){ if(w.onClose)w.onClose(); w.el.remove(); }
+    this.wins=[]; this.iconized=[]; this.root=null; this.active=null;
+    this.layout();
+  }
+};
+
+/* tiny code-drawn pictograms for the icon area */
+function drawIconArt(host,kind){
+  const c=document.createElement("canvas"); c.width=30;c.height=20;
+  c.style.width="30px";c.style.height="20px";
+  const g=c.getContext("2d"); g.fillStyle="#fff";g.fillRect(0,0,30,20);
+  g.strokeStyle="#000";g.fillStyle="#000";g.lineWidth=1;
+  const L=(x1,y1,x2,y2)=>{g.beginPath();g.moveTo(x1+.5,y1+.5);g.lineTo(x2+.5,y2+.5);g.stroke();};
+  switch(kind){
+    case "msx": for(let i=0;i<4;i++){L(4,4+i*4,12,4+i*4);L(17,4+i*4,26,4+i*4);} break;
+    case "clock": g.beginPath();g.arc(15,10,8,0,7);g.stroke();L(15,10,15,5);L(15,10,19,12); break;
+    case "note": g.strokeRect(7.5,2.5,15,15); for(let i=0;i<3;i++)L(10,6+i*4,20,6+i*4); break;
+    case "write": g.strokeRect(6.5,2.5,17,15); L(9,6,21,6);L(9,9,21,9);L(9,12,16,12); L(20,16,26,10); break;
+    case "paint": g.strokeRect(4.5,3.5,21,13); g.beginPath();g.moveTo(8,13);g.quadraticCurveTo(14,4,22,12);g.stroke(); break;
+    case "calc": g.strokeRect(8.5,2.5,13,15); g.fillRect(10,4,10,3); for(let r=0;r<3;r++)for(let k=0;k<3;k++)g.fillRect(10+k*4,9+r*3,2,2); break;
+    case "cal": g.strokeRect(5.5,3.5,19,13); L(5,7,24,7); for(let k=0;k<4;k++)L(9+k*4,7,9+k*4,16); break;
+    case "card": g.strokeRect(5.5,5.5,17,11); g.strokeRect(8.5,2.5,17,11); L(9,5,25,5); break;
+    case "rev": for(let r=0;r<2;r++)for(let k=0;k<3;k++){g.beginPath();g.arc(9+k*6,7+r*6,2.4,0,7);r+k&1?g.fill():g.stroke();} break;
+    case "term": g.strokeRect(5.5,3.5,19,12); g.fillRect(8,6,7,2); L(11,18,19,18); break;
+    case "cp": g.beginPath();g.arc(15,10,7,0,7);g.stroke(); for(let a=0;a<8;a++){const x=15+Math.cos(a*.785)*9,y=10+Math.sin(a*.785)*9;g.fillRect(x-1,y-1,2,2);} break;
+    case "clip": g.strokeRect(8.5,4.5,13,13); g.strokeRect(12.5,2.5,5,4); L(11,9,19,9);L(11,12,19,12); break;
+    case "spool": g.strokeRect(6.5,7.5,17,8); g.strokeRect(10.5,3.5,9,4); g.fillRect(9,10,3,2); break;
+    default: g.strokeRect(6.5,3.5,17,13); L(6,8,23,8);
+  }
+  host.appendChild(c);
+}
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   5. MENU SYSTEM — per-window menu bars, Alt/F10 activation, arrow keys
+   Menu model: win.menus = [{label:"&File", items:[{label:"&Run...", act(),
+   acc:"Enter", enabled(), checked(), sep:false}]}]
+   ========================================================================= */
+const MENU={
+  openFor:null, openIdx:-1, selIdx:-1, dd:null, kbd:false,
+
+  buildBar(win){
+    win.mbar.innerHTML="";
+    win.mtops=[];
+    win.menus.forEach((m,i)=>{
+      const a=amp(m.label);
+      const t=el("div","mtop",a.html);
+      t.dataset.key=a.key||"";
+      t.addEventListener("mousedown",e=>{e.stopPropagation();WM.focus(win);this.open(win,i);});
+      t.addEventListener("mouseenter",()=>{ if(this.openFor===win&&this.openIdx!==i)this.open(win,i); });
+      win.mbar.appendChild(t); win.mtops.push(t);
+    });
+  },
+  rebuild(win){ this.closeAll(); this.buildBar(win); },
+
+  open(win,idx){
+    this.closeAll();
+    const m=win.menus[idx]; if(!m)return;
+    this.openFor=win; this.openIdx=idx; this.selIdx=-1;
+    win.mtops[idx].classList.add("open");
+    const dd=el("div","menu"); this.dd=dd;
+    m.items.forEach((it,k)=>{
+      if(it.sep){dd.appendChild(el("div","sep"));return;}
+      const a=amp(it.label);
+      const enabled=it.enabled?it.enabled():true;
+      const checked=it.checked?it.checked():false;
+      const d=el("div","mi"+(enabled?"":" dis"),
+        (checked?'<span class="chk">✓</span>':"")+a.html+(it.acc?'<span class="acc">'+txt(it.acc)+"</span>":""));
+      d.dataset.k=k; d.dataset.key=a.key||"";
+      d.addEventListener("mouseenter",()=>this.select(k));
+      d.addEventListener("mouseup",()=>this.invoke(k));
+      dd.appendChild(d);
+    });
+    const tr=win.mtops[idx].getBoundingClientRect(), sr=stage.getBoundingClientRect();
+    let x=(tr.left-sr.left)/scaleX, y=(tr.bottom-sr.top)/scaleY;
+    overlay.appendChild(dd);
+    const dw=dd.offsetWidth, dh=dd.offsetHeight;
+    if(x+dw>SW)x=SW-dw-1;
+    if(y+dh>SH)y=Math.max(0,y-dh-16);
+    dd.style.left=x+"px"; dd.style.top=y+"px";
+  },
+  select(k){
+    if(!this.dd)return;
+    this.selIdx=k;
+    this.dd.querySelectorAll(".mi").forEach(d=>d.classList.toggle("sel",+d.dataset.k===k));
+  },
+  invoke(k){
+    const win=this.openFor, m=win&&win.menus[this.openIdx];
+    if(!m)return;
+    const it=m.items[k];
+    if(!it||it.sep||(it.enabled&&!it.enabled())){return;}
+    this.closeAll();
+    if(it.act)it.act(win);
+  },
+  closeAll(){
+    if(this.dd){this.dd.remove();this.dd=null;}
+    if(this.openFor)this.openFor.mtops.forEach(t=>t.classList.remove("open"));
+    this.openFor=null;this.openIdx=-1;this.selIdx=-1;this.kbd=false;
+  },
+  /* keyboard interface — returns true if the event was consumed */
+  key(e){
+    const win=WM.active;
+    if(this.openFor){
+      const m=this.openFor.menus[this.openIdx];
+      const items=m.items;
+      const selectable=items.map((it,i)=>it.sep?null:i).filter(i=>i!=null);
+      if(e.key==="Escape"){this.closeAll();return true;}
+      if(e.key==="ArrowLeft"||e.key==="ArrowRight"){
+        const n=this.openFor.menus.length;
+        this.open(this.openFor,(this.openIdx+(e.key==="ArrowRight"?1:n-1))%n);
+        this.select(0); return true;
+      }
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+        let pos=selectable.indexOf(this.selIdx);
+        pos=(pos+(e.key==="ArrowDown"?1:selectable.length-1)+ (pos<0?(e.key==="ArrowDown"?0:1):0))%selectable.length;
+        this.select(selectable[pos]); return true;
+      }
+      if(e.key==="Enter"){ if(this.selIdx>=0)this.invoke(this.selIdx); else this.closeAll(); return true;}
+      if(/^[a-z0-9]$/i.test(e.key)){
+        const K=e.key.toUpperCase();
+        const hit=items.findIndex(it=>!it.sep&&amp(it.label).key===K);
+        if(hit>=0){this.invoke(hit);return true;}
+        return true;
+      }
+      return true;
+    }
+    if(!win||!win.menus.length)return false;
+    if(e.key==="Alt"||e.key==="F10"){ this.open(win,0); this.select(0); return true; }
+    if(e.altKey&&/^[a-z]$/i.test(e.key)){
+      const K=e.key.toUpperCase();
+      const i=win.menus.findIndex(m=>amp(m.label).key===K);
+      if(i>=0){this.open(win,i);this.select(0);return true;}
+    }
+    return false;
+  }
+};
+document.addEventListener("mousedown",e=>{
+  if(MENU.dd&&!MENU.dd.contains(e.target)&&!(MENU.openFor&&MENU.openFor.mbar.contains(e.target)))
+    MENU.closeAll();
+},true);
+
+/* =========================================================================
+   6. DIALOG / MESSAGE BOX MANAGER — flat 1985 boxes, modal, keyboardable
+   ========================================================================= */
+const DLG={
+  stack:[],
+  open(build,opts){
+    opts=opts||{};
+    MENU.closeAll();
+    const box=el("div","dlg");
+    const rec={box,opts,onKey:opts.onKey||null};
+    modality.style.display="block";
+    build(box,close);
+    overlay.appendChild(box);
+    const w=box.offsetWidth,h=box.offsetHeight;
+    box.style.left=Math.round(opts.x!=null?opts.x:(SW-w)/2)+"px";
+    box.style.top=Math.round(opts.y!=null?opts.y:(SH-h)/2.4)+"px";
+    this.stack.push(rec);
+    const first=box.querySelector("input[type=text],input[type=number],textarea");
+    if(first){first.focus();first.select&&first.select();}
+    function close(result){
+      DLG.stack=DLG.stack.filter(r=>r!==rec);
+      box.remove();
+      if(!DLG.stack.length)modality.style.display="none";
+      if(opts.onClose)opts.onClose(result);
+    }
+    rec.close=close;
+    return rec;
+  },
+  top(){return this.stack[this.stack.length-1];},
+  key(e){
+    const t=this.top(); if(!t)return false;
+    if(t.onKey&&t.onKey(e))return true;
+    if(e.key==="Escape"){
+      const c=t.box.querySelector("[data-cancel]");
+      if(c)c.click(); else t.close(null);
+      return true;
+    }
+    if(e.key==="Enter"&&e.target.tagName!=="TEXTAREA"){
+      const d=t.box.querySelector(".btn.def");
+      if(d){d.click();return true;}
+    }
+    if(e.key==="Tab"){
+      const f=[...t.box.querySelectorAll("input,textarea,select,.btn")];
+      if(f.length){
+        let i=f.indexOf(document.activeElement);
+        i=(i+(e.shiftKey?-1:1)+f.length)%f.length;
+        f[i].focus&&f[i].focus();
+      }
+      return true;
+    }
+    if(e.key===" "&&document.activeElement&&document.activeElement.classList&&
+       document.activeElement.classList.contains("btn")){
+      document.activeElement.click();return true;
+    }
+    return true; /* dialogs are modal: swallow everything else except typing */
+  },
+  btn(label,def,fn){
+    const a=amp(label);
+    const b=el("div","btn"+(def?" def":""),a.html);
+    b.tabIndex=0;
+    b.addEventListener("click",fn);
+    if(a.key)b.dataset.key=a.key;
+    return b;
+  },
+  /* classic message box: DLG.msg("Title","text",["OK","Cancel"],r=>{}) */
+  msg(title,text,buttons,cb,opts){
+    buttons=buttons||["OK"];
+    return this.open((box,close)=>{
+      if(title)box.appendChild(el("div","dtitle",txt(title)));
+      box.appendChild(el("div","dtext",txt(text)));
+      const row=el("div","drow");
+      buttons.forEach((b,i)=>{
+        const btn=this.btn(b,i===0,()=>{close(b);if(cb)cb(b);});
+        if(b==="Cancel")btn.dataset.cancel="1";
+        row.appendChild(btn);
+      });
+      box.appendChild(row);
+      box.style.maxWidth="330px";
+    },opts||{});
+  },
+  err(title,text,buttons,cb){ SND.error(); return this.msg(title,text,buttons,cb); },
+  /* prompt with one text field */
+  prompt(title,label,value,cb,width){
+    return this.open((box,close)=>{
+      box.appendChild(el("div","dtitle",txt(title)));
+      const fld=el("div","fld",txt(label)+" ");
+      const inp=el("input"); inp.type="text"; inp.value=value||""; inp.style.width=(width||150)+"px";
+      inp.spellcheck=false;
+      fld.appendChild(inp); box.appendChild(fld);
+      const row=el("div","drow");
+      row.appendChild(this.btn("Ok",true,()=>{close(inp.value);cb&&cb(inp.value);}));
+      const c=this.btn("Cancel",false,()=>{close(null);cb&&cb(null);});
+      c.dataset.cancel="1"; row.appendChild(c);
+      box.appendChild(row);
+    });
+  },
+  /* era critical error (drive A: etc.) */
+  critical(text,cb){
+    SND.error();
+    return this.msg("",text,["Cancel","Retry"],cb);
+  }
+};
+
+/* checkbox helper: [X] label */
+function ckbox(label,on,fn){
+  const w=el("span","cklbl");
+  const bx=el("span","ckbx",on?"[X]":"[ ]");
+  w.appendChild(bx); w.appendChild(document.createTextNode(" "+label));
+  w.dataset.on=on?"1":"";
+  w.addEventListener("click",()=>{
+    const v=!w.dataset.on; w.dataset.on=v?"1":"";
+    bx.textContent=v?"[X]":"[ ]";
+    fn&&fn(v);
+  });
+  return w;
+}
+/* list box helper */
+function lbox(items,sel,fn,h,w){
+  const b=el("div","lbox scrl");
+  b.style.height=(h||90)+"px"; b.style.width=(w||160)+"px";
+  items.forEach((it,i)=>{
+    const d=el("div","li"+(i===sel?" sel":""),txt(it));
+    d.addEventListener("click",()=>{
+      b.querySelectorAll(".li").forEach(x=>x.classList.remove("sel"));
+      d.classList.add("sel"); b.dataset.sel=i; fn&&fn(i,false);
+    });
+    d.addEventListener("dblclick",()=>{fn&&fn(i,true);});
+    b.appendChild(d);
+  });
+  b.dataset.sel=sel!=null?sel:-1;
+  return b;
+}
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   7. BOOT / DOS MANAGER — POST, MS-DOS prompt, WIN, DOS-app takeover
+   ========================================================================= */
+const DOS={
+  lines:[""], input:"", mode:"post",     /* post | prompt | takeover | app | off */
+  drive:"C", parts:[], visible:true, skipping:false,
+  appHandler:null,                       /* while a PIF app owns the screen */
+
+  show(){dosEl.classList.remove("hidden");this.visible=true;this.render();},
+  hide(){dosEl.classList.add("hidden");this.visible=false;},
+  cls(){this.lines=[""];this.render();},
+  print(s){ (s==null?[""]:String(s).split("\n")).forEach(L=>{
+      this.lines[this.lines.length-1]+=L;
+      this.lines.push("");
+    });
+    this.lines.pop(); this.lines.push("");
+    this.trim(); this.render();
+  },
+  put(s){ this.lines[this.lines.length-1]+=s; this.trim(); this.render(); },
+  nl(){ this.lines.push(""); this.trim(); this.render(); },
+  trim(){ while(this.lines.length>24)this.lines.shift(); },
+  prompt(){ return this.drive+":"+(this.parts.length?"\\"+this.parts.join("\\"):"\\")+">"; },
+  render(){
+    if(!this.visible)return;
+    let out="";
+    for(let i=0;i<this.lines.length;i++){
+      out+=txt(this.lines[i]);
+      if(i===this.lines.length-1&&(this.mode==="prompt"||this.mode==="takeover"))
+        out+=txt(this.input)+'<span class="cur">&nbsp;</span>';
+      out+="\n";
+    }
+    dosEl.innerHTML=out;
+  },
+
+  async post(){
+    this.mode="post"; this.show(); this.cls();
+    const steps=[
+      ["PHOENIX-STYLE ROM BIOS  VERSION 2.27",60],
+      ["COPYRIGHT (C) 1984-85   TURBOCOMP SYSTEMS INC.",40],
+      ["",200],
+    ];
+    for(const [s,d] of steps){ if(this.skipping)return; this.print(s); await wait(d); }
+    for(let k=64;k<=640;k+=64){
+      if(this.skipping)return;
+      this.lines[this.lines.length-1]="  "+pad(k,3)+" KB RAM TESTED   OK";
+      this.render(); await wait(55);
+    }
+    this.nl();
+    await wait(300); if(this.skipping)return;
+    this.print("Fixed disk 0: 20 MB .... OK");
+    await wait(280); if(this.skipping)return;
+    this.print("");
+    this.print("Booting from fixed disk ...");
+    await wait(500); if(this.skipping)return;
+    this.cls();
+    this.print("MS-DOS Version 3.10");
+    this.print("Copyright 1981,85 Microsoft Corp.");
+    this.print("");
+    await wait(220); if(this.skipping)return;
+    this.print("C>ECHO OFF");
+    await wait(140); if(this.skipping)return;
+    this.beginPrompt();
+    this.print("");
+    this.print("Type WIN to start Microsoft Windows.  (ESC also works.)");
+    this.print("");
+    this.put(this.prompt());
+  },
+  beginPrompt(){ this.mode="prompt"; this.input=""; this.render(); },
+
+  key(e){
+    if(this.mode==="post"){
+      if(e.key==="Escape"){ this.skipping=true; startWindows(); }
+      return true;
+    }
+    if(this.mode==="app"){ if(this.appHandler)this.appHandler(e); return true; }
+    if(this.mode!=="prompt"&&this.mode!=="takeover")return true;
+    if(e.key==="Enter"){
+      SND.keyclick();
+      const cmd=this.input; this.input="";
+      this.nl(); this.exec(cmd);
+      return true;
+    }
+    if(e.key==="Backspace"){ this.input=this.input.slice(0,-1); this.render(); return true; }
+    if(e.key==="Escape"&&this.mode==="prompt"){ this.input=""; this.exec("WIN"); return true; }
+    if(e.key.length===1&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
+      if(this.input.length<120){ this.input+=e.key.toUpperCase(); SND.keyclick(); this.render(); }
+      return true;
+    }
+    return true;
+  },
+
+  exec(raw){
+    const s=raw.trim();
+    const done=()=>{ this.print(""); this.put(this.prompt()); this.render(); };
+    if(!s){ this.put(this.prompt()); return; }
+    const m=s.match(/^([A-Z]+:?)(.*)$/);
+    let cmd=m?m[1]:s, arg=m?m[2].trim():"";
+    /* drive change: A: / C: */
+    if(/^[A-Z]:$/.test(cmd)&&!arg){
+      const d=cmd[0];
+      if(!VFS.drives[d]||d==="B"){ this.print("Invalid drive specification"); return done(); }
+      if(d==="A"&&!VFS.drives.A.children.length){
+        this.print("Not ready error reading drive A");
+        this.print("Abort, Retry, Ignore?");
+        this.drive="C";
+        return done();
+      }
+      this.drive=d; this.parts=[]; return done();
+    }
+    switch(cmd){
+      case "CLS": this.cls(); this.put(this.prompt()); return;
+      case "VER": this.print(""); this.print("MS-DOS Version 3.10"); return done();
+      case "VOL": this.print(" Volume in drive "+this.drive+" is "+(VFS.volnames[this.drive]||"NO NAME")); return done();
+      case "ECHO": this.print(arg||"ECHO is off"); return done();
+      case "DATE": this.print("Current date is "+NOW().toDateString()); return done();
+      case "TIME": this.print("Current time is "+NOW().toTimeString().slice(0,8)); return done();
+      case "EXIT":
+        if(this.mode==="takeover"){ exitTakeover(); return; }
+        return done();
+      case "DIR": return this.cmdDir(arg,done);
+      case "CD": case "CHDIR": return this.cmdCd(arg,done);
+      case "TYPE": return this.cmdType(arg,done);
+      case "WIN": case "WIN.COM":
+        if(this.mode==="takeover"){
+          this.print("You cannot run Windows from inside Windows.");
+          this.print("Type EXIT to return to your Windows session.");
+          return done();
+        }
+        startWindows(); return;
+      case "FORMAT":
+        this.print("WARNING: This is a museum piece. Nothing will be formatted today."); return done();
+      case "HELP":
+        this.print("Commands recognized: DIR CD CLS TYPE VER VOL DATE TIME ECHO WIN"); return done();
+      default:
+        this.print("Bad command or file name"); return done();
+    }
+  },
+  cmdDir(arg,done){
+    let n=arg?VFS.node(arg,this.drive,this.parts):VFS.node("",this.drive,this.parts);
+    if(this.drive==="A"&&!VFS.drives.A.children.length){
+      this.print("Not ready error reading drive A");
+      this.print("Abort, Retry, Ignore?"); return done();
+    }
+    if(!n){ this.print("File not found"); return done(); }
+    this.print(" Volume in drive "+this.drive+" is "+(VFS.volnames[this.drive]||"NO NAME"));
+    this.print(" Directory of  "+this.drive+":"+(this.parts.length?"\\"+this.parts.join("\\"):"\\"));
+    this.print("");
+    if(!n.dir){ n=[n]; } else n=n.children;
+    let files=0,bytes=0;
+    for(const f of [...n].sort((a,b)=>a.name.localeCompare(b.name))){
+      const [nm,ext]=f.dir?[f.name,""]:splitExt(f.name);
+      this.print(pad(nm,-8)+" "+pad(ext,-3)+(f.dir?"   <DIR>     ":pad(f.size,9)+"   ")+f.date+"  "+f.time);
+      files++; if(!f.dir)bytes+=f.size;
+    }
+    this.print("      "+files+" File(s)   "+(this.drive==="C"?"11458560":"362496")+" bytes free");
+    done();
+  },
+  cmdCd(arg,done){
+    if(!arg){ this.print(this.drive+":"+(this.parts.length?"\\"+this.parts.join("\\"):"\\")); return done(); }
+    const n=VFS.node(arg,this.drive,this.parts);
+    if(!n||!n.dir){ this.print("Invalid directory"); return done(); }
+    const {drive,parts}=VFS.parse(arg);
+    if(arg.startsWith("\\")||drive){ this.parts=parts; }
+    else{
+      for(const p of parts){
+        if(p==="..")this.parts.pop();
+        else if(p!==".")this.parts.push(p);
+      }
+    }
+    done();
+  },
+  cmdType(arg,done){
+    if(!arg){ this.print("Invalid number of parameters"); return done(); }
+    const n=VFS.node(arg,this.drive,this.parts);
+    if(!n||n.dir){ this.print("File not found"); return done(); }
+    if(/\.(EXE|COM|FON|DRV|PIF)$/.test(n.name)){ this.print("(binary file — a cheerful mess of box-drawing characters omitted)"); return done(); }
+    (n.content||"(empty file)").split(/\r?\n/).forEach(L=>this.print(L));
+    done();
+  }
+};
+function splitExt(name){ const i=name.lastIndexOf(".");
+  return i<0?[name,""]:[name.slice(0,i),name.slice(i+1)]; }
+
+/* ---- WIN startup & session end ---- */
+let winRunning=false;
+async function startWindows(){
+  if(winRunning)return;
+  DOS.mode="off"; winRunning=true;
+  applyScheme(); applyMono();
+  bootscreen.classList.remove("hidden");
+  DOS.hide();
+  let skipped=false;
+  const skip=e=>{ if(e.key==="Escape"){skipped=true;} };
+  addEventListener("keydown",skip);
+  for(let i=0;i<24&&!skipped;i++)await wait(100);
+  removeEventListener("keydown",skip);
+  bootscreen.classList.add("hidden");
+  winroot.classList.remove("hidden");
+  stage.classList.add("waitcur");
+  APPS.launch("MSDOS.EXE");
+  /* honour WIN.INI load= line */
+  const load=VFS.ini.get("windows","load","");
+  for(const item of load.split(/[ ,]+/).filter(Boolean)){
+    const nm=item.toUpperCase().replace(/^.*\\/,"");
+    APPS.launch(nm.endsWith(".EXE")?nm:nm+".EXE",null,true);
+  }
+  setTimeout(()=>stage.classList.remove("waitcur"),600);
+}
+function endSession(){
+  DLG.msg("End Session","This will end your Windows session.",["Ok","Cancel"],r=>{
+    if(r!=="Ok")return;
+    WM.endSession();
+    winroot.classList.add("hidden");
+    winRunning=false;
+    DOS.show(); DOS.cls();
+    DOS.print("C>WIN");
+    DOS.print("Thank you for using Windows. Your session has ended.");
+    DOS.print("");
+    DOS.beginPrompt();
+    DOS.put(DOS.prompt());
+  });
+}
+
+/* ---- DOS application takeover (PIF) ---- */
+let savedTitle="";
+function enterTakeover(appName){
+  MENU.closeAll();
+  winroot.classList.add("hidden");
+  DOS.show(); DOS.cls();
+  DOS.mode="app";
+  runFakeDosApp(appName);
+}
+function exitTakeover(){
+  DOS.mode="off"; DOS.hide();
+  winroot.classList.remove("hidden");
+  WM.layout();
+}
+function runFakeDosApp(name){
+  /* a fictional 1985 character-mode spreadsheet: PLAN-86 */
+  if(name.startsWith("WORDPROC")){ return runFakeWordProc(); }
+  if(name.startsWith("DBASE86")){ return runFakeDb(); }
+  DOS.cls();
+  const head="PLAN-86  The Professional Planning Sheet   (c)1985 SoftDesk    READY";
+  let grid=head+"\n     A         B         C         D         E         F\n";
+  const rows=[
+    "1   FORECAST  Q1        Q2        Q3        Q4        TOTAL",
+    "2   UNITS     120       135       160       210       625",
+    "3   PRICE     99.00     99.00     99.00     99.00",
+    "4   REVENUE   11880     13365     15840     20790     61875",
+    "5",
+    "6   NOTE:     SEE MEMO RE: MOUSE",
+    "7","8","9","10","11","12","13","14","15","16","17","18"
+  ];
+  grid+=rows.join("\n");
+  grid+="\n\n/ Commands: (Q)uit to DOS      [This is a simulated PIF session]";
+  dosEl.textContent=grid;
+  DOS.appHandler=e=>{
+    if(e.key.toUpperCase()==="Q"||e.key==="Escape"){
+      DOS.cls(); DOS.mode="takeover"; DOS.drive="C"; DOS.parts=["WINDOWS"];
+      DOS.print("PLAN-86 session ended.");
+      DOS.print("");
+      DOS.print("Windows is suspended.  Type EXIT to return to your session.");
+      DOS.print("");
+      DOS.put(DOS.prompt());
+    }
+  };
+}
+function runFakeWordProc(){
+  dosEl.textContent=
+"WORDCRAFT 2.1                                                DOCUMENT1.DOC\n"+
+"===========================================================================\n\n"+
+"    The quick brown fox jumps over the lazy dog, which is the\n"+
+"    only sentence this reviewer typed before deciding that a\n"+
+"    word processor without windows was no longer acceptable.\n\n\n\n\n\n\n\n\n\n\n\n\n\n"+
+"---------------------------------------------------------------------------\n"+
+"ESC = exit to DOS          Ln 5  Col 12          [Simulated PIF session]";
+  DOS.appHandler=e=>{ if(e.key==="Escape"){
+    DOS.cls(); DOS.mode="takeover"; DOS.drive="C"; DOS.parts=["WINDOWS"];
+    DOS.print("Windows is suspended.  Type EXIT to return to your session.");
+    DOS.print(""); DOS.put(DOS.prompt());
+  }};
+}
+function runFakeDb(){
+  dosEl.textContent=
+"DATAMASTER-86   (c)1985                                        .DBF: NONE\n\n"+
+".USE CUSTOMER\nFile not found. This demonstration database shipped without data,\n"+
+"which the manual describes as 'an opportunity'.\n\n.QUIT  (press ESC)\n\n\n\n\n\n\n\n\n\n\n\n\n"+
+"[Simulated PIF session]";
+  DOS.appHandler=e=>{ if(e.key==="Escape"){
+    DOS.cls(); DOS.mode="takeover"; DOS.drive="C"; DOS.parts=["WINDOWS"];
+    DOS.print("Windows is suspended.  Type EXIT to return to your session.");
+    DOS.print(""); DOS.put(DOS.prompt());
+  }};
+}
+
+/* =========================================================================
+   8. GLOBAL KEYBOARD ROUTER
+   ========================================================================= */
+document.addEventListener("keydown",e=>{
+  /* credits egg swallows everything */
+  if(!$("#credits").classList.contains("hidden")){
+    $("#credits").classList.add("hidden"); e.preventDefault(); return;
+  }
+  if(DOS.visible&&DOS.mode!=="off"){ DOS.key(e); e.preventDefault(); return; }
+  if(!winRunning)return;
+  if(DLG.stack.length){ if(DLG.key(e)&&["Tab","Enter","Escape","F1","F3","F4","F5","F9"].includes(e.key))e.preventDefault();
+    trackEgg(e); return; }
+  if(MENU.key(e)){ e.preventDefault(); return; }
+  const w=WM.active;
+  if(w&&w.onKey&&w.onKey(e)){ e.preventDefault(); return; }
+});
+/* keep Alt from triggering browser menus */
+addEventListener("keyup",e=>{ if(e.key==="Alt")e.preventDefault(); });
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   9. APPLICATION FRAMEWORK
+   ========================================================================= */
+const APPS={
+  reg:{},
+  assoc:{TXT:"NOTEPAD.EXE",INI:"NOTEPAD.EXE",BAT:"NOTEPAD.EXE",SYS:"NOTEPAD.EXE",
+         DOC:"NOTEPAD.EXE",WRI:"WRITE.EXE",CAL:"CALENDAR.EXE",CRD:"CARDFILE.EXE",
+         MSP:"PAINT.EXE"},
+  add(exe,def){this.reg[exe]=def;},
+  launch(exe,arg,asIcon){
+    exe=exe.toUpperCase();
+    if(!exe.includes("."))exe+=".EXE";
+    const def=this.reg[exe];
+    if(exe.endsWith(".PIF")){ enterTakeover(exe); return null; }
+    if(!def){
+      DLG.err("MS-DOS Executive","Cannot run "+exe+".\nThis application requires more memory than is\navailable, or is not a Windows application.");
+      return null;
+    }
+    if(def.single){
+      const ex=WM.wins.find(w=>w.app===exe);
+      if(ex){ if(ex.min)WM.unicon(ex); WM.focus(ex);
+        if(arg&&def.openFile)def.openFile(ex,arg);
+        return ex; }
+    }
+    stage.classList.add("waitcur");
+    const w=def.create(arg);
+    if(w){ w.app=exe; if(asIcon)WM.iconize(w); }
+    setTimeout(()=>stage.classList.remove("waitcur"),350);
+    return w;
+  },
+  openDoc(path){
+    const f=VFS.node(path);
+    if(!f||f.dir)return false;
+    const ext=splitExt(f.name)[1];
+    const exe=this.assoc[ext];
+    if(!exe){ DLG.err("MS-DOS Executive","No application is associated with ."+ext+" files.\nCheck the [extensions] section of WIN.INI."); return true; }
+    this.launch(exe,path);
+    return true;
+  }
+};
+
+/* about box helper (+ the hidden credits arm/track) */
+function aboutBox(appName,extra){
+  eggBuf="";
+  DLG.open((box,close)=>{
+    box.dataset.egg="1";
+    box.appendChild(el("div","dtitle","About "+txt(appName)));
+    box.appendChild(el("div","dtext",
+      "Microsoft Windows\nVersion 1.01\nCopyright \u00A9 1985, Microsoft Corp.\n\n"+
+      (extra?extra+"\n\n":"")+
+      "Disk Space Free: 11458560 bytes\nMemory Free: 353888 bytes\n\n"+
+      "This is a museum simulation.\nNothing you do here is real, except Reversi losses."));
+    const row=el("div","drow");
+    row.appendChild(DLG.btn("Ok",true,()=>close()));
+    box.appendChild(row);
+  });
+}
+/* the hidden credits: with an About dialog open, press F1 F5 F9 F4 in order.
+   (An homage to the credits that went unfound for 36 years. Not documented
+   anywhere in the UI — if you are reading the source, you are cheating.) */
+let eggBuf="";
+function trackEgg(e){
+  const t=DLG.top();
+  if(!t||!t.box.dataset.egg)return;
+  if(["F1","F5","F9","F4"].includes(e.key)){
+    e.preventDefault();
+    eggBuf+=e.key;
+    if(eggBuf.endsWith("F1F5F9F4")){ eggBuf=""; t.close(null); showCredits(); }
+    if(eggBuf.length>40)eggBuf=eggBuf.slice(-20);
+  }
+}
+function showCredits(){
+  const c=$("#credits");
+  c.classList.remove("hidden");
+  SND.alarm();
+  c.innerHTML='<div class="roll">'+
+    "<br><br>CONGRATULATIONS!<br>YOU HAVE FOUND THE HIDDEN CREDITS<br><br>"+
+    "≡ THE WINDOWS 1.01 SIMULATION TEAM ≡<br><br>"+
+    "TILING ENGINE ......... THE DEPARTMENT OF FAIR SHARES<br>"+
+    "MS-DOS EXECUTIVE ...... A COMMITTEE OF ONE<br>"+
+    "MONOCHROME PAINT ...... PAINTED THEMSELVES INTO A CORNER<br>"+
+    "REVERSI OPPONENT ...... STILL LEARNING, HONESTLY<br>"+
+    "TERMINAL & BBS ........ THE NIGHT SHIFT<br>"+
+    "PC SPEAKER ............ BEEP<br><br>"+
+    "≡ WITH PERIOD-APPROPRIATE THANKS TO ≡<br><br>"+
+    "EVERY 1985 DEVELOPER WHO SHIPPED AN OPERATING<br>ENVIRONMENT IN 256K AND AN EASTER EGG<br>THAT KEPT ITS SECRET FOR 36 YEARS.<br><br>"+
+    "THIS SIMULATION CONTAINS NO MICROSOFT CODE,<br>NO MICROSOFT ARTWORK, AND NO REFUNDS. ($99)<br><br>"+
+    "PRESS ANY KEY OR CLICK TO RETURN<br></div>";
+  c.onclick=()=>c.classList.add("hidden");
+}
+
+/* =========================================================================
+   10. MS-DOS EXECUTIVE — the shell
+   ========================================================================= */
+APPS.add("MSDOS.EXE",{
+  create(){ return makeExecutive(); }
+});
+function makeExecutive(){
+  const S={drive:"C",parts:[],view:"short",sort:"name",filter:"*.*",sel:-1};
+  let win;
+  const body=el("div");
+  const head=el("div","msx-head");
+  const list=el("div","msx-list scrl");
+  const cols=el("div","msx-cols");
+  list.appendChild(cols);
+  body.append(head,list);
+  body.style.position="absolute"; body.style.inset="0";
+
+  function curDir(){ let n=VFS.drives[S.drive];
+    for(const p of S.parts){ n=n.children.find(c=>c.name===p&&c.dir)||n; } return n; }
+  function items(){
+    let ch=[...curDir().children];
+    if(S.filter&&S.filter!=="*.*"){
+      const rx=new RegExp("^"+S.filter.replace(/\./g,"\\.").replace(/\*/g,".*").replace(/\?/g,".")+"$","i");
+      ch=ch.filter(f=>f.dir||rx.test(f.name));
+    }
+    const key={name:(a,b)=>a.name.localeCompare(b.name),
+      size:(a,b)=>(a.size||0)-(b.size||0),
+      date:(a,b)=>a.name.localeCompare(b.name),
+      kind:(a,b)=>splitExt(a.name)[1].localeCompare(splitExt(b.name)[1])||a.name.localeCompare(b.name)}[S.sort];
+    return ch.sort((a,b)=>(b.dir-a.dir)||key(a,b));
+  }
+  function refresh(){
+    head.innerHTML="";
+    for(const d of ["A","B","C"]){
+      const dv=el("span","msx-drive"+(d===S.drive?" cur":""),d);
+      dv.addEventListener("click",()=>{
+        if(d==="B"){ DLG.critical("Cannot read from drive B:\nThere is no drive B.  There was never a drive B."); return; }
+        if(d==="A"){ DLG.critical("Cannot read from drive A:\nMake sure a disk is fully inserted and the door is closed."); return; }
+        S.drive=d;S.parts=[];S.sel=-1;refresh();
+      });
+      head.appendChild(dv);
+    }
+    head.appendChild(el("span","msx-path",txt(S.drive+":"+(S.parts.length?"\\"+S.parts.join("\\"):"\\")+
+      (S.filter!=="*.*"?"  ("+S.filter+")":""))));
+    head.appendChild(el("span","msx-vol",txt(VFS.volnames[S.drive]||"NO NAME")));
+    cols.innerHTML="";
+    cols.className="msx-cols"+(S.view==="long"?" long":"");
+    const its=items();
+    its.forEach((f,i)=>{
+      let label=f.dir?f.name:f.name;
+      if(S.view==="long"&&!f.dir)
+        label=pad(splitExt(f.name)[0],-9)+pad(splitExt(f.name)[1],-3)+" "+pad(f.size,8)+" "+f.date+" "+f.time;
+      else if(S.view==="long")
+        label=pad(f.name,-9)+"   <DIR>";
+      const d=el("div","msx-f"+(f.dir?" dir":"")+(i===S.sel?" sel":""),txt(label));
+      d.addEventListener("click",()=>{S.sel=i;refresh();});
+      d.addEventListener("dblclick",()=>{S.sel=i;openSel();});
+      cols.appendChild(d);
+    });
+    win&&win.setTitle("MS-DOS Executive");
+  }
+  function selFile(){ const its=items(); return its[S.sel]||null; }
+  function fullPath(f){ return VFS.pathStr(S.drive,[...S.parts,f.name]); }
+  function openSel(){
+    const f=selFile(); if(!f)return;
+    if(f.dir){ S.parts.push(f.name); S.sel=-1; refresh(); return; }
+    const ext=splitExt(f.name)[1];
+    if(ext==="EXE"||ext==="COM"){ runByName(f.name); return; }
+    if(ext==="PIF"){ enterTakeover(f.name); return; }
+    if(!APPS.openDoc(fullPath(f)))
+      DLG.err("MS-DOS Executive","Cannot open "+f.name+".");
+  }
+  function runByName(name,asIcon){
+    name=name.toUpperCase().trim(); if(!name)return;
+    if(name==="WIN.COM"||name==="WIN"){
+      DLG.err("MS-DOS Executive","Windows is already running.\nRunning Windows under Windows is how you get ants."); return; }
+    if(name.endsWith(".PIF")){ enterTakeover(name); return; }
+    if(name==="COMMAND.COM"){ enterTakeoverPrompt(); return; }
+    if(APPS.reg[name]||APPS.reg[name+".EXE"]){ APPS.launch(name,null,asIcon); return; }
+    /* maybe it's a document */
+    const n=VFS.node(name,S.drive,S.parts);
+    if(n&&!n.dir&&APPS.assoc[splitExt(n.name)[1]]){ APPS.openDoc(fullPath(n)); return; }
+    DLG.err("MS-DOS Executive","Cannot run "+name+".\nThis application requires more memory than is\navailable, or is not a Windows application.");
+  }
+  function needSel(fn){ const f=selFile();
+    if(!f){ DLG.err("MS-DOS Executive","First select a file."); return; } fn(f); }
+
+  const menus=[
+    {label:"&File",items:[
+      {label:"&Run...",act:()=>DLG.prompt("Run","Run:","",v=>{v&&runByName(v);})},
+      {label:"&Load...",act:()=>DLG.prompt("Load","Load:","",v=>{v&&runByName(v,true);})},
+      {label:"&Copy...",act:()=>needSel(f=>{
+        DLG.prompt("Copy","Copy "+f.name+" to:","",v=>{
+          if(!v)return;
+          if(f.dir){DLG.err("MS-DOS Executive","Cannot copy a directory.");return;}
+          if(v.toUpperCase().startsWith("A:")){DLG.critical("Cannot write to drive A:\nMake sure a disk is fully inserted and the door is closed.");return;}
+          let dest=v.toUpperCase(); if(!dest.includes("\\")&&!dest.includes(":"))dest=VFS.pathStr(S.drive,[...S.parts,dest]);
+          VFS.put(dest,f.content,f.size); refresh();
+        });})},
+      {label:"&Get Info",act:()=>needSel(f=>{
+        DLG.msg("Get Info",
+          (f.dir?"Directory:  ":"File:       ")+f.name+"\n"+
+          "Path:       "+VFS.pathStr(S.drive,S.parts)+"\n"+
+          (f.dir?"Contains:   "+f.children.length+" file(s)":"Size:       "+f.size+" bytes")+"\n"+
+          "Date:       "+f.date+"  "+f.time+"\n"+
+          "Attributes: A"+(f.dir?" D":""));})},
+      {label:"&Delete...",act:()=>needSel(f=>{
+        DLG.msg("Delete","Delete "+f.name+"?",["Ok","Cancel"],r=>{
+          if(r!=="Ok")return;
+          if(f.dir&&f.children.length){DLG.err("MS-DOS Executive","Cannot delete a directory that contains files.");return;}
+          VFS.remove(fullPath(f)); S.sel=-1; refresh();
+        });})},
+      {label:"&Print",act:()=>needSel(f=>{
+        const ext=splitExt(f.name)[1];
+        if(f.dir||!["TXT","INI","BAT","DOC","SYS"].includes(ext)){
+          DLG.err("MS-DOS Executive","Cannot print "+(f.dir?"a directory":f.name)+".");return;}
+        SPOOL.add(f.name,(f.content||"").length);})},
+      {label:"Re&name...",act:()=>needSel(f=>{
+        DLG.prompt("Rename","Rename "+f.name+" to:","",v=>{
+          if(!v)return; v=v.toUpperCase();
+          if(!/^[A-Z0-9_]{1,8}(\.[A-Z0-9_]{1,3})?$/.test(v)){DLG.err("MS-DOS Executive","Not a valid 8.3 file name.");return;}
+          const c=f.content,s=f.size,dir=f.dir;
+          if(dir){f.name=v;refresh();return;}
+          VFS.remove(fullPath(f)); VFS.put(VFS.pathStr(S.drive,[...S.parts,v]),c,s); refresh();
+        });})},
+    ]},
+    {label:"&View",items:[
+      {label:"&Short",checked:()=>S.view==="short",act:()=>{S.view="short";refresh();}},
+      {label:"&Long",checked:()=>S.view==="long",act:()=>{S.view="long";refresh();}},
+      {sep:true},
+      {label:"&All",checked:()=>S.filter==="*.*",act:()=>{S.filter="*.*";refresh();}},
+      {label:"&Partial...",checked:()=>S.filter!=="*.*",act:()=>{
+        DLG.prompt("Partial Display","List files matching:",S.filter,v=>{ if(v){S.filter=v.toUpperCase();refresh();} });}},
+      {sep:true},
+      {label:"by &Name",checked:()=>S.sort==="name",act:()=>{S.sort="name";refresh();}},
+      {label:"by &Date",checked:()=>S.sort==="date",act:()=>{S.sort="date";refresh();}},
+      {label:"by Si&ze",checked:()=>S.sort==="size",act:()=>{S.sort="size";refresh();}},
+      {label:"by &Kind",checked:()=>S.sort==="kind",act:()=>{S.sort="kind";refresh();}},
+    ]},
+    {label:"&Special",items:[
+      {label:"&End Session",act:()=>endSession()},
+      {label:"Create &Directory...",act:()=>DLG.prompt("Create Directory","Name:","",v=>{
+        if(!v)return; v=v.toUpperCase();
+        if(!/^[A-Z0-9_]{1,8}$/.test(v)){DLG.err("MS-DOS Executive","Not a valid directory name.");return;}
+        VFS.mkdir(VFS.pathStr(S.drive,[...S.parts,v])); refresh(); })},
+      {label:"Change &Volume Name...",act:()=>DLG.prompt("Change Volume Name","Name:",VFS.volnames[S.drive]||"",v=>{
+        if(v!=null){VFS.volnames[S.drive]=v.toUpperCase().slice(0,11);refresh();} })},
+      {label:"&Format Data Disk...",act:()=>DLG.msg("Format Data Disk",
+        "Insert the disk to be formatted in drive A:\nWARNING: formatting destroys all data on the disk.",["Format","Cancel"],r=>{
+          if(r==="Format")DLG.critical("Cannot read from drive A:\nMake sure a disk is fully inserted and the door is closed.");})},
+      {label:"&Make System Disk...",act:()=>DLG.msg("Make System Disk",
+        "Insert a formatted disk in drive A:",["Ok","Cancel"],r=>{
+          if(r==="Ok")DLG.critical("Cannot write to drive A:\nMake sure a disk is fully inserted and the door is closed.");})},
+      {sep:true},
+      {label:"A&bout MS-DOS Executive...",act:()=>aboutBox("MS-DOS Executive")},
+    ]},
+  ];
+
+  win=WM.create({title:"MS-DOS Executive",icon:"msx",menus,
+    onKey(e){
+      const its=items();
+      if(e.key==="Enter"){openSel();return true;}
+      if(e.key==="Backspace"){ if(S.parts.length){S.parts.pop();S.sel=-1;refresh();} return true; }
+      if(e.key==="Delete"){ needSel(f=>{}); return false; }
+      if(["ArrowDown","ArrowRight"].includes(e.key)){S.sel=Math.min(its.length-1,S.sel+1);refresh();return true;}
+      if(["ArrowUp","ArrowLeft"].includes(e.key)){S.sel=Math.max(0,S.sel-1);refresh();return true;}
+      if(/^[a-z0-9]$/i.test(e.key)&&!e.altKey&&!e.ctrlKey){
+        const K=e.key.toUpperCase();
+        const i=its.findIndex(f=>f.name.startsWith(K));
+        if(i>=0){S.sel=i;refresh();} return true;
+      }
+      return false;
+    }});
+  win.body.appendChild(body);
+  refresh();
+  return win;
+}
+function enterTakeoverPrompt(){
+  MENU.closeAll();
+  winroot.classList.add("hidden");
+  DOS.show(); DOS.cls(); DOS.mode="takeover"; DOS.drive="C"; DOS.parts=[];
+  DOS.print("MS-DOS Version 3.10");
+  DOS.print("Windows is suspended.  Type EXIT to return to your session.");
+  DOS.print("");
+  DOS.put(DOS.prompt());
+}
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   11. CLIPBOARD MANAGER — cross-applet text and bitmap
+   ========================================================================= */
+const CLIP={
+  type:null, data:null, listeners:[],
+  set(type,data){ this.type=type; this.data=data;
+    this.listeners.forEach(f=>{try{f();}catch(e){}}); },
+  onChange(f){this.listeners.push(f);}
+};
+/* textarea edit-menu helpers */
+function taCut(ta){ taCopy(ta); taInsert(ta,""); }
+function taCopy(ta){
+  const s=ta.value.slice(ta.selectionStart,ta.selectionEnd);
+  if(s)CLIP.set("text",s);
+}
+function taPaste(ta){
+  if(CLIP.type!=="text"||!CLIP.data){SND.error();return;}
+  taInsert(ta,CLIP.data);
+}
+function taInsert(ta,s){
+  const a=ta.selectionStart,b=ta.selectionEnd;
+  ta.value=ta.value.slice(0,a)+s+ta.value.slice(b);
+  ta.selectionStart=ta.selectionEnd=a+s.length;
+  ta.focus();
+  ta.dispatchEvent(new Event("input"));
+}
+
+/* =========================================================================
+   12. NOTEPAD
+   ========================================================================= */
+APPS.add("NOTEPAD.EXE",{
+  create(arg){ return makeNotepad(arg); },
+});
+function fileOpenDlg(title,exts,cb){
+  /* era-simple open dialog: path field + list of matching files */
+  const paths=[];
+  const scan=(node,pre)=>{
+    for(const c of node.children){
+      if(c.dir){ scan(c,pre+c.name+"\\"); }
+      else if(exts.includes(splitExt(c.name)[1])) paths.push(pre+c.name);
+    }
+  };
+  scan(VFS.drives.C,"C:\\");
+  DLG.open((box,close)=>{
+    box.appendChild(el("div","dtitle",txt(title)));
+    const inp=el("input"); inp.type="text"; inp.style.width="220px"; inp.spellcheck=false;
+    const fld=el("div","fld","File name:  "); fld.appendChild(inp);
+    box.appendChild(fld);
+    const lb=lbox(paths,-1,(i,dbl)=>{ inp.value=paths[i]; if(dbl){close();cb(inp.value);} },110,236);
+    box.appendChild(lb);
+    const row=el("div","drow");
+    row.appendChild(DLG.btn("Open",true,()=>{close();cb(inp.value.toUpperCase());}));
+    const c=DLG.btn("Cancel",false,()=>{close();cb(null);}); c.dataset.cancel="1";
+    row.appendChild(c);
+    box.appendChild(row);
+  });
+}
+function makeNotepad(arg){
+  let file=null, dirty=false, win;
+  const ta=el("textarea","plain"); ta.spellcheck=false; ta.wrap="off";
+  function title(){ win.setTitle("Notepad - "+(file?file.split("\\").pop():"(untitled)")); }
+  function load(path){
+    const f=VFS.node(path);
+    if(!f||f.dir){ DLG.err("Notepad","Cannot open "+path+"."); return; }
+    file=path.toUpperCase(); ta.value=(f.content||"").replace(/\r\n/g,"\n"); dirty=false; title();
+    ta.setSelectionRange(0,0); ta.scrollTop=0;
+  }
+  function save(as){
+    const doSave=path=>{
+      path=path.toUpperCase();
+      if(!/\\/.test(path))path="C:\\DOCS\\"+path;
+      VFS.put(path,ta.value.replace(/\n/g,"\r\n"));
+      file=path; dirty=false; title();
+      if(path==="C:\\WINDOWS\\WIN.INI")
+        DLG.msg("Notepad","WIN.INI saved.  Changes to load= take effect the\nnext time you start Windows (End Session, then WIN).");
+    };
+    if(as||!file)DLG.prompt("Save As","File name:",file||"UNTITLED.TXT",v=>{v&&doSave(v);},180);
+    else doSave(file);
+  }
+  function confirmDrop(fn){
+    if(!dirty)return fn();
+    DLG.msg("Notepad","The text in the "+(file?file.split("\\").pop():"(untitled)")+" file has changed.\n\nDo you want to save the changes?",
+      ["Yes","No","Cancel"],r=>{ if(r==="Yes"){save();fn();} else if(r==="No")fn(); });
+  }
+  ta.addEventListener("input",()=>dirty=true);
+  const menus=[
+    {label:"&File",items:[
+      {label:"&New",act:()=>confirmDrop(()=>{ta.value="";file=null;dirty=false;title();})},
+      {label:"&Open...",act:()=>confirmDrop(()=>fileOpenDlg("Open",["TXT","INI","BAT","SYS","DOC"],p=>{p&&load(p);}))},
+      {label:"&Save",act:()=>save(false)},
+      {label:"Save &As...",act:()=>save(true)},
+      {sep:true},
+      {label:"&Print",act:()=>SPOOL.add(file?file.split("\\").pop():"(untitled)",ta.value.length)},
+      {sep:true},
+      {label:"A&bout Notepad...",act:()=>aboutBox("Notepad")},
+      {label:"E&xit",act:()=>confirmDrop(()=>win.close())},
+    ]},
+    {label:"&Edit",items:[
+      {label:"Cu&t",acc:"Shift+Del",act:()=>taCut(ta)},
+      {label:"&Copy",acc:"Ctrl+Ins",act:()=>taCopy(ta)},
+      {label:"&Paste",acc:"Shift+Ins",act:()=>taPaste(ta)},
+      {sep:true},
+      {label:"Select A&ll",act:()=>{ta.focus();ta.select();}},
+      {label:"Time/&Date",acc:"F5",act:()=>{
+        const d=NOW();
+        taInsert(ta,pad0(d.getHours()%12||12,2)+":"+pad0(d.getMinutes(),2)+" "+(d.getHours()<12?"AM":"PM")+" "+
+          (d.getMonth()+1)+"/"+d.getDate()+"/"+d.getFullYear());}},
+    ]},
+    {label:"&Search",items:[
+      {label:"&Find...",act:()=>DLG.prompt("Find","Find what:","",v=>{
+        if(!v)return;
+        const i=ta.value.toUpperCase().indexOf(v.toUpperCase(),ta.selectionEnd);
+        if(i<0){DLG.msg("Notepad","Cannot find \""+v+"\".");return;}
+        ta.focus(); ta.setSelectionRange(i,i+v.length);})},
+    ]},
+  ];
+  win=WM.create({title:"Notepad - (untitled)",icon:"note",menus,
+    onKey(e){
+      if(e.key==="F5"){menus[1].items[5].act();return true;}
+      if(e.shiftKey&&e.key==="Delete"){taCut(ta);return true;}
+      if(e.ctrlKey&&e.key==="Insert"){taCopy(ta);return true;}
+      if(e.shiftKey&&e.key==="Insert"){taPaste(ta);return true;}
+      return false;
+    },
+    onClose(){},
+  });
+  win.body.appendChild(ta);
+  if(arg)load(arg); else title();
+  setTimeout(()=>ta.focus(),50);
+  return win;
+}
+APPS.reg["NOTEPAD.EXE"].openFile=(w,p)=>{};
+
+/* =========================================================================
+   13. CALCULATOR — four functions, memory, 1.0 layout
+   ========================================================================= */
+APPS.add("CALC.EXE",{
+  create(){ return makeCalc(); }
+});
+function makeCalc(){
+  let acc=null,op=null,entry="0",fresh=true,mem=0,win;
+  const body=el("div","calc");
+  const disp=el("div","disp","0.");
+  const keys=el("div","keys");
+  body.append(disp,keys);
+  function show(){ disp.textContent=entry+(entry.includes(".")?"":"."); }
+  function digit(d){ if(fresh){entry=d==="."?"0.":d;fresh=false;}
+    else if(d==="."){ if(!entry.includes("."))entry+="."; }
+    else entry=(entry==="0"?d:entry+d);
+    if(entry.length>13)entry=entry.slice(0,13);
+    show(); }
+  function calc(){
+    const b=parseFloat(entry);
+    if(op&&acc!=null){
+      let r=op==="+"?acc+b:op==="-"?acc-b:op==="*"?acc*b:op==="/"?(b===0?NaN:acc/b):b;
+      if(isNaN(r)||!isFinite(r)){entry="ERROR";}
+      else entry=String(+r.toPrecision(12));
+      acc=parseFloat(entry)||0;
+    } else acc=b;
+    fresh=true; show();
+  }
+  function key(k){
+    SND.keyclick();
+    if(/[0-9.]/.test(k))return digit(k);
+    switch(k){
+      case "C": acc=null;op=null;entry="0";fresh=true;break;
+      case "CE": entry="0";fresh=true;break;
+      case "BK": entry=entry.length>1?entry.slice(0,-1):"0";break;
+      case "+":case "-":case "*":case "/": calc(); op=k; break;
+      case "=": calc(); op=null; break;
+      case "+-": entry=entry.startsWith("-")?entry.slice(1):("-"+entry);break;
+      case "SQ": entry=String(+Math.sqrt(Math.abs(parseFloat(entry))).toPrecision(10));fresh=true;break;
+      case "%": entry=String(parseFloat(entry)/100);fresh=true;break;
+      case "MC": mem=0;break; case "MR": entry=String(mem);fresh=true;break;
+      case "M+": mem+=parseFloat(entry)||0;fresh=true;break;
+      case "M-": mem-=parseFloat(entry)||0;fresh=true;break;
+    }
+    show();
+  }
+  [["MC","7","8","9","/"],["MR","4","5","6","*"],
+   ["M+","1","2","3","-"],["M-","0",".","+-","+"],
+   ["C","CE","BK","SQ","="]].flat().forEach(k=>{
+    const b=el("div","btn"+(k==="="?" def":""),k==="BK"?"&larr;":k==="SQ"?"&radic;":txt(k));
+    b.addEventListener("click",()=>key(k));
+    keys.appendChild(b);
+  });
+  win=WM.create({title:"Calculator",icon:"calc",menus:[
+    {label:"&Options",items:[{label:"A&bout Calculator...",act:()=>aboutBox("Calculator")}]}
+  ],onKey(e){
+    if(/^[0-9.+\-*/=%]$/.test(e.key)){key(e.key==="="?"=":e.key);return true;}
+    if(e.key==="Enter"){key("=");return true;}
+    if(e.key==="Backspace"){key("BK");return true;}
+    if(e.key==="Escape"){key("C");return true;}
+    return false;
+  }});
+  win.body.appendChild(body);
+  return win;
+}
+
+/* =========================================================================
+   14. CLOCK — analog, ticks forever, likes corners
+   ========================================================================= */
+APPS.add("CLOCK.EXE",{
+  create(){ return makeClock(); }
+});
+function makeClock(){
+  const body=el("div","clockbody");
+  const cnv=document.createElement("canvas");
+  body.appendChild(cnv);
+  let timer=null,win;
+  function draw(){
+    if(!win)return;
+    const r=win.rect, S=Math.max(30,Math.min(r.w-14,(r.h-40)*VSTRETCH));
+    cnv.width=S;cnv.height=S;cnv.style.width=S+"px";cnv.style.height=(S/VSTRETCH)+"px";
+    const g=cnv.getContext("2d"),c=S/2;
+    g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--wbg")||"#fff";
+    g.fillRect(0,0,S,S);
+    g.strokeStyle="#000";g.fillStyle="#000";g.lineWidth=1;
+    g.beginPath();g.arc(c,c,c-2,0,7);g.stroke();
+    for(let i=0;i<12;i++){
+      const a=i*Math.PI/6;
+      g.beginPath();
+      g.moveTo(c+Math.cos(a)*(c-4),c+Math.sin(a)*(c-4));
+      g.lineTo(c+Math.cos(a)*(c-9),c+Math.sin(a)*(c-9));
+      g.stroke();
+    }
+    const t=NOW();
+    const hand=(val,max,len,wd)=>{
+      const a=val/max*2*Math.PI-Math.PI/2;
+      g.lineWidth=wd;g.beginPath();g.moveTo(c,c);
+      g.lineTo(c+Math.cos(a)*len,c+Math.sin(a)*len);g.stroke();
+    };
+    hand(t.getHours()%12+t.getMinutes()/60,12,c*.5,2);
+    hand(t.getMinutes()+t.getSeconds()/60,60,c*.75,2);
+    hand(t.getSeconds(),60,c*.82,1);
+    g.lineWidth=1;
+  }
+  win=WM.create({title:"Clock",icon:"clock",menus:[
+    {label:"&Settings",items:[{label:"A&bout Clock...",act:()=>aboutBox("Clock")}]}
+  ],onResize(){draw();},onClose(){clearInterval(timer);}});
+  win.body.appendChild(body);
+  timer=setInterval(draw,1000);
+  draw();
+  return win;
+}
+
+/* =========================================================================
+   15. CLIPBOARD VIEWER
+   ========================================================================= */
+APPS.add("CLIPBRD.EXE",{
+  single:true,
+  create(){ return makeClipbrd(); }
+});
+function makeClipbrd(){
+  const body=el("div");
+  body.style.cssText="position:absolute;inset:0;overflow:auto;padding:4px 6px;";
+  body.classList.add("scrl");
+  function refresh(){
+    body.innerHTML="";
+    if(CLIP.type==="text"){
+      const pre=el("div"); pre.style.whiteSpace="pre-wrap"; pre.textContent=CLIP.data;
+      body.appendChild(pre);
+    }else if(CLIP.type==="bitmap"){
+      const img=el("img"); img.src=CLIP.data; img.style.border="1px solid #000";
+      img.style.imageRendering="pixelated";
+      body.appendChild(img);
+    }else{
+      body.appendChild(el("div",null,"(the clipboard is empty)"));
+    }
+  }
+  CLIP.onChange(refresh);
+  const win=WM.create({title:"Clipboard",icon:"clip",menus:[
+    {label:"&File",items:[
+      {label:"&Clear",act:()=>{CLIP.set(null,null);}},
+      {label:"E&xit",act:()=>win.close()},
+      {sep:true},
+      {label:"A&bout Clipboard...",act:()=>aboutBox("Clipboard")},
+    ]}
+  ]});
+  win.body.appendChild(body);
+  refresh();
+  return win;
+}
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   16. WRITE — the word processor (ruler, character formats, .WRI files)
+   ========================================================================= */
+APPS.add("WRITE.EXE",{
+  create(arg){ return makeWrite(arg); }
+});
+function makeWrite(arg){
+  let file=null,dirty=false,win;
+  const wrap=el("div"); wrap.style.cssText="position:absolute;inset:0;";
+  const ruler=el("div","wr-ruler");
+  let rl="";
+  for(let i=0;i<20;i++)rl+=(i%2===0?"|":"'")+"&nbsp;&nbsp;&nbsp;&nbsp;";
+  ruler.innerHTML="&nbsp;&nbsp;"+rl;
+  const docwrap=el("div","wr-doc scrl");
+  const page=el("div","wr-page"); page.contentEditable="true"; page.spellcheck=false;
+  docwrap.appendChild(page);
+  wrap.append(ruler,docwrap);
+  function title(){win.setTitle("Write - "+(file?file.split("\\").pop():"(untitled)"));}
+  function load(path){
+    const f=VFS.node(path);
+    if(!f||f.dir){DLG.err("Write","Cannot open "+path+".");return;}
+    try{ page.innerHTML=JSON.parse(f.content).html; }
+    catch(e){ page.textContent=f.content; }
+    file=path.toUpperCase(); dirty=false; title();
+  }
+  function save(as){
+    const doSave=p=>{
+      p=p.toUpperCase(); if(!/\\/.test(p))p="C:\\DOCS\\"+p;
+      if(!/\./.test(p.split("\\").pop()))p+=".WRI";
+      VFS.put(p,JSON.stringify({html:page.innerHTML}));
+      file=p;dirty=false;title();
+    };
+    if(as||!file)DLG.prompt("Save As","File name:",file||"UNTITLED.WRI",v=>{v&&doSave(v);},180);
+    else doSave(file);
+  }
+  function confirmDrop(fn){
+    if(!dirty)return fn();
+    DLG.msg("Write","Save changes to "+(file?file.split("\\").pop():"(untitled)")+"?",
+      ["Yes","No","Cancel"],r=>{if(r==="Yes"){save();fn();}else if(r==="No")fn();});
+  }
+  page.addEventListener("input",()=>dirty=true);
+  const fmt=(c,v)=>{page.focus();document.execCommand(c,false,v||null);dirty=true;};
+  function copySel(cut){
+    const sel=getSelection();
+    if(!sel.rangeCount||sel.isCollapsed){SND.error();return;}
+    CLIP.set("text",sel.toString());
+    if(cut)fmt("delete");
+  }
+  function paste(){
+    page.focus();
+    if(CLIP.type==="bitmap"&&CLIP.data){
+      fmt("insertHTML",'<img src="'+CLIP.data+'">');
+    }else if(CLIP.type==="text"&&CLIP.data){
+      fmt("insertText",CLIP.data);
+    }else SND.error();
+  }
+  const menus=[
+    {label:"&File",items:[
+      {label:"&New",act:()=>confirmDrop(()=>{page.innerHTML="";file=null;dirty=false;title();})},
+      {label:"&Open...",act:()=>confirmDrop(()=>fileOpenDlg("Open",["WRI"],p=>{p&&load(p);}))},
+      {label:"&Save",act:()=>save(false)},
+      {label:"Save &As...",act:()=>save(true)},
+      {sep:true},
+      {label:"&Print",act:()=>SPOOL.add(file?file.split("\\").pop():"(untitled)",page.textContent.length+400)},
+      {sep:true},
+      {label:"A&bout Write...",act:()=>aboutBox("Write")},
+      {label:"E&xit",act:()=>confirmDrop(()=>win.close())},
+    ]},
+    {label:"&Edit",items:[
+      {label:"Cu&t",acc:"Shift+Del",act:()=>copySel(true)},
+      {label:"&Copy",acc:"Ctrl+Ins",act:()=>copySel(false)},
+      {label:"&Paste",acc:"Shift+Ins",act:()=>paste()},
+      {sep:true},
+      {label:"Select A&ll",act:()=>{page.focus();document.execCommand("selectAll");}},
+    ]},
+    {label:"&Character",items:[
+      {label:"&Normal",act:()=>{fmt("removeFormat");}},
+      {sep:true},
+      {label:"&Bold",acc:"F6",act:()=>fmt("bold")},
+      {label:"&Italic",acc:"F7",act:()=>fmt("italic")},
+      {label:"&Underline",acc:"F8",act:()=>fmt("underline")},
+    ]},
+    {label:"&Paragraph",items:[
+      {label:"&Left",act:()=>fmt("justifyLeft")},
+      {label:"&Centered",act:()=>fmt("justifyCenter")},
+      {label:"&Right",act:()=>fmt("justifyRight")},
+      {sep:true},
+      {label:"&Normal spacing",act:()=>{}},
+    ]},
+    {label:"&Document",items:[
+      {label:"&Tabs...",act:()=>DLG.msg("Write","Tab stops are set every eight characters.\nIn 1985 this was considered generous.")},
+      {label:"&Ruler On/Off",act:()=>{ruler.classList.toggle("hidden");
+        docwrap.style.top=ruler.classList.contains("hidden")?"0":"15px";}},
+    ]},
+  ];
+  win=WM.create({title:"Write - (untitled)",icon:"write",menus,
+    onKey(e){
+      if(e.key==="F6"){fmt("bold");return true;}
+      if(e.key==="F7"){fmt("italic");return true;}
+      if(e.key==="F8"){fmt("underline");return true;}
+      if(e.shiftKey&&e.key==="Delete"){copySel(true);return true;}
+      if(e.ctrlKey&&e.key==="Insert"){copySel(false);return true;}
+      if(e.shiftKey&&e.key==="Insert"){paste();return true;}
+      return false;
+    }});
+  win.body.appendChild(wrap);
+  if(arg)load(arg); else title();
+  setTimeout(()=>page.focus(),50);
+  return win;
+}
+
+/* =========================================================================
+   17. PAINT — monochrome, as it truly was
+   ========================================================================= */
+APPS.add("PAINT.EXE",{
+  create(arg){ return makePaint(arg); }
+});
+const PT_PATTERNS=[ /* 4x4 dither matrices, 1 = black */
+  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+  [1,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0],
+  [1,0,0,0, 0,0,1,0, 0,1,0,0, 0,0,0,1],
+  [1,0,1,0, 0,1,0,1, 1,0,1,0, 0,1,0,1],
+  [0,1,1,1, 1,1,0,1, 1,0,1,1, 1,1,1,0],
+  [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+  [1,1,0,0, 1,1,0,0, 0,0,1,1, 0,0,1,1],
+  [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+];
+function makePaint(arg){
+  const CW=336,CH=190;
+  let file=null,dirty=false,tool="pencil",pat=3,win;
+  const wrap=el("div","pt-wrap");
+  const tools=el("div","pt-tools");
+  const main=el("div","pt-main");
+  const cwrap=el("div","pt-cnv scrl");
+  const pats=el("div","pt-pats");
+  const cnv=document.createElement("canvas");
+  cnv.width=CW;cnv.height=CH;cnv.style.cssText="background:#fff;display:block;margin:2px;";
+  cwrap.appendChild(cnv);
+  main.append(cwrap,pats);
+  wrap.append(tools,main);
+  const g=cnv.getContext("2d",{willReadFrequently:true});
+  g.imageSmoothingEnabled=false;
+  g.fillStyle="#fff";g.fillRect(0,0,CW,CH);
+
+  const TOOLS=[["pencil","PNCL"],["brush","BRSH"],["spray","SPRY"],["line","LINE"],
+    ["rect","RECT"],["frect","FBOX"],["oval","OVAL"],["foval","FOVL"],
+    ["fill","FILL"],["erase","ERAS"]];
+  TOOLS.forEach(([id,lbl])=>{
+    const t=el("div","pt-tool"+(id===tool?" on":""),lbl);
+    t.dataset.id=id;
+    t.addEventListener("click",()=>{tool=id;
+      tools.querySelectorAll(".pt-tool").forEach(x=>x.classList.toggle("on",x.dataset.id===id));});
+    tools.appendChild(t);
+  });
+  PT_PATTERNS.forEach((m,i)=>{
+    const p=el("div","pt-pat"+(i===pat?" on":""));
+    const pc=document.createElement("canvas");pc.width=8;pc.height=8;
+    pc.style.cssText="width:100%;height:100%;";
+    const pg=pc.getContext("2d");
+    pg.fillStyle="#fff";pg.fillRect(0,0,8,8);pg.fillStyle="#000";
+    for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(m[(y%4)*4+(x%4)])pg.fillRect(x,y,1,1);
+    p.appendChild(pc);
+    p.addEventListener("click",()=>{pat=i;
+      pats.querySelectorAll(".pt-pat").forEach((x,k)=>x.classList.toggle("on",k===i));});
+    pats.appendChild(p);
+  });
+
+  function mono(){ /* enforce 1-bit black & white */
+    const d=g.getImageData(0,0,CW,CH),a=d.data;
+    for(let i=0;i<a.length;i+=4){
+      const v=(a[i]+a[i+1]+a[i+2])/3<170?0:255;
+      a[i]=a[i+1]=a[i+2]=v; a[i+3]=255;
+    }
+    g.putImageData(d,0,0);
+  }
+  function patFillRect(x,y,w,h){
+    const m=PT_PATTERNS[pat];
+    const d=g.getImageData(0,0,CW,CH),a=d.data;
+    for(let yy=Math.max(0,y);yy<Math.min(CH,y+h);yy++)
+      for(let xx=Math.max(0,x);xx<Math.min(CW,x+w);xx++){
+        const v=m[(yy%4)*4+(xx%4)]?0:255,i=(yy*CW+xx)*4;
+        a[i]=a[i+1]=a[i+2]=v;a[i+3]=255;
+      }
+    g.putImageData(d,0,0);
+  }
+  function flood(x,y){
+    const d=g.getImageData(0,0,CW,CH),a=d.data,m=PT_PATTERNS[pat];
+    const at=(x,y)=>a[(y*CW+x)*4]<128?1:0;
+    const target=at(x,y);
+    const seen=new Uint8Array(CW*CH);
+    const q=[[x,y]];
+    while(q.length){
+      const [cx,cy]=q.pop();
+      if(cx<0||cy<0||cx>=CW||cy>=CH||seen[cy*CW+cx])continue;
+      if(at(cx,cy)!==target)continue;
+      seen[cy*CW+cx]=1;
+      q.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+    }
+    for(let yy=0;yy<CH;yy++)for(let xx=0;xx<CW;xx++)if(seen[yy*CW+xx]){
+      const v=m[(yy%4)*4+(xx%4)]?0:255,i=(yy*CW+xx)*4;
+      a[i]=a[i+1]=a[i+2]=v;a[i+3]=255;
+    }
+    g.putImageData(d,0,0);
+  }
+  function cpt(e){ const r=cnv.getBoundingClientRect();
+    return {x:Math.floor((e.clientX-r.left)/scaleX),y:Math.floor((e.clientY-r.top)/scaleY)}; }
+  let drag=null,snap=null;
+  cnv.addEventListener("mousedown",e=>{
+    e.preventDefault();
+    const p=cpt(e); drag=p; dirty=true;
+    snap=g.getImageData(0,0,CW,CH);
+    g.strokeStyle="#000";g.fillStyle="#000";g.lineWidth=1;
+    if(tool==="fill"){flood(p.x,p.y);drag=null;return;}
+    if(tool==="pencil"){g.fillRect(p.x,p.y,1,1);}
+    if(tool==="brush"){g.fillRect(p.x-2,p.y-2,5,5);}
+    if(tool==="erase"){g.fillStyle="#fff";g.fillRect(p.x-4,p.y-4,9,9);}
+    if(tool==="spray")spray(p);
+  });
+  function spray(p){
+    for(let i=0;i<14;i++){
+      const a=Math.random()*6.28,r=Math.random()*7;
+      g.fillRect(Math.round(p.x+Math.cos(a)*r),Math.round(p.y+Math.sin(a)*r),1,1);
+    }
+  }
+  addEventListener("mousemove",e=>{
+    if(!drag)return;
+    const p=cpt(e);
+    g.strokeStyle="#000";g.fillStyle="#000";
+    if(tool==="pencil"){ g.beginPath();g.moveTo(drag.x+.5,drag.y+.5);g.lineTo(p.x+.5,p.y+.5);g.stroke();drag=p;mono(); }
+    else if(tool==="brush"){ g.fillRect(p.x-2,p.y-2,5,5); drag=p; }
+    else if(tool==="erase"){ g.fillStyle="#fff"; g.fillRect(p.x-4,p.y-4,9,9); drag=p; }
+    else if(tool==="spray"){ spray(p); }
+    else{ /* shape preview */
+      g.putImageData(snap,0,0);
+      const x=Math.min(drag.x,p.x),y=Math.min(drag.y,p.y),
+            w=Math.abs(p.x-drag.x),h=Math.abs(p.y-drag.y);
+      if(tool==="line"){g.beginPath();g.moveTo(drag.x+.5,drag.y+.5);g.lineTo(p.x+.5,p.y+.5);g.stroke();}
+      if(tool==="rect")g.strokeRect(x+.5,y+.5,w,h);
+      if(tool==="frect"){patFillRect(x,y,w,h);g.strokeRect(x+.5,y+.5,w,h);}
+      if(tool==="oval"){g.beginPath();g.ellipse(x+w/2,y+h/2,w/2,h/2,0,0,7);g.stroke();}
+      if(tool==="foval"){g.beginPath();g.ellipse(x+w/2,y+h/2,w/2,h/2,0,0,7);g.stroke();
+        /* fill with pattern via flood at centre after stroke */
+      }
+    }
+  });
+  addEventListener("mouseup",e=>{
+    if(!drag)return;
+    const p=cpt(e);
+    if(tool==="foval"){
+      const cx=Math.round((drag.x+p.x)/2),cy=Math.round((drag.y+p.y)/2);
+      mono();
+      if(Math.abs(p.x-drag.x)>4&&Math.abs(p.y-drag.y)>4)flood(cx,cy);
+    }
+    drag=null; mono();
+  });
+
+  function title(){win.setTitle("Paint - "+(file?file.split("\\").pop():"(untitled)"));}
+  function save(as){
+    const doSave=p=>{
+      p=p.toUpperCase(); if(!/\\/.test(p))p="C:\\DOCS\\"+p;
+      if(!/\./.test(p.split("\\").pop()))p+=".MSP";
+      VFS.put(p,JSON.stringify({png:cnv.toDataURL()}));
+      file=p;dirty=false;title();
+    };
+    if(as||!file)DLG.prompt("Save As","File name:",file||"UNTITLED.MSP",v=>{v&&doSave(v);},180);
+    else doSave(file);
+  }
+  function load(path){
+    const f=VFS.node(path);
+    if(!f){DLG.err("Paint","Cannot open "+path+".");return;}
+    try{
+      const img=new Image();
+      img.onload=()=>{g.fillStyle="#fff";g.fillRect(0,0,CW,CH);g.drawImage(img,0,0);mono();};
+      img.src=JSON.parse(f.content).png;
+      file=path.toUpperCase();dirty=false;title();
+    }catch(e){DLG.err("Paint","This is not a Paint picture.");}
+  }
+  const menus=[
+    {label:"&File",items:[
+      {label:"&New",act:()=>{g.fillStyle="#fff";g.fillRect(0,0,CW,CH);file=null;dirty=false;title();}},
+      {label:"&Open...",act:()=>fileOpenDlg("Open",["MSP"],p=>{p&&load(p);})},
+      {label:"&Save",act:()=>save(false)},
+      {label:"Save &As...",act:()=>save(true)},
+      {sep:true},
+      {label:"A&bout Paint...",act:()=>aboutBox("Paint","Paint is monochrome.  So was 1985.")},
+      {label:"E&xit",act:()=>win.close()},
+    ]},
+    {label:"&Edit",items:[
+      {label:"&Copy Picture",acc:"Ctrl+Ins",act:()=>CLIP.set("bitmap",cnv.toDataURL())},
+      {label:"&Paste Picture",acc:"Shift+Ins",act:()=>{
+        if(CLIP.type!=="bitmap"){SND.error();return;}
+        const img=new Image();img.onload=()=>{g.drawImage(img,4,4);mono();};img.src=CLIP.data;}},
+      {sep:true},
+      {label:"Erase &All",act:()=>{g.fillStyle="#fff";g.fillRect(0,0,CW,CH);}},
+    ]},
+  ];
+  win=WM.create({title:"Paint - (untitled)",icon:"paint",menus});
+  win.body.appendChild(wrap);
+  if(arg)load(arg); else title();
+  return win;
+}
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   18. CALENDAR — month/day views, appointments, alarms that fire
+   ========================================================================= */
+APPS.add("CALENDAR.EXE",{
+  single:true,
+  create(arg){ return makeCalendar(arg); }
+});
+const CAL_FIRED={};
+function calKey(d){return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
+function makeCalendar(){
+  let view="day", cur=NOW(), win, focusHour=8;
+  const MO=["January","February","March","April","May","June","July",
+            "August","September","October","November","December"];
+  const wrap=el("div"); wrap.style.cssText="position:absolute;inset:0;";
+  const head=el("div","cal-head");
+  const body=el("div"); body.style.cssText="position:absolute;inset:0;";
+  wrap.append(head,body);
+  function appts(){ return ST.d.appts[calKey(cur)]||{}; }
+  function refresh(){
+    const t=NOW();
+    head.textContent=(view==="day")
+      ? cur.toDateString()+"   "+pad0(t.getHours()%12||12,2)+":"+pad0(t.getMinutes(),2)+(t.getHours()<12?" AM":" PM")
+      : MO[cur.getMonth()]+" "+cur.getFullYear();
+    body.innerHTML="";
+    if(view==="month")renderMonth(); else renderDay();
+  }
+  function renderMonth(){
+    const grid=el("div","cal-month");
+    const wk=el("div","cal-wk");
+    "S M T W T F S".split(" ").forEach(d=>wk.appendChild(el("div",null,d)));
+    grid.appendChild(wk);
+    const first=new Date(cur.getFullYear(),cur.getMonth(),1);
+    let day=1-first.getDay();
+    for(let r=0;r<6;r++){
+      const row=el("div","cal-wk");
+      for(let c=0;c<7;c++,day++){
+        const d=new Date(cur.getFullYear(),cur.getMonth(),day);
+        const inMo=d.getMonth()===cur.getMonth();
+        const cell=el("div","cal-d"+(inMo?"":" dim")
+          +(d.toDateString()===NOW().toDateString()?" today":"")
+          +(ST.d.appts[calKey(d)]&&Object.keys(ST.d.appts[calKey(d)]).length?" hasap":"")
+          +(inMo&&d.getDate()===cur.getDate()?" sel":""),String(d.getDate()));
+        cell.addEventListener("click",()=>{cur=d;refresh();});
+        cell.addEventListener("dblclick",()=>{cur=d;view="day";refresh();});
+        row.appendChild(cell);
+      }
+      grid.appendChild(row);
+    }
+    body.appendChild(grid);
+  }
+  function renderDay(){
+    const day=el("div","cal-day scrl");
+    const ap=appts();
+    for(let h=7;h<=19;h++){
+      const slot=el("div","cal-slot");
+      const hh=(h%12||12)+":00"+(h<12?"a":"p");
+      slot.appendChild(el("div","t",hh));
+      const bell=el("div","bell",(ap[h]&&ap[h].alarm)?"♦":"");
+      bell.title="Alarm";
+      slot.appendChild(bell);
+      const inp=el("input"); inp.type="text"; inp.value=(ap[h]&&ap[h].t)||""; inp.spellcheck=false;
+      inp.addEventListener("focus",()=>focusHour=h);
+      inp.addEventListener("change",()=>{
+        const k=calKey(cur);
+        ST.d.appts[k]=ST.d.appts[k]||{};
+        if(inp.value.trim())ST.d.appts[k][h]={t:inp.value,alarm:(ST.d.appts[k][h]||{}).alarm||false};
+        else delete ST.d.appts[k][h];
+        ST.save();
+      });
+      bell.addEventListener("click",()=>{toggleAlarm(h);});
+      slot.appendChild(inp);
+      day.appendChild(slot);
+    }
+    body.appendChild(day);
+  }
+  function toggleAlarm(h){
+    const k=calKey(cur);
+    ST.d.appts[k]=ST.d.appts[k]||{};
+    ST.d.appts[k][h]=ST.d.appts[k][h]||{t:"",alarm:false};
+    ST.d.appts[k][h].alarm=!ST.d.appts[k][h].alarm;
+    ST.save(); refresh();
+  }
+  const menus=[
+    {label:"&File",items:[
+      {label:"A&bout Calendar...",act:()=>aboutBox("Calendar")},
+      {label:"E&xit",act:()=>win.close()},
+    ]},
+    {label:"&View",items:[
+      {label:"&Day",checked:()=>view==="day",act:()=>{view="day";refresh();}},
+      {label:"&Month",checked:()=>view==="month",act:()=>{view="month";refresh();}},
+    ]},
+    {label:"&Show",items:[
+      {label:"&Today",act:()=>{cur=NOW();refresh();}},
+      {label:"&Previous",acc:"PgUp",act:()=>{shift(-1);}},
+      {label:"&Next",acc:"PgDn",act:()=>{shift(1);}},
+    ]},
+    {label:"&Alarm",items:[
+      {label:"&Set",acc:"F5",act:()=>{ if(view==="day")toggleAlarm(focusHour); }},
+    ]},
+  ];
+  function shift(dir){
+    if(view==="day")cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+dir);
+    else cur=new Date(cur.getFullYear(),cur.getMonth()+dir,1);
+    refresh();
+  }
+  win=WM.create({title:"Calendar",icon:"cal",menus,
+    onKey(e){
+      if(e.key==="PageUp"){shift(-1);return true;}
+      if(e.key==="PageDown"){shift(1);return true;}
+      if(e.key==="F5"&&view==="day"){toggleAlarm(focusHour);return true;}
+      return false;
+    }});
+  win.body.appendChild(wrap);
+  refresh();
+  const t=setInterval(refresh,30000);
+  win.onClose=()=>clearInterval(t);
+  return win;
+}
+/* alarm daemon — runs whether or not Calendar is open */
+setInterval(()=>{
+  if(!winRunning)return;
+  const t=NOW(), k=calKey(t), h=t.getHours();
+  const ap=ST.d.appts[k];
+  if(ap&&ap[h]&&ap[h].alarm&&t.getMinutes()===0){
+    const fk=k+":"+h;
+    if(CAL_FIRED[fk])return;
+    CAL_FIRED[fk]=1;
+    SND.alarm();
+    DLG.msg("Calendar - Alarm",
+      (h%12||12)+":00"+(h<12?" AM":" PM")+"  "+(ap[h].t||"(no description)"),["Ok"]);
+  }
+},5000);
+
+/* =========================================================================
+   19. CARDFILE — the rolodex
+   ========================================================================= */
+APPS.add("CARDFILE.EXE",{
+  create(arg){ return makeCardfile(arg); }
+});
+function makeCardfile(arg){
+  let deck=[{i:"(new card)",b:""}], cur=0, file=null, view="card", dirty=false, win;
+  const wrap=el("div"); wrap.style.cssText="position:absolute;inset:0;";
+  const info=el("div","cf-info");
+  const cardv=el("div","cf-card");
+  const index=el("div","cf-index");
+  const bodyta=el("textarea","cf-body"); bodyta.spellcheck=false;
+  cardv.append(index,bodyta);
+  const listv=el("div","cf-list scrl hidden");
+  wrap.append(info,cardv,listv);
+  function title(){win.setTitle("Cardfile - "+(file?file.split("\\").pop():"(untitled)"));}
+  function refresh(){
+    deck.sort((a,b)=>a.i.localeCompare(b.i));
+    cur=clamp(cur,0,deck.length-1);
+    info.textContent="Card "+(cur+1)+" of "+deck.length+"   (PgUp/PgDn to flip)";
+    if(view==="card"){
+      cardv.classList.remove("hidden"); listv.classList.add("hidden");
+      index.textContent=deck[cur].i||"(no index line)";
+      bodyta.value=deck[cur].b||"";
+    }else{
+      cardv.classList.add("hidden"); listv.classList.remove("hidden");
+      listv.innerHTML="";
+      deck.forEach((c,k)=>{
+        const d=el("div","msx-f"+(k===cur?" sel":""),txt(c.i||"(no index line)"));
+        d.addEventListener("click",()=>{cur=k;refresh();});
+        d.addEventListener("dblclick",()=>{cur=k;view="card";refresh();});
+        listv.appendChild(d);
+      });
+    }
+  }
+  bodyta.addEventListener("change",()=>{deck[cur].b=bodyta.value;dirty=true;});
+  bodyta.addEventListener("input",()=>{deck[cur].b=bodyta.value;dirty=true;});
+  index.addEventListener("dblclick",()=>editIndex());
+  function editIndex(){
+    DLG.prompt("Index","Index line:",deck[cur].i,v=>{
+      if(v!=null){deck[cur].i=v;dirty=true;refresh();}});
+  }
+  function load(path){
+    const f=VFS.node(path);
+    if(!f){DLG.err("Cardfile","Cannot open "+path+".");return;}
+    try{ deck=JSON.parse(f.content); if(!Array.isArray(deck)||!deck.length)deck=[{i:"(new card)",b:""}]; }
+    catch(e){ DLG.err("Cardfile","This is not a card file.");return; }
+    file=path.toUpperCase();cur=0;dirty=false;title();refresh();
+  }
+  function save(as){
+    const doSave=p=>{
+      p=p.toUpperCase(); if(!/\\/.test(p))p="C:\\DOCS\\"+p;
+      if(!/\./.test(p.split("\\").pop()))p+=".CRD";
+      VFS.put(p,JSON.stringify(deck)); file=p;dirty=false;title();
+    };
+    if(as||!file)DLG.prompt("Save As","File name:",file||"UNTITLED.CRD",v=>{v&&doSave(v);},180);
+    else doSave(file);
+  }
+  const menus=[
+    {label:"&File",items:[
+      {label:"&New",act:()=>{deck=[{i:"(new card)",b:""}];cur=0;file=null;dirty=false;title();refresh();}},
+      {label:"&Open...",act:()=>fileOpenDlg("Open",["CRD"],p=>{p&&load(p);})},
+      {label:"&Save",act:()=>save(false)},
+      {label:"Save &As...",act:()=>save(true)},
+      {sep:true},
+      {label:"A&bout Cardfile...",act:()=>aboutBox("Cardfile")},
+      {label:"E&xit",act:()=>win.close()},
+    ]},
+    {label:"&Edit",items:[
+      {label:"&Index...",acc:"F6",act:()=>editIndex()},
+      {sep:true},
+      {label:"Cu&t",act:()=>taCut(bodyta)},
+      {label:"&Copy",act:()=>taCopy(bodyta)},
+      {label:"&Paste",act:()=>taPaste(bodyta)},
+    ]},
+    {label:"&View",items:[
+      {label:"&Card",checked:()=>view==="card",act:()=>{view="card";refresh();}},
+      {label:"&List",checked:()=>view==="list",act:()=>{view="list";refresh();}},
+    ]},
+    {label:"&Card",items:[
+      {label:"&Add...",acc:"F7",act:()=>DLG.prompt("Add","Index line:","",v=>{
+        if(v){deck.push({i:v,b:""});cur=deck.findIndex(c=>c.i===v);dirty=true;refresh();}})},
+      {label:"&Delete",act:()=>DLG.msg("Cardfile","Delete this card?",["Ok","Cancel"],r=>{
+        if(r==="Ok"){deck.splice(cur,1);if(!deck.length)deck=[{i:"(new card)",b:""}];dirty=true;refresh();}})},
+    ]},
+    {label:"&Search",items:[
+      {label:"&Find...",act:()=>DLG.prompt("Find","Find what:","",v=>{
+        if(!v)return;
+        const V=v.toUpperCase();
+        for(let k=1;k<=deck.length;k++){
+          const idx=(cur+k)%deck.length;
+          if((deck[idx].i+" "+deck[idx].b).toUpperCase().includes(V)){cur=idx;refresh();return;}
+        }
+        DLG.msg("Cardfile","Cannot find \""+v+"\".");})},
+    ]},
+  ];
+  win=WM.create({title:"Cardfile - (untitled)",icon:"card",menus,
+    onKey(e){
+      if(e.key==="PageDown"){cur=(cur+1)%deck.length;refresh();return true;}
+      if(e.key==="PageUp"){cur=(cur+deck.length-1)%deck.length;refresh();return true;}
+      if(e.key==="F6"){editIndex();return true;}
+      if(e.key==="F7"){menus[3].items[0].act();return true;}
+      return false;
+    }});
+  win.body.appendChild(wrap);
+  if(arg)load(arg); else {title();refresh();}
+  return win;
+}
+
+/* =========================================================================
+   20. REVERSI — the bundled game
+   ========================================================================= */
+APPS.add("REVERSI.EXE",{
+  single:true,
+  create(){ return makeReversi(); }
+});
+const RV_W=[ /* positional weights for the machine */
+  [99,-8,8,6,6,8,-8,99],[-8,-24,-4,-3,-3,-4,-24,-8],[8,-4,7,4,4,7,-4,8],
+  [6,-3,4,0,0,4,-3,6],[6,-3,4,0,0,4,-3,6],[8,-4,7,4,4,7,-4,8],
+  [-8,-24,-4,-3,-3,-4,-24,-8],[99,-8,8,6,6,8,-8,99]];
+function makeReversi(){
+  let bd,turn,win,over=false,busy=false;
+  const SKILLS=["Beginner","Novice","Expert","Master"];
+  const board=el("div","rv-board");
+  const status=el("div","statusline");
+  const wrap=el("div"); wrap.style.cssText="position:absolute;inset:0 0 14px 0;";
+  wrap.appendChild(board);
+  function reset(){
+    bd=[...Array(8)].map(()=>Array(8).fill(null));
+    bd[3][3]="W";bd[3][4]="B";bd[4][3]="B";bd[4][4]="W";
+    turn="B"; over=false; render();
+  }
+  const DIRS=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  function flips(b,x,y,who){
+    if(b[y][x])return [];
+    const opp=who==="B"?"W":"B"; let out=[];
+    for(const [dx,dy] of DIRS){
+      let cx=x+dx,cy=y+dy,line=[];
+      while(cx>=0&&cx<8&&cy>=0&&cy<8&&b[cy][cx]===opp){line.push([cx,cy]);cx+=dx;cy+=dy;}
+      if(line.length&&cx>=0&&cx<8&&cy>=0&&cy<8&&b[cy][cx]===who)out=out.concat(line);
+    }
+    return out;
+  }
+  function moves(b,who){
+    const out=[];
+    for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+      const f=flips(b,x,y,who); if(f.length)out.push({x,y,f});
+    }
+    return out;
+  }
+  function apply(b,m,who){ b[m.y][m.x]=who; for(const [x,y] of m.f)b[y][x]=who; }
+  function count(){ let B=0,W=0;
+    for(const row of bd)for(const c of row){if(c==="B")B++;if(c==="W")W++;}
+    return {B,W}; }
+  function render(){
+    board.innerHTML="";
+    const my=moves(bd,"B");
+    for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+      const c=el("div","rv-c"+((turn==="B"&&!over&&my.some(m=>m.x===x&&m.y===y))?" hint":""));
+      if(bd[y][x])c.appendChild(el("div","pc "+bd[y][x]));
+      c.addEventListener("click",()=>clickCell(x,y));
+      board.appendChild(c);
+    }
+    const {B,W}=count();
+    const sk=SKILLS[ST.d.reversi.skill];
+    status.textContent="You:"+B+"  Computer:"+W+"   Skill: "+sk+
+      "   Won "+ST.d.reversi.w+" Lost "+ST.d.reversi.l;
+  }
+  function clickCell(x,y){
+    if(over||busy||turn!=="B")return;
+    const f=flips(bd,x,y,"B");
+    if(!f.length){SND.error();return;}
+    apply(bd,{x,y,f},"B"); SND.keyclick();
+    turn="W"; render(); machine();
+  }
+  function machine(){
+    busy=true;
+    setTimeout(()=>{
+      while(turn==="W"&&!over){
+        const ms=moves(bd,"W");
+        if(!ms.length){ turn="B"; if(!moves(bd,"B").length)finish(); break; }
+        const skill=ST.d.reversi.skill;
+        let pick;
+        if(skill===0)pick=ms[Math.floor(Math.random()*ms.length)];
+        else if(skill===1)pick=ms.reduce((a,b)=>b.f.length>a.f.length?b:a);
+        else{
+          const score=m=>{
+            let s=RV_W[m.y][m.x]+m.f.length;
+            if(skill===3){ /* Master: consider your best reply */
+              const b2=bd.map(r=>[...r]); apply(b2,m,"W");
+              const reply=moves(b2,"B");
+              s-=reply.length?Math.max(...reply.map(r=>RV_W[r.y][r.x]+r.f.length))*.7:-12;
+            }
+            return s;
+          };
+          pick=ms.reduce((a,b)=>score(b)>score(a)?b:a);
+        }
+        apply(bd,pick,"W");
+        turn="B";
+        if(!moves(bd,"B").length){
+          if(moves(bd,"W").length){turn="W";render();continue;}
+          finish();
+        }
+        break;
+      }
+      busy=false; render();
+    },420);
+  }
+  function finish(){
+    over=true;
+    const {B,W}=count();
+    render();
+    if(B>W){ ST.d.reversi.w++; ST.save();
+      DLG.msg("Reversi","You won by "+(B-W)+".\nThe machine has recorded this and will adjust.");}
+    else if(W>B){ ST.d.reversi.l++; ST.save();
+      DLG.msg("Reversi","You lost by "+(W-B)+".\nPerhaps begin with the corners next time.");}
+    else DLG.msg("Reversi","A tie.  Nobody is happy with a tie.");
+  }
+  function pass(){
+    if(over)return;
+    if(moves(bd,"B").length){DLG.err("Reversi","You have a legal move.  You must make it.");return;}
+    turn="W"; machine();
+  }
+  const menus=[
+    {label:"&Game",items:[
+      {label:"&New",act:()=>reset()},
+      {label:"&Pass",act:()=>pass()},
+      {label:"&Hint",act:()=>{
+        const ms=moves(bd,"B");
+        if(!ms.length){DLG.msg("Reversi","No legal move.  Choose Pass.");return;}
+        const best=ms.reduce((a,b)=>(RV_W[b.y][b.x]>RV_W[a.y][a.x])?b:a);
+        clickCell(best.x,best.y);}},
+      {sep:true},
+      {label:"A&bout Reversi...",act:()=>aboutBox("Reversi","Games won: "+ST.d.reversi.w+"   Lost: "+ST.d.reversi.l)},
+      {label:"E&xit",act:()=>win.close()},
+    ]},
+    {label:"&Skill",items:SKILLS.map((s,i)=>({
+      label:"&"+s,checked:()=>ST.d.reversi.skill===i,
+      act:()=>{ST.d.reversi.skill=i;ST.save();render();}
+    }))},
+  ];
+  win=WM.create({title:"Reversi",icon:"rev",menus});
+  win.body.append(wrap,status);
+  reset();
+  return win;
+}
+
+/* =========================================================================
+   21. TERMINAL — settings dialogs and a fictional 1985 BBS
+   ========================================================================= */
+APPS.add("TERMINAL.EXE",{
+  single:true,
+  create(){ return makeTerminal(); }
+});
+function makeTerminal(){
+  let win, state="offline", input="", comm={baud:"1200",parity:"None",data:"8",stop:"1"};
+  const out=el("div","termout scrl");
+  const print=(s)=>{ out.textContent+=s; out.scrollTop=1e9; };
+  function fresh(){ out.textContent=""; print("Microsoft Windows Terminal (simulation)\nType ATDT 5552400 or use Session > Dial to call the BBS.\n\n"); }
+  function prompt(){ print("\n> "); }
+  function handleLine(line){
+    const L=line.trim().toUpperCase();
+    if(state==="offline"){
+      if(L.startsWith("ATDT")||L.startsWith("ATD")){ dial(); return; }
+      if(L==="AT"){ print("OK\n"); return; }
+      if(L)print("ERROR\n");
+      return;
+    }
+    if(state==="online")bbs(L);
+  }
+  function dial(){
+    state="dialing";
+    SND.dial();
+    print("ATDT 5552400\n");
+    setTimeout(()=>print("DIALING...\n"),400);
+    setTimeout(()=>{ print("CONNECT "+comm.baud+"\n\n"); state="online"; welcome(); },2200);
+  }
+  function welcome(){
+    print(
+"  ==========================================================\n"+
+"       THE CROSSROADS BBS  *  NODE 1  *  "+comm.baud+" BAUD\n"+
+"       Sysop: Dale  *  Online since June 1985\n"+
+"  ==========================================================\n\n"+
+"  You are caller number 1,204.\n\n");
+    menu();
+  }
+  function menu(){
+    print(
+"  (N)ews   (F)iles   (C)hat with sysop   (W)ho's online   (G)oodbye\n");
+    prompt();
+  }
+  function bbs(L){
+    switch(L[0]){
+      case "N": print(
+"\n  * NEWS - NOVEMBER 1985 *\n"+
+"  - Microsoft has shipped 'Windows'. Dale has seen it. Dale says\n"+
+"    the windows do not overlap and this is apparently on purpose.\n"+
+"  - The board now has a SECOND phone line. Please stop calling\n"+
+"    Dale's mother to complain about busy signals.\n"+
+"  - Reminder: uploads of PAC-MAN screenshots are NOT files.\n"); menu(); break;
+      case "F": print(
+"\n  * FILE AREA 1 *\n"+
+"  SQUISH.ARC     4,224  File compressor. Probably safe.\n"+
+"  MAZE86.BAS     8,809  A maze. In BASIC. It is slow.\n"+
+"  MODEM.TXT      2,113  How to make your modem louder (why?)\n"+
+"  Downloads are simulated. Everything here is simulated.\n"); menu(); break;
+      case "C": print(
+"\n  Paging Dale ...\n  Dale is at dinner. Dale is always at dinner.\n"); menu(); break;
+      case "W": print(
+"\n  Node 1: YOU\n  Node 2: (nobody, the second line is a rumor)\n"); menu(); break;
+      case "G": print("\n  Thanks for calling THE CROSSROADS. NO CARRIER\n");
+        state="offline"; break;
+      default: if(L)print("  Unknown command.\n"),menu(); else menu();
+    }
+  }
+  function commDlg(){
+    DLG.open((box,close)=>{
+      box.appendChild(el("div","dtitle","Communications Settings"));
+      const mk=(label,opts,cur,set)=>{
+        const fld=el("div","fld",label+" ");
+        const sel=el("select");
+        opts.forEach(o=>{const op=el("option",null,txt(o));op.value=o;if(o===cur)op.selected=true;sel.appendChild(op);});
+        sel.addEventListener("change",()=>set(sel.value));
+        fld.appendChild(sel); box.appendChild(fld);
+      };
+      mk("Baud Rate:  ",["110","300","1200","2400"],comm.baud,v=>comm.baud=v);
+      mk("Parity:    ",["None","Even","Odd"],comm.parity,v=>comm.parity=v);
+      mk("Data Bits: ",["7","8"],comm.data,v=>comm.data=v);
+      mk("Stop Bits: ",["1","2"],comm.stop,v=>comm.stop=v);
+      const row=el("div","drow");
+      row.appendChild(DLG.btn("Ok",true,()=>close()));
+      box.appendChild(row);
+    });
+  }
+  const menus=[
+    {label:"&File",items:[
+      {label:"A&bout Terminal...",act:()=>aboutBox("Terminal")},
+      {label:"E&xit",act:()=>win.close()},
+    ]},
+    {label:"&Session",items:[
+      {label:"&Dial 555-2400 (BBS)",act:()=>{if(state==="offline")dial();}},
+      {label:"&Hangup",act:()=>{if(state!=="offline"){print("\nNO CARRIER\n");state="offline";}}},
+      {label:"&Clear Screen",act:()=>fresh()},
+    ]},
+    {label:"Se&ttings",items:[
+      {label:"&Communications...",act:()=>commDlg()},
+      {label:"&Terminal...",act:()=>DLG.msg("Terminal","Terminal emulation: dumb.\nThis was a factory setting.")},
+    ]},
+  ];
+  win=WM.create({title:"Terminal",icon:"term",menus,
+    onKey(e){
+      if(e.key==="Enter"){ print("\n"); const L=input; input=""; handleLine(L); return true; }
+      if(e.key==="Backspace"){ if(input){input=input.slice(0,-1);
+        out.textContent=out.textContent.slice(0,-1);} return true; }
+      if(e.key.length===1&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
+        input+=e.key; print(e.key); SND.keyclick(); return true; }
+      return false;
+    }});
+  win.body.appendChild(out);
+  fresh();
+  return win;
+}
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   22. COLOUR SCHEMES / DISPLAY
+   ========================================================================= */
+const SCHEME_KEYS=[
+  ["scrA","Screen Background (1st)","--scr-a","#00AAAA"],
+  ["scrB","Screen Background (2nd)","--scr-b","#00AA00"],
+  ["wbg","Window Background","--wbg","#FFFFFF"],
+  ["wtx","Window Text","--wtx","#000000"],
+  ["frame","Window Frame","--frame","#000000"],
+  ["mbbg","Menu Bar","--mb-bg","#FFFFFF"],
+  ["mbtx","Menu Text","--mb-tx","#000000"],
+  ["tabbg","Active Title Bar","--tab-bg","#0000AA"],
+  ["tabtx","Active Title Text","--tab-tx","#FFFFFF"],
+  ["tibbg","Inactive Title Bar","--tib-bg","#FFFFFF"],
+  ["tibtx","Inactive Title Text","--tib-tx","#000000"],
+  ["sba","Scroll Bar (1st)","--sb-a","#FFFFFF"],
+  ["sbb","Scroll Bar (2nd)","--sb-b","#000000"],
+];
+function applyScheme(){
+  const c=ST.d.set.colors||{};
+  for(const [k,,cssvar,dflt] of SCHEME_KEYS)
+    document.documentElement.style.setProperty(cssvar,c[k]||dflt);
+}
+function applyMono(){
+  document.body.classList.toggle("mono",!!ST.d.set.mono);
+}
+
+/* =========================================================================
+   23. PRINT SPOOLER
+   ========================================================================= */
+const SPOOL={
+  jobs:[], seq:0, paused:false, speed:3, sel:-1, win:null,
+  add(name,size){
+    this.jobs.push({id:++this.seq,name:name||"(untitled)",size:size||500,done:0});
+    SND.rattle();
+    DLG.msg("Spooler",name+" is being printed on the\nEPSON FX-80 on LPT1:");
+    this.refresh();
+  },
+  tick(){
+    if(this.paused||!this.jobs.length)return;
+    const j=this.jobs[0];
+    j.done+=this.speed*90;
+    if(SND.on&&Math.random()<.5)SND.tone(120+Math.random()*60,25,0,.02);
+    if(j.done>=j.size){ this.jobs.shift(); if(this.jobs.length)SND.rattle(); }
+    this.refresh();
+  },
+  refresh(){
+    if(!this.win)return;
+    const b=this.win._spBody;
+    b.innerHTML="";
+    b.appendChild(el("div",null,"<b>EPSON FX-80 on LPT1:</b>"+(this.paused?"   [PAUSED]":"")));
+    b.appendChild(el("div",null,"&nbsp;"));
+    if(!this.jobs.length)b.appendChild(el("div",null,"(the queue is empty)"));
+    this.jobs.forEach((j,i)=>{
+      const pct=Math.min(100,Math.round(j.done/j.size*100));
+      const d=el("div","sp-job"+(i===this.sel?" sel":""),
+        txt(pad(i+1,2)+". "+pad(j.name,-14)+(i===0?"  printing "+pct+"%":"  queued")));
+      d.addEventListener("click",()=>{this.sel=i;this.refresh();});
+      b.appendChild(d);
+    });
+  }
+};
+setInterval(()=>SPOOL.tick(),700);
+APPS.add("SPOOLER.EXE",{
+  single:true,
+  create(){
+    const body=el("div","sp-body scrl");
+    const win=WM.create({title:"Spooler",icon:"spool",menus:[
+      {label:"&Queue",items:[
+        {label:"&Pause",act:()=>{SPOOL.paused=true;SPOOL.refresh();}},
+        {label:"&Resume",act:()=>{SPOOL.paused=false;SPOOL.refresh();}},
+        {label:"&Terminate",act:()=>{
+          if(SPOOL.sel<0||!SPOOL.jobs[SPOOL.sel]){DLG.err("Spooler","First select a print job.");return;}
+          SPOOL.jobs.splice(SPOOL.sel,1);SPOOL.sel=-1;SPOOL.refresh();}},
+      ]},
+      {label:"&Priority",items:[
+        {label:"&Low",checked:()=>SPOOL.speed===1,act:()=>{SPOOL.speed=1;}},
+        {label:"&High",checked:()=>SPOOL.speed===3,act:()=>{SPOOL.speed=3;}},
+      ]},
+      {label:"&File",items:[
+        {label:"A&bout Spooler...",act:()=>aboutBox("Spooler")},
+        {label:"E&xit",act:()=>win.close()},
+      ]},
+    ],onClose(){SPOOL.win=null;}});
+    win.body.appendChild(body);
+    win._spBody=body;
+    SPOOL.win=win;
+    SPOOL.refresh();
+    return win;
+  }
+});
+
+/* =========================================================================
+   24. CONTROL PANEL
+   ========================================================================= */
+APPS.add("CONTROL.EXE",{
+  single:true,
+  create(){ return makeControl(); }
+});
+function makeControl(){
+  let win,timer;
+  const body=el("div","cp-body");
+  function refresh(){
+    const t=NOW();
+    body.innerHTML=
+      "<div><b>Current Date:</b>  "+txt(t.toDateString())+"</div>"+
+      "<div><b>Current Time:</b>  "+txt(t.toTimeString().slice(0,8))+"</div>"+
+      "<div>&nbsp;</div>"+
+      "<div>Printer:  EPSON FX-80 on LPT1:</div>"+
+      "<div>Display:  "+(ST.d.set.mono?"Hercules Monochrome":"EGA Color")+"</div>"+
+      "<div>Warning Beep:  "+(SND.on?"On":"Off")+"</div>"+
+      "<div>&nbsp;</div>"+
+      "<div>Use the menus above to change Preferences.</div>";
+  }
+  function colorsDlg(){
+    const c=Object.assign({},ST.d.set.colors||{});
+    for(const [k,,,d] of SCHEME_KEYS)if(!c[k])c[k]=d;
+    let curKey="scrA";
+    DLG.open((box,close)=>{
+      box.appendChild(el("div","dtitle","Screen Colors"));
+      const cols=el("div"); cols.style.cssText="display:flex;gap:10px;";
+      const lb=lbox(SCHEME_KEYS.map(k=>k[1]),0,(i)=>{curKey=SCHEME_KEYS[i][0];mark();},108,170);
+      cols.appendChild(lb);
+      const right=el("div");
+      const sw=el("div"); sw.style.cssText="width:100px;display:flex;flex-wrap:wrap;gap:2px;";
+      EGA.forEach((hex,i)=>{
+        const s=el("span","swatch"); s.style.background=hex; s.title=EGAN[i]; s.dataset.hex=hex;
+        s.addEventListener("click",()=>{c[curKey]=hex;mark();preview();});
+        sw.appendChild(s);
+      });
+      right.appendChild(sw);
+      /* live preview mini-window */
+      const pv=el("div"); pv.style.cssText="margin-top:6px;width:100px;height:56px;border:1px solid #000;position:relative;overflow:hidden;";
+      right.appendChild(pv);
+      cols.appendChild(right);
+      box.appendChild(cols);
+      function preview(){
+        pv.style.background="repeating-conic-gradient("+c.scrA+" 0 25%,"+c.scrB+" 0 50%) 0 0/4px 4px";
+        pv.innerHTML='<div style="position:absolute;left:10px;top:8px;right:10px;bottom:8px;background:'+c.wbg+
+          ';border:1px solid '+c.frame+'">'+
+          '<div style="height:10px;background:'+c.tabbg+';color:'+c.tabtx+
+          ';font:700 8px/10px monospace;text-align:center;border-bottom:1px solid '+c.frame+'">TITLE</div>'+
+          '<div style="height:8px;background:'+c.mbbg+';color:'+c.mbtx+
+          ';font:7px/8px monospace;padding:0 2px;border-bottom:1px solid '+c.frame+'">File Edit</div>'+
+          '<div style="color:'+c.wtx+';font:7px/9px monospace;padding:1px 2px;">Window text</div></div>';
+      }
+      function mark(){
+        sw.querySelectorAll(".swatch").forEach(s=>s.classList.toggle("on",s.dataset.hex===c[curKey]));
+      }
+      mark();preview();
+      const row=el("div","drow");
+      row.appendChild(DLG.btn("Ok",true,()=>{
+        ST.d.set.colors=c; ST.save(); applyScheme(); close();
+      }));
+      row.appendChild(DLG.btn("Reset",false,()=>{
+        for(const [k,,,d] of SCHEME_KEYS)c[k]=d; mark();preview();
+      }));
+      const cc=DLG.btn("Cancel",false,()=>close()); cc.dataset.cancel="1";
+      row.appendChild(cc);
+      box.appendChild(row);
+    });
+  }
+  function blinkDlg(){
+    let rate=ST.d.set.blink||530;
+    DLG.open((box,close)=>{
+      box.appendChild(el("div","dtitle","Cursor Blink Rate"));
+      const fld=el("div","fld");
+      const sel=el("select");
+      [["Slow",900],["Medium",530],["Fast",250]].forEach(([n,v])=>{
+        const o=el("option",null,n);o.value=v;if(v===rate)o.selected=true;sel.appendChild(o);});
+      fld.append(document.createTextNode("Rate:  "),sel);
+      box.appendChild(fld);
+      const sample=el("span"); sample.textContent="▌";
+      sample.style.cssText="display:inline-block;font:700 14px monospace;";
+      const sfld=el("div","fld","Sample:  "); sfld.appendChild(sample);
+      box.appendChild(sfld);
+      let t=setInterval(()=>{sample.style.visibility=sample.style.visibility==="hidden"?"":"hidden";},rate);
+      sel.addEventListener("change",()=>{rate=+sel.value;clearInterval(t);
+        t=setInterval(()=>{sample.style.visibility=sample.style.visibility==="hidden"?"":"hidden";},rate);});
+      const row=el("div","drow");
+      row.appendChild(DLG.btn("Ok",true,()=>{clearInterval(t);
+        ST.d.set.blink=rate;ST.save();VFS.ini.set("windows","CursorBlinkRate",rate);close();}));
+      const cc=DLG.btn("Cancel",false,()=>{clearInterval(t);close();}); cc.dataset.cancel="1";
+      row.appendChild(cc);
+      box.appendChild(row);
+    });
+  }
+  function mouseDlg(){
+    let spd=ST.d.set.dclick||550;
+    DLG.open((box,close)=>{
+      box.appendChild(el("div","dtitle","Mouse"));
+      const fld=el("div","fld");
+      const sel=el("select");
+      [["Slow",900],["Medium",550],["Fast",300]].forEach(([n,v])=>{
+        const o=el("option",null,n);o.value=v;if(v===spd)o.selected=true;sel.appendChild(o);});
+      fld.append(document.createTextNode("Double-Click Speed:  "),sel);
+      sel.addEventListener("change",()=>spd=+sel.value);
+      box.appendChild(fld);
+      const test=el("div",null,"TEST");
+      test.style.cssText="border:1px solid #000;width:80px;text-align:center;margin:6px auto;padding:2px;user-select:none;";
+      let last=0;
+      test.addEventListener("click",()=>{
+        const t=Date.now();
+        if(t-last<spd){ test.style.background=test.style.background==="black"?"":"black";
+          test.style.color=test.style.color==="white"?"":"white"; }
+        last=t;
+      });
+      box.appendChild(test);
+      const row=el("div","drow");
+      row.appendChild(DLG.btn("Ok",true,()=>{ST.d.set.dclick=spd;ST.save();
+        VFS.ini.set("windows","DoubleClickSpeed",spd);close();}));
+      const cc=DLG.btn("Cancel",false,()=>close()); cc.dataset.cancel="1";
+      row.appendChild(cc);
+      box.appendChild(row);
+    });
+  }
+  function countryDlg(){
+    const countries=["United States","United Kingdom","France","Germany","Italy","Spain","Netherlands","Australia"];
+    let cur=ST.d.set.country||"United States";
+    DLG.open((box,close)=>{
+      box.appendChild(el("div","dtitle","Country Settings"));
+      const lb=lbox(countries,countries.indexOf(cur),(i)=>{cur=countries[i];},100,160);
+      box.appendChild(lb);
+      const row=el("div","drow");
+      row.appendChild(DLG.btn("Ok",true,()=>{ST.d.set.country=cur;ST.save();
+        VFS.ini.set("intl","sCountry",cur);close();}));
+      const cc=DLG.btn("Cancel",false,()=>close()); cc.dataset.cancel="1";
+      row.appendChild(cc);
+      box.appendChild(row);
+    });
+  }
+  const menus=[
+    {label:"&Installation",items:[
+      {label:"Add New &Font...",act:()=>DLG.msg("Fonts","Fonts installed:\n\nCOURA.FON   COURB.FON\nHELVA.FON   HELVB.FON\nTMSRA.FON   TMSRB.FON\n\nSix is plenty.")},
+      {label:"&Remove Fonts...",act:()=>DLG.msg("Fonts","Removing fonts saves disk space.\nDisk space is $6 per megabyte.\nThe fonts stay.",["Ok"])},
+      {label:"Add New &Printer...",act:()=>DLG.msg("Printer","Insert the disk with the printer driver\nyou wish to add into drive A:",["Ok","Cancel"],r=>{
+        if(r==="Ok")DLG.critical("Cannot read from drive A:\nMake sure a disk is fully inserted and the door is closed.");})},
+      {label:"&Delete Printer...",act:()=>DLG.msg("Printer","The EPSON FX-80 is the only printer.\nIt stays.",["Ok"])},
+    ]},
+    {label:"&Setup",items:[
+      {label:"&Connections...",act:()=>DLG.msg("Connections","EPSON FX-80  ->  LPT1:\nCOM1:  (free)\nCOM2:  (a rumor)")},
+      {label:"&Printer...",act:()=>DLG.msg("Printer Setup","EPSON FX-80\n\nPaper: Continuous, 9.5 in.\nQuality: Draft (loud)\nTractor feed: engaged")},
+      {label:"&Display...",act:()=>{
+        DLG.msg("Display","Select the display adapter:",[ST.d.set.mono?"EGA Color":"Hercules Mono","Cancel"],r=>{
+          if(r&&r!=="Cancel"){ ST.d.set.mono=!ST.d.set.mono; ST.save(); applyMono(); refresh(); }
+        });}},
+    ]},
+    {label:"&Preferences",items:[
+      {label:"&Screen Colors...",act:()=>colorsDlg()},
+      {label:"Cursor &Blink Rate...",act:()=>blinkDlg()},
+      {label:"&Mouse...",act:()=>mouseDlg()},
+      {label:"C&ountry Settings...",act:()=>countryDlg()},
+      {label:"&Date/Time...",act:()=>DLG.msg("Date/Time","The system clock is set by your museum's\nlocal timepiece and cannot be argued with.")},
+      {sep:true},
+      {label:"&Warning Beep",checked:()=>SND.on,act:()=>{
+        SND.on=!SND.on; ST.d.set.sound=SND.on; ST.save();
+        VFS.ini.set("windows","Beep",SND.on?"yes":"no"); refresh();}},
+      {sep:true},
+      {label:"A&bout Control Panel...",act:()=>aboutBox("Control Panel")},
+    ]},
+  ];
+  win=WM.create({title:"Control Panel",icon:"cp",menus,onClose(){clearInterval(timer);}});
+  win.body.appendChild(body);
+  refresh();
+  timer=setInterval(refresh,1000);
+  return win;
+}
+
+/* =========================================================================
+   25. GLUE / INIT
+   ========================================================================= */
+/* credits overlay host */
+{
+  const c=el("div"); c.id="credits"; c.className="hidden";
+  stage.appendChild(c);
+}
+/* clicking the desktop background deselects icons */
+desktop.addEventListener("mousedown",e=>{
+  if(e.target===desktop)iconarea.querySelectorAll(".dicon").forEach(x=>x.classList.remove("sel"));
+});
+/* prime the audio context on first interaction (browser policy) */
+addEventListener("pointerdown",()=>SND.ac(),{once:true});
+addEventListener("keydown",()=>SND.ac(),{once:true});
+/* honour persisted display settings before boot */
+applyScheme(); applyMono();
+if(VFS.ini.get("windows","Beep","yes").toLowerCase()==="no")SND.on=false;
+/* let there be POST */
+DOS.post();
+</script>
+</body>
+</html>
