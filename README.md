@@ -21,6 +21,7 @@ You can also open any exhibit's `.html` file directly; each one is fully standal
 
 | Year | Exhibit | Vendor | File | What you get |
 |------|---------|--------|------|--------------|
+| 1982 | **Commodore 64** | Commodore | [`c64.html`](c64.html) | The best-selling computer ever made, and the BASIC prompt *is* the operating system: blue-on-blue in under a second, then a real Commodore BASIC V2 with a full-screen editor, quote mode and two-character variable names. `10 PRINT CHR$(205.5+RND(1));` fills the screen with the maze, `POKE 53281,0` really does turn it black, the SID really does sing when you poke it, eight sprites fly and collide, raster bars work, a 1541 takes far too long, a tape fails on the first load, and `SYS 64738` wipes your unsaved program. Plus a 6510 core, a machine-code monitor on a cartridge, and a magazine type-in with a Proofreader |
 | 1984 | **Apple Lisa Office System 3.1 (7/7)** | Apple | [`lisa.html`](lisa.html) | The birthplace of the desktop: stationery pads, Set Aside vs. Save & Put Away, the visible Clipboard, seven integrated tools, and soft power that restores everything — cursor and all |
 | 1985 | **Windows 1.01** | Microsoft | [`win101.html`](win101.html) | Boot MS-DOS, type `WIN`: tiled windows that never overlap, MS-DOS Executive for a shell, monochrome Paint, Reversi and a hidden credits screen |
 | 1993 | **Windows for Workgroups 3.11** | Microsoft | [`win311.html`](win311.html) | Program Manager, File Manager and the classic 16-bit desktop on MS-DOS 6.22 |
@@ -43,8 +44,10 @@ Every simulation in this museum follows the same rules:
 - **One file.** All HTML, CSS and JavaScript live in a single `.html` document.
 - **Zero dependencies.** No CDNs, no frameworks, no network requests, no assets to load.
 - **Offline-first.** Opening the file from disk is the supported way to run it.
-- **Simulation, not emulation.** These pages re-create interfaces and behaviour in the DOM;
-  they don't execute original software or contain any copyrighted binaries.
+- **Simulation, not emulation.** These pages re-create interfaces and behaviour in the browser;
+  they don't execute original software or contain any copyrighted binaries. Where an exhibit
+  goes deeper — the C64's BASIC interpreter, its video chip, its sound chip and its 6510 —
+  every byte of it is written from scratch to behave like the real thing.
 
 The landing page ([`index.html`](index.html)) follows the same rules and renders its gallery
 from a small data array, so the museum grows without any structural changes.
