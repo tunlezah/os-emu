@@ -1,65 +1,971 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Novell NetWare 4.11 — IntranetWare (Simulation)</title>
-  <meta name="description" content="An interactive front-end simulation of a Novell NetWare 4.11 / IntranetWare server console. No real networking — a museum exhibit in the browser.">
-  <link rel="stylesheet" href="css/netware.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Novell NetWare 4.11 — IntranetWare (Simulation)</title>
+<meta name="description" content="An interactive front-end simulation of a Novell NetWare 4.11 / IntranetWare server console. No real networking — a museum exhibit in the browser.">
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#0a0a0c;overflow:hidden}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;
+       font-family:ui-monospace,Menlo,Consolas,"Cascadia Mono","Courier New",monospace}
+  #crt{position:relative;background:#000;border-radius:12px;
+       box-shadow:0 0 80px rgba(40,60,120,.25),inset 0 0 60px rgba(0,0,0,.6);
+       padding:18px}
+  #screen{position:relative;line-height:1.2;white-space:pre;user-select:none}
+  #screen .r{display:block}
+  #screen span{display:inline-block}
+  /* scanlines + faint vignette */
+  #crt::after{content:"";position:absolute;inset:0;border-radius:12px;pointer-events:none;
+      background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px),
+                 radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.35) 100%)}
+  .cur{animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  #hint{margin-top:10px;color:#5a5f6e;font-size:12px;letter-spacing:.04em;text-align:center}
+  #hint b{color:#8a90a4;font-weight:600}
+  #kb{position:absolute;opacity:0;width:1px;height:1px;left:-9999px}
+</style>
 </head>
 <body>
-  <div id="crt">
-    <div id="screen"></div>
-  </div>
+  <div id="crt"><div id="screen"></div></div>
+  <div id="hint"><b>Alt+Esc</b> switch screens &nbsp;·&nbsp; <b>Ctrl+Esc</b> screen list &nbsp;·&nbsp; type <b>HELP</b> at the console</div>
+  <input id="kb" autocapitalize="none" autocomplete="off" aria-hidden="true" tabindex="-1">
+  <noscript><p style="color:#aaa;font-family:monospace;padding:20px">This NetWare 4.11 simulation requires JavaScript.</p></noscript>
 
-  <noscript>
-    <p style="color:#0f0;font-family:monospace;padding:20px">
-      This NetWare 4.11 simulation requires JavaScript.
-    </p>
-  </noscript>
+<script>
+"use strict";
+/* ============================================================
+   Novell NetWare 4.11 (IntranetWare) — museum exhibit
+   Single self-contained file: no assets, no network, file:// OK
+   ============================================================ */
 
-  <!-- ===== core layer ===== -->
-  <script src="js/core/namespace.js"></script>
-  <script src="js/core/state.js"></script>
-  <script src="js/core/settings.js"></script>
-  <script src="js/core/audio.js"></script>
-  <script src="js/core/theme.js"></script>
+/* ---------- 16-colour text palette ---------- */
+const P = ["#000000","#0000a8","#00a800","#00a8a8","#a80000","#a800a8","#a85400","#a8a8a8",
+           "#545454","#5454fc","#54fc54","#54fcfc","#fc5454","#fc54fc","#fcfc54","#ffffff"];
+const COLS = 80, ROWS = 25;
 
-  <!-- ===== data layer ===== -->
-  <script src="js/data/serverinfo.js"></script>
-  <script src="js/data/modules.js"></script>
-  <script src="js/data/volumes.js"></script>
-  <script src="js/data/nds.js"></script>
-  <script src="js/data/users.js"></script>
-  <script src="js/data/logs.js"></script>
-  <script src="js/data/help.js"></script>
+/* ---------- screen buffers ---------- */
+function makeScreen(name){
+  const s = {name, cells:new Array(COLS*ROWS), cursor:null, dirty:true, onKey:null, tick:null};
+  clearScr(s,7,0);
+  return s;
+}
+function clearScr(s,fg,bg){
+  for(let i=0;i<COLS*ROWS;i++) s.cells[i]={ch:" ",fg,bg};
+  s.cursor=null; s.dirty=true;
+}
+function put(s,x,y,text,fg,bg){
+  if(y<0||y>=ROWS) return;
+  for(let i=0;i<text.length;i++){
+    const xx=x+i; if(xx<0||xx>=COLS) continue;
+    const c=s.cells[y*COLS+xx];
+    c.ch=text[i]; if(fg!=null)c.fg=fg; if(bg!=null)c.bg=bg;
+  }
+  s.dirty=true;
+}
+function fillRect(s,x,y,w,h,ch,fg,bg){
+  for(let r=0;r<h;r++) put(s,x,y+r,ch.repeat(w),fg,bg);
+}
+function box(s,x,y,w,h,fg,bg,dbl){
+  const B = dbl? "╔═╗║╚╝" : "┌─┐│└┘";
+  fillRect(s,x,y,w,h," ",fg,bg);
+  put(s,x,y,B[0]+B[1].repeat(w-2)+B[2],fg,bg);
+  for(let r=1;r<h-1;r++){ put(s,x,y+r,B[3],fg,bg); put(s,x+w-1,y+r,B[3],fg,bg); }
+  put(s,x,y+h-1,B[4]+B[1].repeat(w-2)+B[5],fg,bg);
+}
+function ctr(s,y,text,fg,bg){ put(s,Math.max(0,(COLS-text.length)>>1),y,text,fg,bg); }
 
-  <!-- ===== system layer ===== -->
-  <script src="js/system/monitor-engine.js"></script>
-  <script src="js/system/wm.js"></script>
-  <script src="js/system/tui.js"></script>
-  <script src="js/system/boot.js"></script>
-  <script src="js/system/login.js"></script>
-  <script src="js/system/console.js"></script>
-  <script src="js/system/commands.js"></script>
-  <script src="js/system/menubar.js"></script>
-  <script src="js/system/statusbar.js"></script>
+/* ---------- renderer ---------- */
+const scrEl = document.getElementById("screen");
+let charW=10,charH=19;
+function fit(){
+  const t=document.createElement("span");
+  t.textContent="X".repeat(40); t.style.cssText="position:absolute;visibility:hidden;font:inherit";
+  scrEl.appendChild(t);
+  const base=parseFloat(getComputedStyle(scrEl).fontSize)||16;
+  const w1=t.getBoundingClientRect().width/40;
+  scrEl.removeChild(t);
+  const availW=innerWidth-76, availH=innerHeight-110;
+  const size=Math.max(8,Math.min(base*availW/(w1*COLS), availH/(1.2*ROWS)));
+  scrEl.style.fontSize=size+"px";
+  const t2=document.createElement("span");
+  t2.textContent="X"; t2.style.cssText="position:absolute;visibility:hidden;font:inherit";
+  scrEl.appendChild(t2);
+  charW=t2.getBoundingClientRect().width; charH=size*1.2;
+  scrEl.removeChild(t2);
+  if(MGR.active) MGR.active.dirty=true;
+}
+addEventListener("resize",fit);
 
-  <!-- ===== applications ===== -->
-  <script src="js/apps/monitor.js"></script>
-  <script src="js/apps/netadmin.js"></script>
-  <script src="js/apps/syscon.js"></script>
-  <script src="js/apps/filer.js"></script>
-  <script src="js/apps/connections.js"></script>
-  <script src="js/apps/pconsole.js"></script>
-  <script src="js/apps/netmap.js"></script>
-  <script src="js/apps/graphs.js"></script>
-  <script src="js/apps/logs.js"></script>
-  <script src="js/apps/help.js"></script>
-  <script src="js/apps/about.js"></script>
-  <script src="js/apps/tools.js"></script>
+function render(s){
+  let html="";
+  for(let y=0;y<ROWS;y++){
+    html+='<span class="r">';
+    let run="",rf=-1,rb=-1,rcur=false;
+    const flush=()=>{ if(run){
+      html+='<span'+(rcur?' class="cur"':'')+' style="color:'+P[rf]+';background:'+P[rb]+
+            (rb===0?'':';')+'">'+esc(run)+'</span>'; run="";} };
+    for(let x=0;x<COLS;x++){
+      const c=s.cells[y*COLS+x];
+      const isCur = s.cursor && s.cursor.x===x && s.cursor.y===y;
+      if(c.fg!==rf||c.bg!==rb||isCur!==rcur){ flush(); rf=c.fg; rb=c.bg; rcur=isCur; }
+      run+= isCur? "▂" : c.ch;
+    }
+    flush();
+    html+="</span>";
+  }
+  scrEl.innerHTML=html;
+}
+function esc(t){ return t.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
 
-  <!-- ===== bootstrap ===== -->
-  <script src="js/main.js"></script>
+/* ---------- screen manager (Alt+Esc switching) ---------- */
+const MGR = {
+  list:[], active:null, chooser:false,
+  add(s){ this.list.push(s); return s; },
+  remove(s){
+    const i=this.list.indexOf(s); if(i<0)return;
+    this.list.splice(i,1);
+    if(this.active===s) this.activate(this.list[Math.max(0,i-1)]);
+  },
+  activate(s){ this.active=s; s.dirty=true; },
+  next(){
+    const i=this.list.indexOf(this.active);
+    this.activate(this.list[(i+1)%this.list.length]);
+  }
+};
+/* "Current Screens" chooser (Ctrl+Esc) */
+const chooserScr = makeScreen("chooser");
+function openChooser(){
+  MGR.chooser=true;
+  clearScr(chooserScr,7,0);
+  put(chooserScr,2,1,"Current Screens",15,0);
+  MGR.list.forEach((s,i)=> put(chooserScr,4,3+i,(i+1)+". "+s.name,7,0));
+  put(chooserScr,2,4+MGR.list.length,"Select screen to view: ",7,0);
+  chooserScr.cursor={x:25,y:4+MGR.list.length};
+  chooserScr.dirty=true;
+}
+/* main loop */
+setInterval(()=>{
+  for(const s of MGR.list) if(s.tick) s.tick();
+  const cur = MGR.chooser? chooserScr : MGR.active;
+  if(cur && cur.dirty){ cur.dirty=false; render(cur); }
+},50);
+
+/* ---------- audio ---------- */
+let AC=null;
+function beep(freq,ms,vol){
+  try{
+    if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type="square"; o.frequency.value=freq||880;
+    g.gain.value=vol||.05; o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime+(ms||120)/1000);
+  }catch(e){}
+}
+function alertBeep(){ beep(880,90); setTimeout(()=>beep(660,90),110); }
+
+/* ---------- helpers ---------- */
+const fmt = n => Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
+const pad = (t,w)=> (t.length>=w? t.slice(0,w) : t+" ".repeat(w-t.length));
+const padl = (t,w)=> (t.length>=w? t : " ".repeat(w-t.length)+t);
+function clock(d){
+  d=d||new Date();
+  let h=d.getHours(); const ap=h>=12?"pm":"am"; h=h%12||12;
+  return h+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0")+" "+ap;
+}
+function upStr(){
+  let t=Math.floor((Date.now()-SV.bootTime)/1000)+SV.upBase;
+  const d=Math.floor(t/86400); t%=86400;
+  const h=Math.floor(t/3600); t%=3600;
+  const m=Math.floor(t/60), s=t%60;
+  return d+":"+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+}
+
+/* ============================================================
+   Server model
+   ============================================================ */
+const SV = {
+  name:"MUSEUM", tree:"OS_MUSEUM", ctx:"O=Museum",
+  ipxInternal:"01996411", net:"00C0FFEE", node:"00001B02D9F4",
+  memoryKB:65536, speed:120,
+  bootTime:Date.now(), upBase:0,
+  loginEnabled:true, consoleSecured:false,
+  volSYS:true, down:false, dosMode:true, abended:false,
+  util:4, dirty:2, diskReq:0,
+  pktIn:184223, pktOut:97218,
+  track:null, monitor:null,
+};
+const MODULES = [
+ ["IDEATA.HAM","2.00","May 20, 1996", 14320,"Novell IDE/ATA/ATAPI/CD-ROM Host Adapter Module"],
+ ["IDEHD.CDM", "2.00","May 20, 1996", 10164,"Novell IDE Hard Disk Custom Device Module"],
+ ["NWPA.NLM",  "2.06","Jun 12, 1996", 63849,"NetWare Peripheral Architecture NLM"],
+ ["NBI.NLM",   "1.06","Apr 30, 1996", 15837,"NetWare Bus Interface"],
+ ["MSM.NLM",   "2.34","Jul 09, 1996", 40122,"Novell Generic Media Support Module"],
+ ["ETHERTSM.NLM","2.31","Jul 09, 1996",14051,"Novell Ethernet Topology Specific Module"],
+ ["NE2000.LAN","3.65","Jul 15, 1996", 18904,"Novell NE2000 Ethernet Driver"],
+ ["STREAMS.NLM","4.10","Feb 08, 1996",50412,"NetWare STREAMS Environment"],
+ ["CLIB.NLM",  "4.11","Aug 02, 1996",381120,"NetWare C Runtime Library"],
+ ["TLI.NLM",   "4.10","Feb 08, 1996", 24138,"NetWare Transport Level Interface Library"],
+ ["IPXS.NLM",  "4.10","Feb 08, 1996",  9820,"NetWare STREAMS IPX Protocol"],
+ ["SPXS.NLM",  "4.10","Feb 08, 1996", 14980,"NetWare STREAMS SPX Protocol"],
+ ["MATHLIB.NLM","4.10","Feb 08, 1996", 8244,"NetWare Math Library (387 present)"],
+ ["TIMESYNC.NLM","4.14","Jun 24, 1996",41008,"NetWare Time Synchronization Services"],
+ ["DS.NLM",    "5.99a","Jul 25, 1996",379444,"NetWare Directory Services"],
+ ["ROLLCALL.NLM","4.10","Jan 11, 1996", 5216,"RollCall NLM (401)"],
+ ["POLIMGR.NLM","4.60","Jun 05, 1996", 31780,"NetWare License Policy Manager"],
+ ["NWSNUT.NLM","4.12","May 28, 1996",166284,"NetWare NLM Utility User Interface"],
+];
+const CONNS = [
+ {n:1,user:"ADMIN.Museum",  addr:"00C0FFEE:00A024C0DE01",files:["SYS:SYSTEM\\SYS$LOG.ERR","SYS:SYSTEM\\NET$OBJ.SYS"],req:8412,kr:2148,kw:512,t:"0:41:22"},
+ {n:2,user:"BUNGI.Staff.Museum",addr:"00C0FFEE:00A024C0DE02",files:["SYS:PUBLIC\\NLIST.EXE"],req:1204,kr:388,kw:24,t:"0:17:48"},
+ {n:3,user:"NOT-LOGGED-IN", addr:"00C0FFEE:00A024C0DE03",files:[],req:12,kr:2,kw:0,t:"0:00:51"},
+];
+
+/* ============================================================
+   System Console screen
+   ============================================================ */
+const CON = makeScreen("System Console");
+MGR.add(CON); MGR.activate(CON);
+let conLines=[], input="", hist=[], histI=-1, busy=true;
+
+function conPrompt(){
+  return SV.abended? "" : SV.dosMode? "C:\\NWSERVER>" : SV.down? ":" : SV.name+":";
+}
+function conRepaint(){
+  clearScr(CON,7,0);
+  const avail = ROWS-1;
+  const start=Math.max(0,conLines.length-avail);
+  const shown=conLines.slice(start);
+  shown.forEach((l,i)=> put(CON,0,i,l.text.slice(0,COLS),l.fg,0));
+  const y=shown.length;
+  if(!busy && y<ROWS){
+    const p=conPrompt();
+    put(CON,0,y,p+input,7,0);
+    CON.cursor={x:Math.min(COLS-1,p.length+input.length),y};
+  } else CON.cursor=null;
+  CON.dirty=true;
+}
+function print(text,fg){
+  (text==null?[""]:String(text).split("\n")).forEach(line=>{
+    if(line.length<=COLS){ conLines.push({text:line,fg:fg==null?7:fg}); }
+    else for(let i=0;i<line.length;i+=COLS) conLines.push({text:line.slice(i,i+COLS),fg:fg==null?7:fg});
+  });
+  if(conLines.length>200) conLines=conLines.slice(-200);
+  conRepaint();
+}
+
+/* timed sequence runner (any key = fast-forward) */
+let seqFast=false;
+function runSeq(steps,done){
+  busy=true; seqFast=false; conRepaint();
+  let i=0;
+  const step=()=>{
+    if(i>=steps.length){ busy=false; conRepaint(); if(done)done(); return; }
+    const [d,a]=steps[i++];
+    setTimeout(()=>{ typeof a==="function"? a() : print(a); step(); }, seqFast?0:d);
+  };
+  step();
+}
+
+/* ---------- boot ---------- */
+function bootDOS(){
+  SV.dosMode=true; SV.down=false; SV.abended=false; SV.volSYS=true;
+  conLines=[];
+  runSeq([
+    [300,"Starting PC DOS..."],
+    [500,""],
+    [200,"C:\\>CD NWSERVER"],
+    [200,"C:\\NWSERVER>SERVER"],
+  ],()=>bootServer());
+}
+function bootServer(){
+  SV.dosMode=false; SV.bootTime=Date.now(); SV.upBase=0;
+  runSeq([
+    [600,()=>{print("");print("Novell NetWare 4.11   August 22, 1996",15);}],
+    [80,"(C) Copyright 1983-1996 Novell Inc.  All Rights Reserved."],
+    [80,"Patent Pending."],
+    [300,""],
+    [200,"Processor speed rating: "+SV.speed],
+    [150,"Total server memory: "+fmt(SV.memoryKB)+" Kilobytes"],
+    [400,""],
+    [250,"Loading module IDEATA.HAM"],
+    [120,"  Novell IDE/ATA/ATAPI/CD-ROM Host Adapter Module"],
+    [120,"  Version 2.00   May 20, 1996"],
+    [250,"Loading module IDEHD.CDM"],
+    [120,"  Novell IDE Hard Disk Custom Device Module"],
+    [350,"Loading module NWPA.NLM"],
+    [350,"Loading module CLIB.NLM"],
+    [350,"Loading module DS.NLM"],
+    [120,"  NetWare Directory Services  Version 5.99a"],
+    [500,()=>print("Mounting volume SYS")],
+    [700,()=>print("* Volume SYS mounted",10)],
+    [350,"Loading module NE2000.LAN"],
+    [120,"  Novell NE2000 Ethernet Driver  Version 3.65"],
+    [120,"  Hardware setting: I/O ports 300h to 31Fh, Interrupt 3h"],
+    [250,"IPX internal network number: "+SV.ipxInternal],
+    [250,"Binding IPX to NE2000 board 1 (ETHERNET_802.2), net "+SV.net],
+    [400,"Loading module TIMESYNC.NLM"],
+    [300,()=>print("TIMESYNC: Time is synchronized to the network.",11)],
+    [300,()=>print("Directory Services: Local database is open.",11)],
+    [400,()=>{print("");print(SV.name+" is now serving the tree "+SV.tree+".  Type HELP for commands.",14);print("");}],
+  ]);
+}
+
+/* ---------- console input ---------- */
+CON.onKey=function(e){
+  if(busy){ seqFast=true; return; }
+  if(SV.abended){
+    if(e.key==="Escape") bootDOS();
+    return;
+  }
+  const k=e.key;
+  if(k==="Enter"){
+    const cmd=input; input="";
+    print(conPrompt()+cmd);
+    if(cmd.trim()){ hist.push(cmd); if(hist.length>20)hist.shift(); }
+    histI=hist.length;
+    exec(cmd.trim());
+    conRepaint();
+  }else if(k==="Backspace"){ input=input.slice(0,-1); conRepaint(); }
+  else if(k==="Escape"){ input=""; conRepaint(); }
+  else if(k==="ArrowUp"){ if(histI>0){histI--; input=hist[histI]||""; conRepaint();} }
+  else if(k==="ArrowDown"){ if(histI<hist.length){histI++; input=hist[histI]||""; conRepaint();} }
+  else if(k.length===1 && !e.ctrlKey && !e.altKey && !e.metaKey){
+    if(input.length<COLS-conPrompt().length-1){ input+=k; conRepaint(); }
+  }
+};
+
+/* ---------- commands ---------- */
+function exec(raw){
+  const U=raw.toUpperCase();
+  if(!raw) return;
+
+  /* ----- DOS mode ----- */
+  if(SV.dosMode){
+    if(U==="SERVER") return bootServer();
+    if(U==="DIR"){
+      print(" Volume in drive C is NWSERVER\n Directory of C:\\NWSERVER\n");
+      print("SERVER   EXE    529,924  08-22-96  4:11a");
+      print("STARTUP  NCF        184  01-04-97  9:02a");
+      print("AUTOEXEC NCF        312  01-04-97  9:02a");
+      print("VOL$LOG  ERR      2,048  01-04-97  9:14a");
+      print("        4 file(s)     532,468 bytes\n");
+      return;
+    }
+    if(U==="CLS"){ conLines=[]; conRepaint(); return; }
+    if(U==="VER"){ print("\nPC DOS Version 7.00\n"); return; }
+    if(U==="HELP"){ print("Commands here: SERVER  DIR  CLS  VER   (type SERVER to boot NetWare)"); return; }
+    print("Bad command or file name");
+    return;
+  }
+
+  /* ----- server downed: only EXIT / RESTART ----- */
+  if(SV.down){
+    if(U==="EXIT"){ SV.dosMode=true; SV.down=false; print("");print("C:\\NWSERVER>"); conRepaint(); return; }
+    if(U==="RESTART SERVER") return bootServer();
+    print("Server is down.  Type EXIT to return to DOS, or RESTART SERVER.");
+    return;
+  }
+
+  /* ----- NetWare console ----- */
+  const arg = raw.replace(/^\S+\s*/,"");
+  switch(true){
+
+  case U==="HELP":
+    print("The following console commands are available:\n",14);
+    print("  BROADCAST <msg>       CLS / OFF             CONFIG");
+    print("  DISABLE LOGIN         DISMOUNT <vol>        DISPLAY NETWORKS");
+    print("  DISPLAY SERVERS       DOWN                  ENABLE LOGIN");
+    print("  HELP [command]        LOAD <module>         MEMORY");
+    print("  MODULES               MOUNT <vol> | ALL     NAME");
+    print("  RESTART SERVER        SECURE CONSOLE        SEND \"msg\"");
+    print("  SET                   SPEED                 TIME");
+    print("  TRACK ON / TRACK OFF  UNLOAD <module>       VERSION");
+    print("  VOLUMES\n");
+    print("This is a museum exhibit: try LOAD MONITOR, then Alt+Esc to switch screens.",11);
+    break;
+
+  case U.startsWith("HELP "):{
+    const HELPS={
+      "LOAD":"LOAD <module>  Loads an NLM.  Try: LOAD MONITOR",
+      "MONITOR":"MONITOR is loaded with: LOAD MONITOR",
+      "DOWN":"DOWN  Takes the server down gracefully (then EXIT or RESTART SERVER).",
+      "TRACK":"TRACK ON  Opens the RIP/SAP Tracking Screen.  TRACK OFF closes it.",
+      "BROADCAST":"BROADCAST <message>  Sends a message to all logged-in stations.",
+      "SET":"SET  Displays the server parameter categories.",
+      "MOUNT":"MOUNT <volume> | MOUNT ALL   Mounts a volume.",
+      "DISMOUNT":"DISMOUNT <volume>   Dismounts a volume."};
+    print(HELPS[arg.toUpperCase().split(" ")[0]]||("No help available for \""+arg+"\"."));
+    break;}
+
+  case U==="CLS" || U==="OFF": conLines=[]; conRepaint(); break;
+
+  case U==="NAME": print("This is server "+SV.name+" in Directory tree "+SV.tree); break;
+
+  case U==="SPEED":
+    print(String(SV.speed));
+    print("(The processor speed rating is a NetWare in-house benchmark. Bigger bragging",8);
+    print(" rights than MHz, and it printed instantly. Everyone typed it once.)",8);
+    break;
+
+  case U==="MEMORY": print("Total server memory: "+fmt(SV.memoryKB)+" Kilobytes"); break;
+
+  case U==="VERSION":
+    print("Novell NetWare 4.11   August 22, 1996",15);
+    print("(C) Copyright 1983-1996 Novell Inc.  All Rights Reserved.  Patent Pending.");
+    print("Novell Directory Services  Version 5.99a");
+    print("User Licenses: 25   (currently in use: "+CONNS.filter(c=>c.user!=="NOT-LOGGED-IN").length+")");
+    break;
+
+  case U==="TIME":{
+    const d=new Date();
+    print("Time zone string: \"UTC\"");
+    print("  DST status: OFF");
+    print("  Current time: "+d.toDateString()+"  "+clock(d));
+    print("  Time synchronization is active.");
+    print("  Time is synchronized to the network.",11);
+    break;}
+
+  case U==="CONFIG":
+    print("File server name: "+SV.name);
+    print("IPX internal network number: "+SV.ipxInternal);
+    print("Server Up Time: "+upStr());
+    print("");
+    print("Novell NE2000 Ethernet Driver",15);
+    print("  Version 3.65    July 15, 1996");
+    print("  Hardware setting: I/O ports 300h to 31Fh, Interrupt 3h");
+    print("  Node address: "+SV.node);
+    print("  Frame type: ETHERNET_802.2");
+    print("  Board name: NE2000_1_E82");
+    print("  LAN protocol: IPX  network "+SV.net);
+    print("");
+    print("Tree Name: "+SV.tree);
+    print("Bindery Context(s): "+SV.ctx);
+    break;
+
+  case U==="MODULES":
+    MODULES.forEach(m=>{
+      print(pad(m[0],14)+" "+m[4],11);
+      print("   Version "+m[1]+"   "+m[2],7);
+    });
+    if(SV.monitor) { print(pad("MONITOR.NLM",14)+" NetWare 4.11 Console Monitor",11); print("   Version 4.13   July 22, 1996",7); }
+    break;
+
+  case U==="VOLUMES":
+    print("Mounted Volumes        Name Spaces      Flags");
+    print("---------------        -----------      -----");
+    if(SV.volSYS) print("SYS                    DOS              Cp Sa");
+    print((SV.volSYS?1:0)+" volume"+(SV.volSYS?"":"s")+" mounted");
+    break;
+
+  case U==="MOUNT ALL": case U==="MOUNT SYS":
+    if(SV.volSYS) print("Volume SYS is already mounted.");
+    else { SV.volSYS=true; print("Mounting volume SYS"); print("* Volume SYS mounted",10); beep(1040,80); }
+    break;
+  case U.startsWith("MOUNT"): print("MOUNT <volume name>   (this exhibit has one volume: SYS)"); break;
+
+  case U==="DISMOUNT SYS":
+    if(!SV.volSYS){ print("Volume SYS is not mounted."); break; }
+    SV.volSYS=false;
+    print("Dismounting volume SYS");
+    print("Notifying stations that volume SYS is being dismounted.");
+    print("* Volume SYS dismounted",12); alertBeep();
+    print("WARNING: SYS holds the queues and the NDS database. On a real server",12);
+    print("this command emptied a whole office. MOUNT SYS puts it back.",12);
+    break;
+  case U.startsWith("DISMOUNT"): print("DISMOUNT <volume name>"); break;
+
+  case U==="DISPLAY SERVERS":
+    print("Known NetWare Servers            Network    Hops");
+    print("---------------------            -------    ----");
+    print(pad(SV.name,33)+SV.ipxInternal+"      0");
+    print(pad(SV.tree+"___________",33)+SV.ipxInternal+"      0");
+    print("There are 2 known servers (one is the NDS tree advertising itself via SAP).");
+    break;
+
+  case U==="DISPLAY NETWORKS":
+    print(SV.net+"  0/1    "+SV.ipxInternal+"  0/1");
+    print("There are 2 known networks.");
+    break;
+
+  case U==="TRACK ON":
+    if(SV.track){ print("RIP/SAP tracking is already on.  (Alt+Esc to view.)"); break; }
+    openTrack(); print("RIP/SAP Tracking Screen opened.  Alt+Esc to view it.");
+    break;
+  case U==="TRACK OFF":
+    if(!SV.track){ print("RIP/SAP tracking is not on."); break; }
+    MGR.remove(SV.track); SV.track=null; print("RIP/SAP Tracking Screen closed.");
+    break;
+
+  case U.startsWith("BROADCAST")||U.startsWith("SEND"):{
+    let msg=arg.replace(/^"|"$/g,"").replace(/"\s+TO\s+.*$/i,"");
+    if(!msg){ print("BROADCAST <message>"); break; }
+    print("Message \""+msg.slice(0,55)+"\" sent to all logged-in stations.",14);
+    alertBeep();
+    break;}
+
+  case U==="ENABLE LOGIN": SV.loginEnabled=true; print("Login is now enabled."); break;
+  case U==="DISABLE LOGIN": SV.loginEnabled=false; print("Login is now disabled.  Current connections stay up; new logins are refused."); break;
+
+  case U==="SECURE CONSOLE":
+    SV.consoleSecured=true;
+    print("Console secured.",14);
+    print("  NLMs may now be loaded only from SYS:SYSTEM.");
+    print("  Keyboard entry to the OS debugger is disabled.");
+    print("  The date and time may not be changed from the console.");
+    print("  (Undoing this requires downing the server — that part is authentic.)",8);
+    break;
+
+  case U==="SET":
+    print("Settable configuration parameter categories:",14);
+    ["Communications","Memory","File caching","Directory caching","File system",
+     "Locks","Transaction tracking","Disk","Time","NCP","Miscellaneous","Error Handling",
+     "Directory Services"].forEach((c,i)=>print("  "+(i+1)+". "+c));
+    print("(In the real thing each category is pages of tunables. The museum keeps");
+    print(" the defaults — they were good enough for a million file servers.)",8);
+    break;
+
+  case U==="LOAD MONITOR":
+    if(SV.monitor){ print("Module MONITOR.NLM is already loaded.  (Alt+Esc to view.)"); break; }
+    print("Loading module MONITOR.NLM");
+    print("  NetWare 4.11 Console Monitor");
+    print("  Version 4.13   July 22, 1996");
+    openMonitor();
+    break;
+
+  case U==="UNLOAD MONITOR":
+    if(!SV.monitor){ print("Module MONITOR.NLM is not loaded."); break; }
+    MGR.remove(SV.monitor); SV.monitor=null;
+    print("Module MONITOR.NLM unloaded.");
+    break;
+
+  case U.startsWith("LOAD "):{
+    const m=arg.toUpperCase().split(".")[0];
+    if(SV.consoleSecured) { print("Console is secured: modules load only from SYS:SYSTEM."); }
+    if(["INSTALL","NWCONFIG","SERVMAN","DSREPAIR","INETCFG","VREPAIR"].includes(m))
+      print(m+".NLM exists on real 4.11 media, but this museum wing exhibits the");
+    else
+      print("The museum's SYS:SYSTEM carries only the modules already loaded; the");
+    print("console and MONITOR.  Unable to find load file "+m+".");
+    break;}
+  case U==="LOAD": print("LOAD <module>   Try: LOAD MONITOR"); break;
+  case U.startsWith("UNLOAD"): print("Module "+arg.toUpperCase()+" is not loaded."); break;
+
+  case U==="DOWN":
+    busy=true;
+    runSeq([
+      [200,"Notifying stations that file server is down."],
+      [500,"Dismounting volume SYS"],
+      [600,()=>print("* Volume SYS dismounted",7)],
+      [300,"All volumes dismounted."],
+      [400,()=>{print("");print("Server "+SV.name+" has been shut down.  Type EXIT to return to DOS,",14);
+                print("or RESTART SERVER to bring it back up.",14); SV.down=true; SV.volSYS=false;}],
+    ]);
+    break;
+
+  case U==="RESTART SERVER": bootServer(); break;
+  case U==="EXIT": print("The server must be downed first.  Type DOWN."); break;
+
+  case U==="ABEND": case U==="CRASH": doAbend(); break;
+
+  case U==="MONITOR": print("??? Unknown command ???   (NetWare 4 has no implicit LOAD — type LOAD MONITOR)"); break;
+
+  default:
+    print("??? Unknown command ???");
+  }
+}
+
+/* ---------- ABEND easter egg ---------- */
+function doAbend(){
+  SV.abended=true; busy=false; input="";
+  print("");
+  print("ABEND: GPPROC: General protection processor exception (Error code 00000000)",12);
+  print("OS version: Novell NetWare 4.11  August 22, 1996",7);
+  print("Running process: Console Command Process",7);
+  print("Stack: 00 00 4E 57 34 31 31 00  6D 75 73 65 75 6D 00 00",8);
+  print("");
+  print("The system has been halted to prevent NDS corruption.",12);
+  print("On real hardware you would now walk to the machine room.",8);
+  print("Museum convenience: press ESC to power-cycle the server.",14);
+  alertBeep(); setTimeout(alertBeep,400);
+  conRepaint();
+}
+
+/* ============================================================
+   RIP/SAP Tracking Screen
+   ============================================================ */
+function openTrack(){
+  const s=makeScreen("RIP/SAP Tracking Screen");
+  SV.track=MGR.add(s);
+  const lines=[];
+  const add=t=>{ lines.push(t); if(lines.length>ROWS-2)lines.shift(); repaint(); };
+  function repaint(){
+    clearScr(s,7,0);
+    put(s,0,0,"RIP/SAP Tracking Screen   ("+SV.name+")   TRACK OFF at the console to close",14,0);
+    lines.forEach((l,i)=>put(s,0,i+2,l,7,0));
+    s.dirty=true;
+  }
+  repaint();
+  let n=0;
+  s.tick=()=>{
+    if(Math.random()<0.02){
+      n++;
+      const dir = Math.random()<.5?"IN ":"OUT";
+      const kinds=[
+        dir+" ["+SV.net+":"+SV.node+"]  "+clock()+"  "+SV.name+"  1",
+        dir+" ["+SV.net+":FFFFFFFFFFFF]  "+clock()+"  Get Nearest Server",
+        "OUT ["+SV.net+":FFFFFFFFFFFF]  "+clock()+"  "+SV.name+"  Give Nearest Server",
+        dir+" ["+SV.ipxInternal+":000000000001]  "+clock()+"  RIP  "+SV.net+" 1/2",
+      ];
+      add(kinds[n%kinds.length]);
+    }
+  };
+}
+
+/* ============================================================
+   MONITOR.NLM — C-Worthy blue TUI
+   ============================================================ */
+function openMonitor(){
+  const s=makeScreen("NetWare 4.11 Console Monitor");
+  SV.monitor=MGR.add(s);
+  const M={stack:[],locked:false,lockPw:"",pwBuf:"",pwMode:null};
+
+  const OPTIONS=[
+    "Connection Information","Disk Information","LAN/WAN Information",
+    "System Module Information","Lock File Server Console","File Open/Lock Activity",
+    "Cache Utilization","Processor Utilization","Resource Utilization",
+    "Memory Utilization","Scheduling Information","Exit"];
+
+  function mainMenu(){ return {kind:"menu",title:"Available Options",items:OPTIONS.slice(),sel:0,x:24,y:12,w:32}; }
+  M.stack=[mainMenu()];
+
+  function genInfo(){
+    return [
+      ["Server Up Time:", padl(upStr(),13)],
+      ["Utilization:", padl(SV.util+" %",13)],
+      ["Original Cache Buffers:", padl("13,240",13)],
+      ["Total Cache Buffers:", padl("11,062",13)],
+      ["Dirty Cache Buffers:", padl(String(SV.dirty),13)],
+      ["Current Disk Requests:", padl(String(SV.diskReq),13)],
+      ["Packet Receive Buffers:", padl("100",13)],
+      ["Directory Cache Buffers:", padl("512",13)],
+      ["Current Service Processes:", padl("4",13)],
+      ["Current Connections:", padl(String(CONNS.length),13)],
+      ["Open Files:", padl(String(7+CONNS.reduce((a,c)=>a+c.files.length,0)),13)],
+    ];
+  }
+  const infoScreens={
+    "Disk Information":()=>[
+      "Device # 0:  QUANTUM FIREBALL_TM1080A  (IDE)",
+      "",
+      "  Driver:                      IDEHD.CDM",
+      "  Disk size:                   1,042 Megabytes",
+      "  Partitions:                  1 NetWare partition",
+      "  Mirror status:               Not mirrored",
+      "  Hot Fix status:              Normal",
+      "  Partition blocks:            266,752",
+      "  Data blocks:                 258,560",
+      "  Redirection blocks:          8,192",
+      "  Redirected blocks:           3",
+      "  Reserved blocks:             37",
+      "",
+      "  (Hot Fix: NetWare quietly remaps failing sectors and keeps score.",
+      "   Watching \"redirected blocks\" creep upward was how admins learned",
+      "   a disk was dying — usually months before it did.)",
+    ],
+    "LAN/WAN Information":()=>[
+      "NE2000_1_E82  [ports 300h-31Fh  int 3h]",
+      "",
+      "  Driver:                      NE2000.LAN  v3.65",
+      "  Node address:                "+SV.node,
+      "  Frame type:                  ETHERNET_802.2",
+      "  Protocol:                    IPX  network "+SV.net,
+      "",
+      "  Total packets sent:          "+fmt(SV.pktOut),
+      "  Total packets received:      "+fmt(SV.pktIn),
+      "  No ECB available count:      0",
+      "  Send packet too big count:   0",
+      "  Checksum errors:             0",
+      "  Hardware receive mismatch:   0",
+    ],
+    "Cache Utilization":()=>[
+      "  Short term cache hits:            100%",
+      "  Short term dirty cache hits:      100%",
+      "  Long term cache hits:              98%",
+      "  Long term dirty cache hits:        97%",
+      "  LRU sitting time:            18:42:07",
+      "",
+      "  Allocate block count:         "+fmt(184002+((Date.now()/500)|0)%997),
+      "  Allocated from AVAIL:         "+fmt(183990),
+      "  Allocated from LRU:           12",
+      "  Allocate wait:                0",
+      "",
+      "  (The rule of thumb: LRU sitting time under 15 minutes meant",
+      "   \"buy RAM\". Eighteen hours means this server is loafing.)",
+    ],
+    "Processor Utilization":()=>{
+      const idle=100-SV.util;
+      return [
+        "  Process                        Time      Count     Load",
+        "  ─────────────────────────────────────────────────────────",
+        "  Idle Loop                   "+padl(fmt(idle*412),9)+"  "+padl(fmt(idle*7),7)+"   "+padl(idle.toFixed(2)+" %",8),
+        "  Console Command             "+padl("1,204",9)+"  "+padl("88",7)+"   "+padl("0.11 %",8),
+        "  Directory Cache             "+padl("2,881",9)+"  "+padl("204",7)+"   "+padl("0.34 %",8),
+        "  FAT Update                  "+padl("902",9)+"  "+padl("61",7)+"   "+padl("0.09 %",8),
+        "  Monitor Main                "+padl(fmt(3000+SV.util*100),9)+"  "+padl("312",7)+"   "+padl((SV.util*.6).toFixed(2)+" %",8),
+        "  Server 01..04               "+padl(fmt(8000+SV.util*90),9)+"  "+padl("977",7)+"   "+padl((SV.util*.4).toFixed(2)+" %",8),
+        "  TimeSyncMain                "+padl("410",9)+"  "+padl("12",7)+"   "+padl("0.02 %",8),
+      ];},
+    "Resource Utilization":()=>[
+      "  Server memory statistics",
+      "",
+      "  Permanent memory pool:      3,412,822 bytes    5%",
+      "  Alloc memory pool:          2,188,540 bytes    3%",
+      "  Cache buffers:             52,911,104 bytes   79%",
+      "  Cache movable memory:       3,908,224 bytes    6%",
+      "  Cache non-movable memory:   4,682,190 bytes    7%",
+      "  Total server work memory:  67,102,880 bytes",
+      "",
+      "  Tracked resources include: AES process call-backs, alloc memory,",
+      "  cache movable/non-movable memory, disk I/O events, IPX sockets,",
+      "  screens, semaphores, service connections, timers.",
+    ],
+    "Memory Utilization":()=>[
+      "  Module                     Allocated bytes    In use",
+      "  ──────────────────────────────────────────────────────",
+      "  SERVER.NLM                       914,220       96%",
+      "  DS.NLM                           612,882       91%",
+      "  CLIB.NLM                         402,116       88%",
+      "  NWSNUT.NLM                       182,400       85%",
+      "  MONITOR.NLM                      104,228       90%",
+      "  TIMESYNC.NLM                      48,112       87%",
+      "  NE2000.LAN                        22,904       93%",
+      "  Other modules                    166,510       84%",
+    ],
+    "Scheduling Information":()=>[
+      "  Process name            Sch delay     Time      Load",
+      "  ──────────────────────────────────────────────────────",
+      "  Console Command             0         1,204     0.11 %",
+      "  Directory Cache             0         2,881     0.34 %",
+      "  FAT Update                  0           902     0.09 %",
+      "  Monitor Main                0         3,114     "+(SV.util*.6).toFixed(2)+" %",
+      "  Polling loop                0        41,022     "+(100-SV.util).toFixed(2)+" %",
+      "",
+      "  (Cooperative multitasking: every NLM promises to yield. One NLM",
+      "   that doesn't, hangs the whole server — hence the abend's fame.)",
+    ],
+  };
+
+  function push(w){ M.stack.push(w); draw(); }
+  function pop(){ if(M.stack.length>1){ M.stack.pop(); draw(); } }
+
+  function draw(){
+    clearScr(s,15,1);
+    /* header + footer bars */
+    fillRect(s,0,0,COLS,1," ",0,7);
+    put(s,1,0,"NetWare 4.11 Console Monitor 4.13",0,7);
+    put(s,COLS-25,0,"NetWare Loadable Module",0,7);
+    fillRect(s,0,ROWS-1,COLS,1," ",0,7);
+    put(s,1,ROWS-1,"Enter=Select   Esc=Back   \u2191\u2193=Move   Alt+Esc=Next screen",0,7);
+    put(s,COLS-17,ROWS-1,"Server: "+SV.name,0,7);
+
+    if(M.locked){
+      box(s,20,9,40,7,15,1,true);
+      ctr(s,10,"Console Locked",14,1);
+      ctr(s,12,"Enter password to unlock:",15,1);
+      const stars="*".repeat(Math.min(20,M.pwBuf.length));
+      put(s,30,13,pad(stars,20),15,1);
+      s.cursor={x:30+stars.length,y:13};
+      s.dirty=true; return;
+    }
+
+    /* General Information window */
+    box(s,7,1,66,13,15,1,true);
+    ctr(s,1," General Information ",14,1);
+    genInfo().forEach((row,i)=>{
+      put(s,11,2+i,row[0],15,1);
+      put(s,45,2+i,row[1],14,1);
+    });
+
+    /* widget stack */
+    M.stack.forEach((w,idx)=>{
+      const top = idx===M.stack.length-1;
+      const off = idx*2;
+      if(w.kind==="menu"){
+        const h=w.items.length+2;
+        const y=Math.min(w.y,ROWS-1-h);
+        box(s,w.x+off,y,w.w,h,15,1,false);
+        ctr(s,y," "+w.title+" ",14,1);
+        w.items.forEach((it,i)=>{
+          const selRow = top && i===w.sel;
+          put(s,w.x+off+1,y+1+i,pad(" "+it,w.w-2), selRow?1:15, selRow?7:1);
+        });
+        w._y=y; w._x=w.x+off;
+      } else if(w.kind==="info"){
+        const lines=w.lines();
+        const h=Math.min(ROWS-4,lines.length+3), wdt=74;
+        const x=3, y=Math.max(2,ROWS-2-h);
+        box(s,x,y,wdt,h,15,1,true);
+        ctr(s,y," "+w.title+" ",14,1);
+        const maxVis=h-3;
+        w.top=Math.max(0,Math.min(w.top||0,lines.length-maxVis));
+        lines.slice(w.top,w.top+maxVis).forEach((l,i)=>put(s,x+2,y+1+i,String(l).slice(0,wdt-4),15,1));
+        if(lines.length>maxVis) put(s,x+wdt-14,y+h-1," \u2191\u2193 to scroll ",14,1);
+        if(w.footer) put(s,x+2,y+h-1," "+w.footer+" ",14,1);
+      } else if(w.kind==="confirm"){
+        box(s,24,15,34,5,15,1,false);
+        ctr(s,15," "+w.title+" ",14,1);
+        put(s,28,17,(w.sel===0?">":" ")+" No ",w.sel===0?1:15,w.sel===0?7:1);
+        put(s,44,17,(w.sel===1?">":" ")+" Yes",w.sel===1?1:15,w.sel===1?7:1);
+      } else if(w.kind==="prompt"){
+        box(s,20,15,42,5,15,1,false);
+        ctr(s,15," "+w.title+" ",14,1);
+        const stars="*".repeat(Math.min(30,w.buf.length));
+        put(s,24,17,pad(stars,32),15,1);
+        s.cursor={x:24+stars.length,y:17};
+      }
+    });
+    s.dirty=true;
+  }
+
+  function chooseOption(name){
+    if(name==="Exit"){ push({kind:"confirm",title:"Exit Monitor?",sel:0,onYes(){ MGR.remove(s); SV.monitor=null; print("Module MONITOR.NLM unloaded."); conRepaint(); }}); return; }
+    if(name==="Lock File Server Console"){ push({kind:"prompt",title:"Enter a password to lock",buf:"",onDone(pw){ pop(); if(pw){ M.locked=true; M.lockPw=pw; M.pwBuf=""; } }}); return; }
+    if(name==="Connection Information"){
+      push({kind:"menu",title:"Active Connections",x:30,y:14,w:38,sel:0,
+        items:CONNS.map(c=>c.n+"  "+c.user),
+        onChoose(i){ const c=CONNS[i];
+          push({kind:"info",title:"Connection "+c.n+": "+c.user,top:0,footer:"Del=Clear Connection",conn:c,lines:()=>[
+            "Connection time:      "+c.t,
+            "Network address:      "+c.addr,
+            "Requests:             "+fmt(c.req),
+            "Kilobytes read:       "+fmt(c.kr),
+            "Kilobytes written:    "+fmt(c.kw),
+            "Status:               Normal",
+            "Open files:           "+c.files.length,
+            ...c.files.map(f=>"   "+f),
+          ]});
+        }});
+      return;
+    }
+    if(name==="System Module Information"){
+      push({kind:"info",title:"System Modules",top:0,lines:()=>MODULES.map(m=>pad(m[0],14)+padl(fmt(m[3]),9)+"  "+m[4].slice(0,45))});
+      return;
+    }
+    if(name==="File Open/Lock Activity"){
+      push({kind:"info",title:"File Open/Lock Activity — SYS:",top:0,lines:()=>[
+        "SYS:SYSTEM\\SYS$LOG.ERR        Use count: 1   Open count: 1",
+        "SYS:SYSTEM\\NET$OBJ.SYS        Use count: 1   Open count: 1",
+        "SYS:PUBLIC\\NLIST.EXE          Use count: 1   Open count: 1",
+        "SYS:_NETWARE\\PARTITIO.NDS     Use count: 2   Open count: 2   (NDS)",
+        "SYS:_NETWARE\\ENTRY.NDS        Use count: 2   Open count: 2   (NDS)",
+        "SYS:_NETWARE\\VALUE.NDS        Use count: 2   Open count: 2   (NDS)",
+        "SYS:_NETWARE\\BLOCK.NDS        Use count: 2   Open count: 2   (NDS)",
+        "",
+        "(The hidden _NETWARE directory holds the NDS database itself —",
+        " the reason DISMOUNT SYS was such a career-limiting move.)",
+      ]});
+      return;
+    }
+    const gen=infoScreens[name];
+    if(gen){ push({kind:"info",title:name,top:0,lines:gen}); }
+  }
+
+  s.onKey=function(e){
+    const k=e.key;
+    if(M.locked){
+      if(k==="Enter"){
+        if(M.pwBuf===M.lockPw || M.pwBuf.toUpperCase()==="ADMIN"){ M.locked=false; M.pwBuf=""; }
+        else { M.pwBuf=""; alertBeep(); }
+      }
+      else if(k==="Backspace") M.pwBuf=M.pwBuf.slice(0,-1);
+      else if(k.length===1 && !e.ctrlKey && !e.altKey) M.pwBuf+=k;
+      draw(); return;
+    }
+    const w=M.stack[M.stack.length-1];
+    if(w.kind==="menu"){
+      if(k==="ArrowUp") w.sel=(w.sel+w.items.length-1)%w.items.length;
+      else if(k==="ArrowDown") w.sel=(w.sel+1)%w.items.length;
+      else if(k==="Enter"){ w.onChoose? w.onChoose(w.sel) : chooseOption(w.items[w.sel]); }
+      else if(k==="Escape"){ if(M.stack.length===1){ chooseOption("Exit"); } else pop(); }
+    } else if(w.kind==="info"){
+      if(k==="ArrowUp") w.top=Math.max(0,(w.top||0)-1);
+      else if(k==="ArrowDown") w.top=(w.top||0)+1;
+      else if(k==="PageUp") w.top=Math.max(0,(w.top||0)-10);
+      else if(k==="PageDown") w.top=(w.top||0)+10;
+      else if(k==="Escape"||k==="Enter") pop();
+      else if(k==="Delete" && w.conn){
+        push({kind:"confirm",title:"Clear connection "+w.conn.n+"?",sel:0,onYes(){
+          const i=CONNS.indexOf(w.conn); if(i>=0)CONNS.splice(i,1);
+          pop();      /* the info box */
+          const menu=M.stack[M.stack.length-1];
+          if(menu&&menu.kind==="menu"){ menu.items=CONNS.map(c=>c.n+"  "+c.user); menu.sel=0; }
+          print(clock()+"   Connection "+w.conn.n+" ("+w.conn.user+") cleared by the console.",12);
+          alertBeep(); conRepaint();
+        }});
+      }
+    } else if(w.kind==="confirm"){
+      if(k==="ArrowLeft"||k==="ArrowRight"||k==="Tab") w.sel=1-w.sel;
+      else if(k==="Escape") pop();
+      else if(k==="Enter"){ const yes=w.sel===1; pop(); if(yes&&w.onYes) w.onYes(); }
+      else if(k==="y"||k==="Y"){ pop(); if(w.onYes)w.onYes(); }
+      else if(k==="n"||k==="N") pop();
+    } else if(w.kind==="prompt"){
+      if(k==="Enter"){ const v=w.buf; w.onDone(v); }
+      else if(k==="Escape") pop();
+      else if(k==="Backspace") w.buf=w.buf.slice(0,-1);
+      else if(k.length===1 && !e.ctrlKey && !e.altKey) w.buf+=k;
+    }
+    if(MGR.list.includes(s)) draw();
+  };
+
+  s.tick=(()=>{ let last=0; return ()=>{
+    const now=Date.now();
+    if(now-last>700){
+      last=now;
+      SV.util=Math.max(1,Math.min(23,SV.util+((Math.random()*5)|0)-2));
+      SV.dirty=(Math.random()*9)|0;
+      SV.diskReq=(Math.random()*3)|0;
+      SV.pktIn+=(Math.random()*40)|0; SV.pktOut+=(Math.random()*25)|0;
+      draw();
+    }
+  };})();
+  draw();
+}
+
+/* ============================================================
+   global key routing
+   ============================================================ */
+document.addEventListener("keydown",e=>{
+  if(!AC && e.key.length===1) { try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} }
+  /* screen chooser */
+  if(MGR.chooser){
+    e.preventDefault();
+    if(e.key==="Escape"){ MGR.chooser=false; MGR.active.dirty=true; return; }
+    const n=parseInt(e.key,10);
+    if(n>=1 && n<=MGR.list.length){ MGR.chooser=false; MGR.activate(MGR.list[n-1]); }
+    return;
+  }
+  if(e.key==="Escape" && e.altKey){ e.preventDefault(); MGR.next(); return; }
+  if(e.key==="Escape" && e.ctrlKey){ e.preventDefault(); openChooser(); return; }
+  if(["Tab","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Backspace","Escape","PageUp","PageDown"," "].includes(e.key)) e.preventDefault();
+  if(MGR.active && MGR.active.onKey) MGR.active.onKey(e);
+});
+/* touch devices: focus a hidden input so a soft keyboard appears */
+document.getElementById("crt").addEventListener("pointerdown",()=>{
+  const kb=document.getElementById("kb"); kb.focus({preventScroll:true});
+});
+
+/* ambient console flavour, every so often */
+setInterval(()=>{
+  if(SV.down||SV.dosMode||SV.abended||busy) return;
+  if(Math.random()<0.25)
+    print(clock()+"   DS-5.99a-23:  Bindery open requested by the SERVER.",8);
+},150000);
+
+/* ---------- go ---------- */
+fit();
+bootDOS();
+</script>
 </body>
 </html>
