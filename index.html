@@ -208,12 +208,18 @@
   }
   .desc { font-size: 0.92rem; color: var(--text-dim); flex: 1; }
   .launch {
+    display: block;
     margin-top: 10px;
     font: 600 13px var(--mono);
     color: var(--card-accent, var(--accent));
   }
   .launch::before { content: "▶ "; font-size: 10px; }
-  .card:hover .launch { text-decoration: underline; }
+  a.card:hover .launch { text-decoration: underline; }
+  /* variant cards carry several real launch links — underline per link */
+  div.card { cursor: pointer; }
+  a.launch { text-decoration: none; }
+  a.launch:hover, a.launch:focus-visible { text-decoration: underline; outline: none; }
+  .launch + .launch { margin-top: 4px; }
 
   /* empty search state */
   #empty {
@@ -292,6 +298,9 @@
      desc:    one-liner shown on the card
      accent:  card accent colour  |  bg: mini-screen background colour
      tags:    extra search keywords (optional)
+     variants: optional — when one exhibit ships several builds, list
+               [{file, label}, …]; the card shows one launch link per
+               build and clicking elsewhere boots `file` (the primary)
    ============================================================ */
 const EXHIBITS = [
   {
@@ -375,14 +384,18 @@ const EXHIBITS = [
     tags: "next nextstep steve jobs objective-c workspace manager"
   },
   {
-    file: "netware.html",
+    file: "netware411.html",
     name: "Novell NetWare 4.11",
     vendor: "Novell",
     year: 1996,
     glyph: ":LOAD MONITOR",
-    desc: "An IntranetWare server console: MONITOR, NDS, volumes and red-alert beeps.",
+    desc: "One server, two ways in: the full IntranetWare experience — DOS boot, the blue login, SYSCON, FILER and a live network map — or a quick console-only session of MONITOR, NDS and red-alert beeps.",
     accent: "#ff5555", bg: "#1a0000",
-    tags: "novell netware intranetware server console nds ipx"
+    variants: [
+      { file: "netware411.html", label: "full server" },
+      { file: "netware.html",    label: "console only" }
+    ],
+    tags: "novell netware intranetware server console nds ipx monitor syscon filer rconsole dsrepair netware411"
   },
   {
     file: "beos.html",
@@ -494,9 +507,23 @@ function render() {
       : a.name.localeCompare(b.name));
 
   grid.replaceChildren(...items.map(e => {
-    const a = document.createElement("a");
+    /* cards with variants hold several real links, so their root can't
+       be an <a> — clicking anywhere outside a link boots the primary */
+    const a = document.createElement(e.variants ? "div" : "a");
     a.className = "card";
-    a.href = e.file;
+    if (e.variants) {
+      a.tabIndex = 0;
+      a.setAttribute("role", "link");
+      a.setAttribute("aria-label", e.name + " — boot " + e.file);
+      a.addEventListener("click", ev => {
+        if (!ev.target.closest("a")) location.href = e.file;
+      });
+      a.addEventListener("keydown", ev => {
+        if (ev.key === "Enter" && ev.target === a) location.href = e.file;
+      });
+    } else {
+      a.href = e.file;
+    }
     a.style.setProperty("--card-accent", e.accent);
     a.style.setProperty("--card-bg", e.bg);
     a.style.setProperty("--card-shadow", e.accent + "59"); /* ~35% alpha */
@@ -525,11 +552,15 @@ function render() {
     const desc = document.createElement("p");
     desc.className = "desc";
     desc.textContent = e.desc;
-    const launch = document.createElement("span");
-    launch.className = "launch";
-    launch.textContent = "boot " + e.file;
+    const launches = (e.variants || [e]).map(v => {
+      const launch = document.createElement(e.variants ? "a" : "span");
+      launch.className = "launch";
+      if (e.variants) launch.href = v.file;
+      launch.textContent = "boot " + v.file + (v.label ? " — " + v.label : "");
+      return launch;
+    });
 
-    body.append(row, vendor, desc, launch);
+    body.append(row, vendor, desc, ...launches);
     a.append(screen, body);
     return a;
   }));
