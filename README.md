@@ -30,7 +30,7 @@ You can also open any exhibit's `.html` file directly; each one is fully standal
 | 1994 | **AmigaOS 3.1 / Workbench 3.1** | Commodore | [`amiga.html`](amiga.html) | Kickstart boot, right-button menus, drag-down screens, the Ram Disk, AmigaShell and the Guru Meditation |
 | 1995 | **Windows 95 (RTM, 4.00.950)** | Microsoft | [`win95.html`](win95.html) | The day the modern desktop was invented: the brand-new Start button, teal desktop and solid-blue title bars, spatial folders and two-pane Explorer, the Recycle Bin, long filenames with 8.3 aliases, Solitaire/Minesweeper/FreeCell/Hearts, a windowed DOS 7 box, Control Panel with Device Manager and the draggable time-zone map, a survivable blue screen, and the orange "it's now safe to turn off your computer" — right-click absolutely everything |
 | 1995 | **NeXTSTEP 3.3** | NeXT | [`nextstep.html`](nextstep.html) | The black slab: Workspace Manager, the Dock's ancestor, and the design language that shaped OS X |
-| 1996 | **Novell NetWare 4.11 (IntranetWare)** | Novell | [`netware.html`](netware.html) | A server console simulation: MONITOR, NDS, volumes and console commands |
+| 1996 | **Novell NetWare 4.11 (IntranetWare)** | Novell | [`netware411.html`](netware411.html) · [`netware.html`](netware.html) | One server, two ways in. The full experience ([`netware411.html`](netware411.html)): DOS boot, the blue login screen, C-Worthy utilities — SYSCON, FILER, DSREPAIR, RCONSOLE — and a live network map. Or the console-only quick session ([`netware.html`](netware.html)): MONITOR, NDS, volumes and red-alert beeps on an 80×25 CRT. Both launch from the same card in the gallery |
 | 2000 | **BeOS R5** | Be Inc. | [`beos.html`](beos.html) | Tracker, Deskbar and the multimedia OS that was too good to live |
 | 2001 | **Mac OS 9.2.2** | Apple | [`macos9.html`](macos9.html) | Platinum at its peak — the classic Finder's last stand |
 | 2001 | **Mac OS X 10.0 “Cheetah”** | Apple | [`cheetah.html`](cheetah.html) | First-generation Aqua: lickable buttons, the original Dock, Unix underneath |
@@ -79,6 +79,8 @@ New wings are always welcome. To add an OS:
    ```
 
    Search, sorting and the card grid pick it up automatically — no other changes needed.
+   If one exhibit ships several builds, add an optional `variants: [{file, label}, …]`
+   array to the entry — the card then shows one launch link per build (see NetWare).
 3. **Add a row** to the exhibits table in this README.
 
 ## 📄 Notes
