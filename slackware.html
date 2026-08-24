@@ -8883,7 +8883,10 @@ builtin("cd", async c => {
   if (!n) return c.usage(c.args[0] + ": No such file or directory");
   if (n.t !== "d") return c.usage(c.args[0] + ": Not a directory");
   c.sh.oldpwd = c.sh.cwd;
-  c.sh.cwd = Fs.deref(t).path;
+  /* bash keeps the name you typed: cd /usr/src/linux leaves you in
+     /usr/src/linux and not in /usr/src/linux-2.0.30, even though they are
+     the same directory.  Everything underneath resolves either way. */
+  c.sh.cwd = t;
   c.sh.vars.PWD = c.sh.cwd;
   c.sh.vars.OLDPWD = c.sh.oldpwd;
   return 0;
