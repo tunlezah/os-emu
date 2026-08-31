@@ -1,0 +1,3179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newton OS 2.1 (1997) — The OS Museum</title>
+<meta name="description" content="A single-file, in-browser homage to Apple's Newton OS 2.1 on a MessagePad 2000: 320x480 portrait, sixteen greys, a soft button bar, slips with the close box in the wrong corner until it is the right one, ink that becomes words when you ask, and an Assistant that schedules lunch tomorrow. The museum's first mobile exhibit.">
+<style>
+/* ==========================================================================
+   NEWTON OS 2.1 on an Apple MessagePad 2000 — a single-file exhibit
+   for The OS Museum. The first exhibit in the Mobile wing.
+   --------------------------------------------------------------------------
+   Everything inside the screen is drawn onto ONE 320x480 canvas — portrait,
+   the way a MessagePad 2000 was held — in exactly SIXTEEN shades of a
+   green-grey ramp, because that is what a 1997 supertwist LCD with
+   16-level greyscale gave you. Flip the backlight and the whole ramp is
+   exchanged for the pale glow of an electroluminescent panel, the same
+   technology as a wristwatch's Indiglo. Nothing inside the bezel is HTML.
+
+   The user-interface geometry follows Apple's own "Newton 2.0 User
+   Interface Guidelines" (1996) to the pixel where it gives pixels:
+     - the matte border is a thick grey band edged in black, and only
+       movable views get one; the drag handle is a black tab with a hole;
+     - the status bar is a black line 2 pixels thick ending 2 pixels from
+       each edge, with the Analog Clock, Info, Recognizer, Keyboard, New
+       and Show buttons on its left and Filing, Action and the Close box
+       on its right — and the backdrop application has no Close box at all;
+     - the Close box is a square with an X and it lives in the BOTTOM
+       RIGHT corner, which every window system since has disagreed with;
+     - separator bars are heavy black lines with the Item Info button at
+       the left end and the item's title in the bold system font;
+     - alert boxes have thick wavy borders; routing slips have the striped
+       border of an airmail envelope; pickers are plain black-framed lists.
+
+   Two typefaces are HAND-BUILT for this exhibit and belong to it:
+     - a small proportional bitmap face in the spirit of the system font
+       (Apple's was Espy Sans), drawn glyph by glyph as pixel data;
+     - an "ink" face in the spirit of the Casual handwriting font,
+       stored as pen strokes and drawn with a round nib, so recognised
+       words look written rather than typeset.
+   No Apple artwork, fonts, ROMs or bitmaps are included or traced. The
+   light-bulb mark on the Assist button is redrawn from the written
+   description in Apple's guidelines (a picture button that "looks like a
+   light bulb"); where Apple's logo sat on the case there is an ORIGINAL
+   PLACEHOLDER mark that is not Apple's and is not meant to resemble it.
+
+   The handwriting recogniser in this exhibit is a PARODY with a good
+   heart: it measures your strokes and picks the nearest word from a small
+   1997 vocabulary, so writing neatly genuinely helps, and writing badly
+   genuinely produces "egg freckles". The museum guide is honest about
+   this. Typing on the on-screen keyboards is always exact, as it was.
+   ========================================================================== */
+
+:root{
+  --mus-bg:#0b0d12; --mus-panel:#151926; --mus-edge:#232a3d;
+  --mus-fg:#e8ecf5; --mus-dim:#9aa4bb; --mus-faint:#5d6780;
+  --mus-accent:#8fd8b0;            /* the wing is mobile: a soft LCD green */
+  --mus-accent2:#818cf8;
+  --mus-warn:#ffb454;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  background:#07080c;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% -10%, rgba(90,190,140,.10), transparent 70%),
+    radial-gradient(ellipse 90% 60% at 50% 120%, rgba(20,25,45,.9), transparent 70%);
+  color:var(--mus-fg);
+  font-family:var(--sans);
+  user-select:none;-webkit-user-select:none;
+}
+
+/* ================= museum rail (not part of the Newton) ================= */
+#musrail{
+  position:fixed;left:0;right:0;top:0;height:34px;z-index:600;
+  display:flex;align-items:center;gap:8px;padding:0 10px;
+  background:linear-gradient(#171b27,#0e1119);
+  border-bottom:1px solid var(--mus-edge);
+  font:12px var(--mono);
+}
+#musrail .brand{
+  color:var(--mus-faint);letter-spacing:.16em;text-transform:uppercase;font-size:10px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#musrail .brand b{color:var(--mus-dim);font-weight:600}
+#musrail .spacer{flex:1}
+.mbtn{
+  background:#1a2032;border:1px solid var(--mus-edge);color:var(--mus-dim);
+  border-radius:4px;font:600 11px var(--mono);padding:5px 10px;cursor:pointer;
+  text-decoration:none;white-space:nowrap;
+}
+.mbtn:hover{color:var(--mus-fg);border-color:var(--mus-accent)}
+.mbtn.on{background:var(--mus-accent);border-color:var(--mus-accent);color:#0a2416;font-weight:700}
+.mbtn.warn:hover{border-color:#ff8f8f;color:#ffd7d7}
+@media (max-width:760px){ #musrail .hideable{display:none} }
+
+/* ================= the room and the machine ================= */
+#room{
+  position:fixed;inset:34px 0 0 0;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+/* The MessagePad 2000 case: dark charcoal-green plastic, portrait.
+   Drawn entirely in CSS. Dimensions scale with the screen. */
+#pad{
+  position:relative;
+  background:linear-gradient(168deg,#33383322 0%,#0002 60%),
+             linear-gradient(180deg,#3a403c 0%,#2c322e 30%,#232825 78%,#191d1b 100%);
+  border-radius:26px;
+  box-shadow:
+    0 34px 80px rgba(0,0,0,.75),
+    inset 0 2px 2px rgba(255,255,255,.14),
+    inset 0 -3px 8px rgba(0,0,0,.55),
+    0 0 0 1px #10130f;
+  padding:34px 26px 44px 26px;
+}
+/* lid hinge line across the top of the case */
+#pad::before{
+  content:"";position:absolute;left:18px;right:18px;top:12px;height:5px;
+  border-radius:3px;background:linear-gradient(#161a17,#2e3430);
+  box-shadow:inset 0 1px 2px #000;
+}
+/* the two PC card doors on the top edge */
+#pad::after{
+  content:"";position:absolute;top:-7px;left:20%;width:60%;height:8px;
+  border-radius:4px 4px 0 0;background:linear-gradient(#31363208,#0006);
+  border:1px solid #14181555;border-bottom:0;
+}
+#screenwell{
+  position:relative;background:#0d100e;border-radius:8px;padding:9px;
+  box-shadow:inset 0 2px 10px #000, inset 0 0 2px #000, 0 1px 0 rgba(255,255,255,.08);
+}
+#lcdclip{position:relative;overflow:hidden;background:#7d8676;line-height:0}
+#lcd{display:block;image-rendering:pixelated;image-rendering:crisp-edges;
+  touch-action:none;
+  cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path d="M20 2 L22 4 L9 17 L5.5 18.5 L7 15 Z" fill="%23d9ccb0" stroke="%23453d2c" stroke-width="1"/><path d="M7 15 L9 17 L7.6 17.9 Z" fill="%23222"/></svg>') 7 17, crosshair}
+/* glass: a faint diagonal sheen over the LCD, purely decorative */
+#lcdclip::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.02) 22%, transparent 40%);
+}
+#lcdclip.lit{box-shadow:0 0 34px 4px rgba(150,230,190,.24)}
+/* the case below the screen: wordmark + placeholder mark + speaker */
+#chin{
+  display:flex;align-items:center;gap:10px;margin-top:12px;padding:0 4px;
+  color:#79837b;
+}
+#chin .mark{
+  width:15px;height:15px;border:2px solid #6d776f;border-radius:50%;
+  position:relative;opacity:.85;flex:0 0 auto;
+}
+#chin .mark::after{content:"";position:absolute;inset:3px;background:#6d776f;border-radius:50%}
+#chin .word{
+  font:italic 700 13px/1 Georgia,"Times New Roman",serif;letter-spacing:.06em;
+  text-shadow:0 1px 0 rgba(255,255,255,.06);
+}
+#chin .word small{font:600 9px var(--sans);letter-spacing:.28em;margin-left:8px;color:#5f6a62;vertical-align:2px}
+#chin .spacer{flex:1}
+#speaker{display:grid;grid-template-columns:repeat(6,4px);gap:3px;opacity:.8}
+#speaker i{width:4px;height:4px;border-radius:50%;background:#141815;box-shadow:0 1px 0 rgba(255,255,255,.07)}
+/* power switch on the left edge */
+#powerswitch{
+  position:absolute;left:-13px;top:120px;width:14px;height:64px;
+  background:linear-gradient(90deg,#151915,#2e342f);
+  border:1px solid #10130f;border-right:0;border-radius:7px 0 0 7px;
+  cursor:pointer;box-shadow:inset 0 2px 3px rgba(255,255,255,.08), inset 0 -2px 4px #000;
+}
+#powerswitch .knob{
+  position:absolute;left:2px;right:3px;height:24px;top:34px;border-radius:5px;
+  background:linear-gradient(#454c46,#232823);box-shadow:0 1px 2px #000, inset 0 1px 0 rgba(255,255,255,.15);
+  transition:top .12s;
+}
+#powerswitch.on .knob{top:6px}
+#powerswitch:hover .knob{background:linear-gradient(#525a53,#2b302b)}
+/* the stylus, parked in its silo on the right edge */
+#stylus{
+  position:absolute;right:-11px;top:96px;bottom:120px;width:9px;border-radius:5px;
+  background:linear-gradient(90deg,#20241f,#3b423c 45%,#181c18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 1px 0 3px rgba(0,0,0,.6);
+}
+#stylus::after{content:"";position:absolute;left:2px;right:2px;top:-14px;height:16px;
+  border-radius:4px 4px 2px 2px;background:linear-gradient(90deg,#23271f,#4a5148 45%,#1b1f1a)}
+#scalenote{position:fixed;left:9px;bottom:6px;font:9px/11px var(--mono);color:#3d4c45;
+  letter-spacing:.02em;z-index:60;pointer-events:none}
+
+/* ================= power card: the front door ================= */
+#door{position:fixed;inset:34px 0 0 0;z-index:500;background:rgba(7,8,12,.72);
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+#door.off{display:none}
+.doorcard{
+  max-width:680px;max-height:calc(100% - 40px);overflow:auto;margin:0 14px;
+  padding:30px 34px;background:#12161f;border:1px solid #2b323f;border-radius:10px;
+  box-shadow:0 30px 80px #000c;
+}
+.doorcard h1{font:700 22px/1.25 var(--sans);color:#bfe8d2;margin-bottom:3px;letter-spacing:-.01em}
+.doorcard h2{font:400 11.5px var(--sans);color:#7d8798;letter-spacing:.12em;text-transform:uppercase;margin-bottom:16px}
+.doorcard p{font-size:13px;line-height:1.65;color:#9fabbd;margin-bottom:12px}
+.doorcard p b{color:#d7e0ec;font-weight:600}
+.doorcard .keys{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 18px}
+.doorcard .keys span{background:#1d2432;border:1px solid #313a4b;border-radius:4px;padding:5px 9px;
+  font-size:11px;color:#b6c2d3;line-height:1.45}
+.doorcard .keys span b{color:#a8e6c4}
+.doorbtns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.doorbtns button{background:#2f6f4f;border:1px solid #48926a;color:#eafaf0;border-radius:5px;
+  padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer}
+.doorbtns button:hover{background:#3a8560}
+.doorbtns button.alt{background:#232b39;border-color:#39435a;color:#c2cddd;font-weight:400}
+.doorbtns button.alt:hover{background:#2c3646}
+
+/* ================= the guide (cleanly separable) ================= */
+#guide{position:fixed;right:0;top:34px;bottom:0;width:400px;max-width:96vw;z-index:520;
+  background:#0e131c;border-left:1px solid #2a3241;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .22s ease;box-shadow:-14px 0 40px #0008}
+#guide.on{transform:none}
+#guide header{flex:0 0 auto;padding:11px 14px;border-bottom:1px solid #2a3241;
+  display:flex;align-items:center;gap:10px}
+#guide header h2{font:600 13.5px var(--sans);color:#a8e6c4;flex:1;letter-spacing:.02em}
+#gtabs{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:4px;padding:8px 10px;
+  border-bottom:1px solid #222a38;background:#0c1018}
+#gtabs button{background:#151b28;border:1px solid #29314255;color:#8b96a8;border-radius:4px;
+  font:600 10.5px var(--mono);padding:4px 8px;cursor:pointer;letter-spacing:.02em}
+#gtabs button:hover{color:#d7e0ec}
+#gtabs button.on{background:#1d3a2d;border-color:#2f6f4f;color:#a8e6c4}
+#gbody{flex:1;overflow-y:auto;padding:14px 16px 30px;font-size:12.5px;line-height:1.66;color:#aab6c8;
+  user-select:text;-webkit-user-select:text}
+#gbody h3{font:700 15px/1.35 var(--sans);color:#e4ecf5;margin:2px 0 10px}
+#gbody h4{font:700 12px var(--sans);color:#cfdae8;margin:16px 0 5px}
+#gbody p{margin:0 0 10px}
+#gbody b{color:#d7e0ec}
+#gbody i{color:#c4d2e2}
+#gbody code,#gbody kbd{font:11px var(--mono);background:#151b28;border:1px solid #29314266;
+  border-radius:3px;padding:1px 5px;color:#bcd8c8}
+#gbody ul{margin:0 0 10px 18px}
+#gbody li{margin-bottom:5px}
+#gbody a{color:#8fd8b0}
+#gbody .gbtn{display:inline-block;background:#1a2032;border:1px solid #303a4e;color:#c2cddd;
+  border-radius:4px;font:600 11px var(--mono);padding:6px 10px;cursor:pointer;margin:2px 6px 6px 0}
+#gbody .gbtn:hover{border-color:var(--mus-accent);color:#e8fff2}
+#gbody .soup{font:10.5px/1.5 var(--mono);background:#0a0e15;border:1px solid #222a38;
+  border-radius:5px;padding:8px 10px;margin:6px 0 12px;white-space:pre-wrap;color:#9fc4ae;
+  max-height:280px;overflow:auto}
+#gbody .note{border-left:3px solid #2f6f4f;padding:6px 10px;background:#10161f;border-radius:0 5px 5px 0;
+  margin:0 0 10px;color:#9fb4a8}
+#guideclose{background:none;border:1px solid #2a3241;border-radius:4px;color:#8b96a8;
+  font:600 11px var(--mono);padding:4px 9px;cursor:pointer}
+#guideclose:hover{color:#e4ecf5;border-color:#3a4a5e}
+
+@media (prefers-reduced-motion: reduce){
+  #guide{transition:none} #powerswitch .knob{transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ================ MUSEUM CHROME — not part of the Newton ================ -->
+<div id="musrail">
+  <span class="brand"><b>Newton OS 2.1</b> · MessagePad 2000 · The OS Museum</span>
+  <span class="spacer"></span>
+  <button class="mbtn hideable" id="btnBacklight">Backlight</button>
+  <button class="mbtn hideable" id="btnSound">Sound: off</button>
+  <button class="mbtn" id="btnGuide">Guide</button>
+  <button class="mbtn warn hideable" id="btnReset">Reset</button>
+  <a class="mbtn" href="index.html">&#8592; Museum</a>
+</div>
+
+<div id="room">
+  <div id="pad">
+    <div id="powerswitch" title="Power (hold for backlight)"><div class="knob"></div></div>
+    <div id="stylus" title="The stylus lives here. Yours is the mouse."></div>
+    <div id="screenwell"><div id="lcdclip"><canvas id="lcd" width="320" height="480"></canvas></div></div>
+    <div id="chin">
+      <span class="mark" title="Original placeholder where the maker's mark sat"></span>
+      <span class="word">MessagePad <small>2000</small></span>
+      <span class="spacer"></span>
+      <div id="speaker" aria-hidden="true"></div>
+    </div>
+  </div>
+</div>
+<div id="scalenote"></div>
+
+<!-- ================ THE FRONT DOOR ================ -->
+<div id="door">
+  <div class="doorcard">
+    <h1>Newton OS 2.1 — MessagePad 2000</h1>
+    <h2>Apple Computer · March 1997 · the museum's first mobile exhibit</h2>
+    <p>This is a <b>hand-held computer from 1997</b>: a StrongARM at 162&nbsp;MHz — the fastest
+      processor Apple shipped in anything that year — behind a 320&times;480 glass panel showing
+      sixteen shades of grey, run entirely with a pen. There is no boot sequence to watch,
+      because there is no boot: a Newton is <b>instant on</b>, which is the first argument
+      the Mobile wing makes against the rest of this museum.</p>
+    <p><b>Your mouse is the stylus.</b> Tap things. Write in the Notepad with the pen and watch
+      the recogniser have opinions. Tap <b>Extras</b> for the drawer of applications, tap the
+      <b>light bulb</b> and write <i>lunch tomorrow</i>, and find the Close box ⊠ where Apple
+      put it: the bottom right corner.</p>
+    <div class="keys">
+      <span><b>tap</b> — click</span>
+      <span><b>write</b> — draw with the mouse in the Notepad</span>
+      <span><b>scrub</b> — zigzag over a word to delete it</span>
+      <span><b>double-tap</b> — recognise ink, or open the keyboard in a blank space</span>
+      <span><b>hold the power switch</b> — backlight</span>
+    </div>
+    <div class="doorbtns">
+      <button id="doorPower">Slide the power switch</button>
+      <button class="alt" id="doorGuide">Open the exhibit guide too</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================ THE GUIDE ================ -->
+<aside id="guide">
+  <header><h2>Exhibit guide</h2><button id="guideclose">Close</button></header>
+  <div id="gtabs"></div>
+  <div id="gbody"></div>
+</aside>
+
+<script>
+"use strict";
+/* ==========================================================================
+   MODULE 0 — small utilities
+   ========================================================================== */
+const $id = s => document.getElementById(s);
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const pad2 = n => String(n).padStart(2,"0");
+const deepcopy = o => JSON.parse(JSON.stringify(o));
+/* a small deterministic hash → 0..1, used to give ink glyphs stable wobble */
+function hash01(...xs){ let h=2166136261>>>0;
+  for(const x of xs){ const s=String(x); for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } }
+  return ((h>>>8)&0xffff)/0xffff; }
+
+const W = 320, H = 480;               /* the MessagePad 2000 panel, portrait */
+
+/* ==========================================================================
+   MODULE 1 — the LCD: sixteen shades, two ramps
+   --------------------------------------------------------------------------
+   Every colour on the panel is one of sixteen indices. Index 15 is the
+   paper (lightest), index 0 the deepest ink. The unlit ramp is the
+   green-grey of a passive supertwist LCD; the backlit ramp is the pale
+   glow of the electroluminescent panel behind it.
+   ========================================================================== */
+function makeRamp(paper, ink){
+  const P=[], a=parseInt(ink.slice(1),16), b=parseInt(paper.slice(1),16);
+  const ar=a>>16, ag=(a>>8)&255, ab=a&255, br=b>>16, bg=(b>>8)&255, bb=b&255;
+  for(let i=0;i<16;i++){ const t=i/15;
+    P.push("rgb("+Math.round(ar+(br-ar)*t)+","+Math.round(ag+(bg-ag)*t)+","+Math.round(ab+(bb-ab)*t)+")");
+  } return P;
+}
+const RAMP_DAY = makeRamp("#a9b4a1","#20261f");   /* unlit: olive-grey paper  */
+const RAMP_LIT = makeRamp("#c2e4cb","#17241b");   /* EL backlight: mint glow  */
+let PAL = RAMP_DAY;
+const INK=0, PAPER=15, GREY=7;                    /* the three workhorses     */
+
+const lcd = $id("lcd"), ctx = lcd.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+
+/* fit the pad to the room; prefer integer scales for honest pixels */
+function fit(){
+  const room = $id("room"), pad = $id("pad");
+  const availW = room.clientWidth - 90, availH = room.clientHeight - 130;
+  let s = Math.min(availW/W, availH/H);
+  if (s >= 1) s = Math.max(1, Math.floor(s*2)/2);       /* 1, 1.5, 2, 2.5 … */
+  s = clamp(s, 0.6, 2.5);
+  lcd.style.width = (W*s)+"px"; lcd.style.height = (H*s)+"px";
+  $id("scalenote").textContent = "320 × 480 · 16 greys · scaled ×"+s;
+  return s;
+}
+window.addEventListener("resize", ()=>{ fit(); repaint(); });
+
+/* ==========================================================================
+   MODULE 2 — the system bitmap face
+   --------------------------------------------------------------------------
+   A proportional pixel face in the spirit of the Newton's system font,
+   drawn glyph by glyph for this exhibit. Grid is 10 rows: row 7 is the
+   baseline; capitals occupy rows 1–7, the x-height rows 3–7, descenders
+   rows 8–9. Each glyph is authored as rows of "./#" and packed once.
+   Bold is the period trick: the same glyph smeared one pixel right.
+   ========================================================================== */
+const SYSSRC = {
+ " ":[7,"...."],
+ "!":[1,"#/#/#/#/#/./#"],
+ '"':[1,"#.#/#.#"],
+ "#":[1,".#.#./#####/.#.#./#####/.#.#."],
+ "$":[1,".##.#/#.#../.###./..#.#/#.##./..#.."],
+ "%":[1,"##..#/##.#./..#../.#.##/#..##"],
+ "&":[1,".##../#..../.#.../#.#.#/#..#./.##.#"],
+ "'":[1,"#/#"],
+ "(":[1,".#/#./#./#./#./#./.#"],
+ ")":[1,"#./.#/.#/.#/.#/.#/#."],
+ "*":[2,"#.#/.#./#.#"],
+ "+":[3,"..#../..#../#####/..#../..#.."],
+ ",":[6,"./#/#"],
+ "-":[5,"####"],
+ ".":[6,"./#"],
+ "/":[1,"...#/..#./..#./.#../.#../#..."],
+ "0":[1,".##./#..#/#..#/#..#/#..#/#..#/.##."],
+ "1":[1,".#/##/.#/.#/.#/.#/.#"],
+ "2":[1,".##./#..#/...#/..#./.#../#.../####"],
+ "3":[1,".##./#..#/...#/..#./...#/#..#/.##."],
+ "4":[1,"..##/.#.#/#..#/####/...#/...#/...#"],
+ "5":[1,"####/#.../###./...#/...#/#..#/.##."],
+ "6":[1,".##./#.../###./#..#/#..#/#..#/.##."],
+ "7":[1,"####/...#/..#./..#./.#../.#../.#.."],
+ "8":[1,".##./#..#/#..#/.##./#..#/#..#/.##."],
+ "9":[1,".##./#..#/#..#/.###/...#/#..#/.##."],
+ ":":[3,"#/./././#"],
+ ";":[3,"#/./././#/#"],
+ "<":[2,"...#/..#./.#../#.../.#../..#./...#"],
+ "=":[4,"####/..../####"],
+ ">":[2,"#.../.#../..#./...#/..#./.#../#..."],
+ "?":[1,".##./#..#/...#/..#./..#./..../..#."],
+ "@":[1,".###./#...#/#.###/#.#.#/#.###/#..../.###."],
+ "A":[1,".##./#..#/#..#/####/#..#/#..#/#..#"],
+ "B":[1,"###./#..#/#..#/###./#..#/#..#/###."],
+ "C":[1,".##./#..#/#.../#.../#.../#..#/.##."],
+ "D":[1,"###./#..#/#..#/#..#/#..#/#..#/###."],
+ "E":[1,"####/#.../#.../###./#.../#.../####"],
+ "F":[1,"####/#.../#.../###./#.../#.../#..."],
+ "G":[1,".##./#..#/#.../#.##/#..#/#..#/.##."],
+ "H":[1,"#..#/#..#/#..#/####/#..#/#..#/#..#"],
+ "I":[1,"###/.#./.#./.#./.#./.#./###"],
+ "J":[1,"..##/...#/...#/...#/...#/#..#/.##."],
+ "K":[1,"#..#/#.#./##../##../#.#./#..#/#..#"],
+ "L":[1,"#.../#.../#.../#.../#.../#.../####"],
+ "M":[1,"#...#/##.##/#.#.#/#.#.#/#...#/#...#/#...#"],
+ "N":[1,"#..#/##.#/##.#/#.##/#.##/#..#/#..#"],
+ "O":[1,".##./#..#/#..#/#..#/#..#/#..#/.##."],
+ "P":[1,"###./#..#/#..#/###./#.../#.../#..."],
+ "Q":[1,".##./#..#/#..#/#..#/#..#/#.##/.###"],
+ "R":[1,"###./#..#/#..#/###./#.#./#..#/#..#"],
+ "S":[1,".##./#..#/#.../.##./...#/#..#/.##."],
+ "T":[1,"#####/..#../..#../..#../..#../..#../..#.."],
+ "U":[1,"#..#/#..#/#..#/#..#/#..#/#..#/.##."],
+ "V":[1,"#...#/#...#/#...#/.#.#./.#.#./.#.#./..#.."],
+ "W":[1,"#...#/#...#/#.#.#/#.#.#/#.#.#/##.##/#...#"],
+ "X":[1,"#...#/.#.#./..#../..#../..#../.#.#./#...#"],
+ "Y":[1,"#...#/#...#/.#.#./..#../..#../..#../..#.."],
+ "Z":[1,"####/...#/..#./..#./.#../#.../####"],
+ "[":[1,"##/#./#./#./#./#./##"],
+ "\\":[1,"#.../.#../.#../..#./..#./...#"],
+ "]":[1,"##/.#/.#/.#/.#/.#/##"],
+ "^":[1,".#./#.#"],
+ "_":[8,"####"],
+ "`":[1,"#./.#"],
+ "a":[3,".##./...#/.###/#..#/.###"],
+ "b":[1,"#.../#.../###./#..#/#..#/#..#/###."],
+ "c":[3,".##/#../#../#../.##"],
+ "d":[1,"...#/...#/.###/#..#/#..#/#..#/.###"],
+ "e":[3,".##./#..#/####/#.../.##."],
+ "f":[1,".##/#../###/#../#../#../#.."],
+ "g":[3,".###/#..#/#..#/#..#/.###/...#/.##."],
+ "h":[1,"#.../#.../###./#..#/#..#/#..#/#..#"],
+ "i":[1,"#/./#/#/#/#/#"],
+ "j":[1,".#/../.#/.#/.#/.#/.#/.#/#."],
+ "k":[1,"#.../#.../#..#/#.#./##../#.#./#..#"],
+ "l":[1,"#/#/#/#/#/#/#"],
+ "m":[3,"##.#./#.#.#/#.#.#/#.#.#/#.#.#"],
+ "n":[3,"###./#..#/#..#/#..#/#..#"],
+ "o":[3,".##./#..#/#..#/#..#/.##."],
+ "p":[3,"###./#..#/#..#/#..#/###./#.../#..."],
+ "q":[3,".###/#..#/#..#/#..#/.###/...#/...#"],
+ "r":[3,"#.##/##../#.../#.../#..."],
+ "s":[3,".###/#.../.##./...#/###."],
+ "t":[1,".#./.#./###/.#./.#./.#./..#"],
+ "u":[3,"#..#/#..#/#..#/#..#/.###"],
+ "v":[3,"#..#/#..#/#..#/.##./.##."],
+ "w":[3,"#...#/#.#.#/#.#.#/#.#.#/.#.#."],
+ "x":[3,"#..#/.##./.##./.##./#..#"],
+ "y":[3,"#..#/#..#/#..#/#..#/.###/...#/.##."],
+ "z":[3,"####/..#./.#../#.../####"],
+ "{":[1,".##/.#./.#./#../.#./.#./.##"],
+ "|":[1,"#/#/#/#/#/#/#"],
+ "}":[1,"##./.#./.#./..#/.#./.#./##."],
+ "~":[4,".#..#/#.#.#/#..#."],
+ "\u25c6":[2,"..#../.###./#####/.###./..#.."],           /* ◆ picker diamond   */
+ "\u2713":[2,"....#/....#/#..#./#.#../.#..."],           /* ✓ check            */
+ "\u2022":[4,"##/##"],                                   /* • bullet           */
+ "\u2191":[1,"..#../.###./#.#.#/..#../..#../..#../..#.."],/* ↑ */
+ "\u2193":[1,"..#../..#../..#../..#../#.#.#/.###./..#.."],/* ↓ */
+ "\u2190":[2,"..#../.#.../#####/.#.../..#.."],           /* ← */
+ "\u2192":[2,"..#../...#./#####/...#./..#.."],           /* → */
+ "\u00b0":[1,".#./#.#/.#."],
+ "\u2013":[5,"####"],
+ "\u2019":[1,"#/#"],
+ "\u2026":[6,"./#.#.#"],
+ "\u260e":[2,".###./#####/#.#.#/..#../.###./#...#"],     /* ☎ redrawn          */
+ "\u21a9":[2,"...#./..##./.####/..##./...#./#..../####."],/* ↩ undo arrow       */
+ "\u2318":[1,"#.#/###/#.#"],                             /* tiny knot (unused) */
+};
+SYSSRC["÷"]=[2,"..#../...../#####/...../..#.."];       /* ÷ */
+SYSSRC["±"]=[2,".#./###/.#./.../###"];                 /* ± */
+SYSSRC["é"]=[1,".#./#../.##./#..#/####/#.../.##."];    /* é */
+SYSSRC["↵"]=[2,"....#/....#/.#..#/#####/.#..."];       /* return */
+const ALIAS={"“":'"',"”":'"',"‘":"'","—":"-"};
+const SYS = {};
+for (const ch in SYSSRC){
+  const rows = SYSSRC[ch][1].split("/");
+  const top = SYSSRC[ch][0];
+  const w = ch===" " ? 3 : Math.max(...rows.map(r=>r.length));
+  SYS[ch] = { w, top, rows: ch===" " ? [] : rows };
+}
+/* draw a run of system text; returns width. style: {bold, inv, size} */
+function measSys(s, bold){
+  let w=0; for(let ch of s){ ch=ALIAS[ch]||ch; const g=SYS[ch]||SYS["?"]; w += g.w + (bold?2:1); }
+  return Math.max(0,w-(bold?1:1));
+}
+function drawSys(x, y, s, ink, opt){
+  /* y is the TOP of the 10-row cell. opt: {bold, scale} */
+  const o = opt||{}, b=o.bold, sc=o.scale||1;
+  let cx = Math.round(x);
+  for (let ch of s){
+    ch = ALIAS[ch]||ch;
+    const g = SYS[ch]||SYS["?"];
+    for (let r=0;r<g.rows.length;r++){
+      const row=g.rows[r];
+      for (let c=0;c<row.length;c++) if (row[c]==="#"){
+        px(cx+c*sc, y+(g.top+r)*sc, ink, sc);
+        if (b) px(cx+c*sc+sc, y+(g.top+r)*sc, ink, sc);
+      }
+    }
+    cx += (g.w + (b?2:1))*sc;
+  }
+  return cx - x;
+}
+function px(x,y,ink,s){ ctx.fillStyle=PAL[ink]; ctx.fillRect(x,y,s||1,s||1); }
+const LH = 11;                                   /* system line height */
+
+/* ==========================================================================
+   MODULE 3 — the ink face
+   --------------------------------------------------------------------------
+   A handwriting face stored as pen strokes, drawn with a round nib and a
+   whisper of per-character wobble, so recognised words look written.
+   Grid: x 0–9, y 0 top of caps … 10 baseline … 14 descender. Strokes are
+   strings of hex digit pairs (x,y), separated by spaces.
+   ========================================================================== */
+const CASSRC = {
+ /* lowercase: x-height band y=4..10, baseline y=10, descenders to y=14 */
+ "a":"754426284a79 747a8a", "b":"111a 154466684a19", "c":"754426284a79",
+ "d":"754426284a79 717a8a", "e":"276765442628 4a79", "f":"6241333a 1555",
+ "g":"754426284a79 747c5e3d", "h":"111a 1634455a", "i":"252a3a 2222",
+ "j":"454c2e1d 4242", "k":"111a 5417 275a", "l":"21293a4a",
+ "m":"141a 1624353a 3654656a", "n":"141a 1634455a", "o":"4426284a686644",
+ "p":"151e 154466684a19", "q":"754426284a79 747d8e9c", "r":"141a 163445",
+ "s":"65442537584a29", "t":"32394a5a 1555", "u":"14183a58 545a6a",
+ "v":"143a54", "w":"042a466a84", "x":"146a 641a", "y":"143a 644a3e1d",
+ "z":"14641a6a",
+ /* capitals: y=1..10 */
+ "A":"0a31 316a 1757", "B":"111a 1141534515 1556584a1a",
+ "C":"73512215173a6a78", "D":"111a 114163674a1a",
+ "E":"61111a6a 1545", "F":"61111a 1545", "G":"73512215173a6a78 787747",
+ "H":"111a 717a 1676", "I":"414a", "J":"61684a29",
+ "K":"111a 6116 266a", "L":"111a6a", "M":"0a1147718a",
+ "N":"1a117a71", "O":"4113184a787341", "P":"111a 1151635515",
+ "Q":"4113184a787341 588b", "R":"111a 1151635515 256a",
+ "S":"7241234556684a19", "T":"1171 414a", "U":"11183a5a7871",
+ "V":"114a71", "W":"012a446a81", "X":"117a 711a",
+ "Y":"1145 71454a", "Z":"11711a7a",
+ /* figures */
+ "0":"4113184a787341", "1":"23414a", "2":"133162641a7a",
+ "3":"12416345674a19", "4":"411676 535a", "5":"612125 255567592a",
+ "6":"623115183a59573617", "7":"11713a", "8":"4122244566694a292745646241",
+ "9":"624122244564 626a",
+ /* punctuation */
+ ".":"4a4a", ",":"4a3c", "!":"4148 4a4a", "?":"133152543637 3a3a",
+ "'":"3133", "\u2019":"3133", "-":"1757", "\u2013":"1757",
+ ":":"4646 4949", ";":"4646 493b", "(":"5134385b", ")":"3154583b",
+ "/":"611a", "\\":"116a", "&":"613324466a 6248 587a", "@":"654436475765 8434131b3a6a79",
+ "$":"7241234556684a19 4041 4a4b", "+":"1757 4448", "=":"1656 1858",
+ "*":"4147 1652 5216", "#":"3139 5159 1747 1848", "\u00e9":"276765442628 4a79 5271",
+ "\u201c":"2123 4143", "\u201d":"2123 4143", "\"":"2123 4143",
+};
+const CAS = {};
+for (const ch in CASSRC){
+  const strokes = CASSRC[ch].split(" ").map(str=>{
+    const pts=[]; for(let i=0;i+1<str.length;i+=2) pts.push([parseInt(str[i],16), parseInt(str[i+1],16)]);
+    return pts;
+  });
+  let maxx=0; strokes.forEach(s=>s.forEach(p=>{ if(p[0]>maxx)maxx=p[0]; }));
+  CAS[ch] = { strokes, w: maxx+2 };
+}
+/* draw one ink glyph; size = pixel height of the 14-unit cell */
+function drawCasGlyph(x, y, ch, size, ink, seed){
+  const g = CAS[ch] || CAS[ch.toLowerCase()] || null;
+  const sc = size/14;
+  if (!g){ drawSys(x, y+size*0.28, ch, ink); return measSys(ch)+1; }
+  const jx = (hash01(seed,ch,1)-.5)*0.5, jy=(hash01(seed,ch,2)-.5)*0.5;
+  ctx.strokeStyle = PAL[ink]; ctx.lineWidth = Math.max(1.1, size/11);
+  ctx.lineCap="round"; ctx.lineJoin="round";
+  for (const s of g.strokes){
+    ctx.beginPath();
+    for (let i=0;i<s.length;i++){
+      const gx = x + (s[i][0]+jx)*sc, gy = y + (s[i][1]+jy)*sc;
+      if (i===0) ctx.moveTo(gx,gy);
+      else if (i<s.length-1){
+        const nx = x + (s[i+1][0]+jx)*sc, ny = y + (s[i+1][1]+jy)*sc;
+        ctx.quadraticCurveTo(gx,gy,(gx+nx)/2,(gy+ny)/2);
+      } else ctx.lineTo(gx,gy);
+    }
+    ctx.stroke();
+  }
+  return g.w*sc;
+}
+function measCas(s, size){
+  const sc=size/14; let w=0;
+  for(const ch of s){ const g=CAS[ch]||CAS[ch.toLowerCase()]; w += g? g.w*sc : measSys(ch)+1; }
+  return w;
+}
+function drawCas(x, y, s, size, ink, seed){
+  let cx=x; for(const ch of s){ cx += drawCasGlyph(cx,y,ch,size,ink,(seed||"")+cx); }
+  return cx-x;
+}
+
+/* ==========================================================================
+   MODULE 4 — Newton widget vocabulary (drawn, then hit-tested)
+   --------------------------------------------------------------------------
+   The screen is rebuilt every frame. While drawing, widgets register the
+   rectangles they occupy; the topmost rectangle under the pen wins.
+   ========================================================================== */
+let HITS = [];
+function hit(x,y,w,h,cb,opts){ HITS.push({x,y,w,h,cb,opts:opts||{}}); }
+function hitAt(x,y){ for(let i=HITS.length-1;i>=0;i--){ const h=HITS[i];
+  if(x>=h.x&&x<h.x+h.w&&y>=h.y&&y<h.y+h.h) return h; } return null; }
+
+function fillRect(x,y,w,h,ink){ ctx.fillStyle=PAL[ink]; ctx.fillRect(x,y,w,h); }
+function strokeRect(x,y,w,h,ink){ ctx.fillStyle=PAL[ink];
+  ctx.fillRect(x,y,w,1); ctx.fillRect(x,y+h-1,w,1); ctx.fillRect(x,y,1,h); ctx.fillRect(x+w-1,y,1,h); }
+function hline(x,y,w,ink){ ctx.fillStyle=PAL[ink]; ctx.fillRect(x,y,w,1); }
+function vline(x,y,h,ink){ ctx.fillStyle=PAL[ink]; ctx.fillRect(x,y,1,h); }
+function dotline(x,y,w,ink,step){ ctx.fillStyle=PAL[ink];
+  for(let i=0;i<w;i+=(step||3)) ctx.fillRect(x+i,y,1,1); }
+function roundRect(x,y,w,h,r,fill,edge){
+  /* small-radius rounded rect drawn in pixels (no anti-aliasing) */
+  if (fill!==null && fill!==undefined){
+    ctx.fillStyle=PAL[fill];
+    ctx.fillRect(x+r,y,w-2*r,h); ctx.fillRect(x,y+r,w,h-2*r);
+    ctx.fillRect(x+1,y+1,r,r); ctx.fillRect(x+w-r-1,y+1,r,r);
+    ctx.fillRect(x+1,y+h-r-1,r,r); ctx.fillRect(x+w-r-1,y+h-r-1,r,r);
+  }
+  if (edge!==null && edge!==undefined){
+    ctx.fillStyle=PAL[edge];
+    ctx.fillRect(x+r,y,w-2*r,1); ctx.fillRect(x+r,y+h-1,w-2*r,1);
+    ctx.fillRect(x,y+r,1,h-2*r); ctx.fillRect(x+w-1,y+r,1,h-2*r);
+    if(r>0){ ctx.fillRect(x+1,y+1,1,1); ctx.fillRect(x+w-2,y+1,1,1);
+             ctx.fillRect(x+1,y+h-2,1,1); ctx.fillRect(x+w-2,y+h-2,1,1); }
+  }
+}
+/* the matte border: thick grey band edged in black, five pixels, r5 */
+function matteFrame(x,y,w,h){
+  roundRect(x,y,w,h,5,null,INK);
+  for(let i=1;i<=4;i++) roundRect(x+i,y+i,w-2*i,h-2*i,Math.max(0,5-i),null,9);
+  roundRect(x+5,y+5,w-10,h-10,0,PAPER,INK);
+}
+/* the wavy border of an alert box */
+function wavyFrame(x,y,w,h){
+  fillRect(x+3,y+3,w-6,h-6,PAPER);
+  ctx.strokeStyle=PAL[INK]; ctx.lineWidth=1.6; ctx.lineJoin="round";
+  for(const off of [0,3]){
+    ctx.beginPath();
+    const amp=1.6, st=6;
+    for(let i=0;i<=w;i+=st){ const yy=y+off+((i/st)%2? amp:0); i?ctx.lineTo(x+i,yy):ctx.moveTo(x+i,yy); }
+    for(let i=0;i<=h;i+=st){ ctx.lineTo(x+w-off-((i/st)%2?amp:0), y+i); }
+    for(let i=w;i>=0;i-=st){ ctx.lineTo(x+i, y+h-off-((i/st)%2?amp:0)); }
+    for(let i=h;i>=0;i-=st){ ctx.lineTo(x+off+((i/st)%2?amp:0), y+i); }
+    ctx.closePath(); ctx.stroke();
+  }
+}
+/* the striped border of a routing slip (the airmail envelope) */
+function stripedFrame(x,y,w,h){
+  strokeRect(x,y,w,h,INK); strokeRect(x+6,y+6,w-12,h-12,INK);
+  fillRect(x+1,y+1,w-2,5,PAPER); fillRect(x+1,y+h-6,w-2,5,PAPER);
+  fillRect(x+1,y+1,5,h-2,PAPER); fillRect(x+w-6,y+1,5,h-2,PAPER);
+  ctx.strokeStyle=PAL[INK]; ctx.lineWidth=1;
+  ctx.save(); ctx.beginPath();
+  ctx.rect(x+1,y+1,w-2,5); ctx.rect(x+1,y+h-6,w-2,5);
+  ctx.rect(x+1,y+1,5,h-2); ctx.rect(x+w-6,y+1,5,h-2); ctx.clip();
+  ctx.beginPath();
+  for(let i=-h;i<w+h;i+=7){ ctx.moveTo(x+i,y+h); ctx.lineTo(x+i+h,y); }
+  ctx.stroke(); ctx.restore();
+  fillRect(x+6,y+6,w-12,h-12,PAPER); strokeRect(x+6,y+6,w-12,h-12,INK);
+}
+/* drag handle: a black tab with a hole, centred on the top border */
+function dragHandle(x,y,w, view){
+  const hw=22, hx=Math.round(x+w/2-hw/2);
+  fillRect(hx,y-3,hw,6,INK); fillRect(hx+hw/2-2,y-1,4,2,PAPER);
+  hit(hx-4,y-6,hw+8,10,(px,py,ev)=>{ if(ev==="down" && view) Pen.dragView=view; },{drag:true});
+}
+/* the Close box: a square with an X, bottom right, two sizes */
+function closeBox(x,y,large,cb){
+  const s = large? 13 : 11;
+  roundRect(x,y,s,s,1,PAPER,INK);
+  ctx.strokeStyle=PAL[INK]; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(x+3,y+3); ctx.lineTo(x+s-3,y+s-3);
+  ctx.moveTo(x+s-3,y+3); ctx.lineTo(x+3,y+s-3); ctx.stroke();
+  hit(x-2,y-2,s+4,s+4,()=>{ Snd.tap(); cb&&cb(); });
+  return s;
+}
+/* a text button: rounded rect, tap flashes then acts */
+function textButton(x,y,label,cb,opt){
+  const o=opt||{}, pw = measSys(label,o.bold)+10, h=13;
+  const inv = Pen.flash && Pen.flash.k===("tb:"+label+":"+x+":"+y);
+  roundRect(x,y,pw,h,3, inv?INK:PAPER, INK);
+  drawSys(x+5, y+2, label, inv?PAPER:INK, {bold:o.bold});
+  hit(x,y,pw,h,()=>{ Snd.tap(); flash("tb:"+label+":"+x+":"+y, cb); },{label});
+  return pw;
+}
+/* a picker label: ◆ diamond + text (+ current value), taps open a picker */
+function pickerLabel(x,y,label,value,items,cb,opt){
+  const o=opt||{};
+  let cx = x + drawSys(x,y,"\u25c6"+label, INK, {bold:true});
+  if (value!==undefined && value!==null){
+    cx += 4;
+    drawSys(cx, y, String(value), INK, {});
+    cx += measSys(String(value));
+  }
+  const w = cx-x;
+  hit(x-2,y-2,w+6,LH+2,()=>{ Snd.tap(); Picker.open(x, y+LH, items, cb, o); });
+  return w;
+}
+/* checkbox */
+function checkbox(x,y,label,checked,cb){
+  strokeRect(x,y,9,9,INK);
+  if(checked) drawSys(x+1,y-2,"\u2713",INK,{bold:true});
+  if(label) drawSys(x+13,y-1,label,INK);
+  const w = 13+(label?measSys(label):0);
+  hit(x-2,y-3,w+6,13,()=>{ Snd.tap(); cb&&cb(!checked); });
+  return w;
+}
+/* radio button */
+function radio(x,y,label,on,cb){
+  ctx.strokeStyle=PAL[INK]; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(x+4.5,y+4.5,4,0,7); ctx.stroke();
+  if(on){ ctx.fillStyle=PAL[INK]; ctx.beginPath(); ctx.arc(x+4.5,y+4.5,2.2,0,7); ctx.fill(); }
+  if(label) drawSys(x+13,y-1,label,INK);
+  const w=13+(label?measSys(label):0);
+  hit(x-2,y-2,w+6,13,()=>{ Snd.tap(); cb&&cb(); });
+  return w;
+}
+/* a one-line input field: dotted underline, caret, tap to focus */
+function inputLine(x,y,w,field,opt){
+  const o=opt||{};
+  dotline(x,y+LH-1,w,INK,2);
+  const v = field.get();
+  if (o.cas) drawCas(x+2, y-2, v, 13, INK, o.seed||field.id);
+  else drawSys(x+2, y, v, INK);
+  if (Field.focus===field.id && Math.floor(Date.now()/500)%2===0){
+    const tw = o.cas? measCas(v,13) : measSys(v);
+    drawSys(x+2+tw+1, y+3, "^", INK, {bold:true});
+  }
+  hit(x-2,y-4,w+4,LH+6,()=>{ Field.take(field, o); }, {field:true});
+}
+/* flash helper: invert a control for 90ms then run its action */
+function flash(key, cb){
+  Pen.flash={k:key}; repaint();
+  setTimeout(()=>{ Pen.flash=null; cb&&cb(); repaint(); }, 90);
+}
+
+/* ==========================================================================
+   MODULE 5 — sound (off by default, as the museum keeps it)
+   Newtons played only small sampled sounds; these are synthesised stand-ins.
+   ========================================================================== */
+const Snd = {
+  on:false, ac:null,
+  ctx(){ if(!this.ac) this.ac = new (window.AudioContext||window.webkitAudioContext)(); return this.ac; },
+  env(freq, dur, type, vol){
+    if(!this.on) return; const ac=this.ctx(), o=ac.createOscillator(), g=ac.createGain();
+    o.type=type||"square"; o.frequency.value=freq; o.connect(g); g.connect(ac.destination);
+    const t=ac.currentTime; g.gain.setValueAtTime(vol||.05,t);
+    g.gain.exponentialRampToValueAtTime(.0004,t+dur); o.start(t); o.stop(t+dur+.02);
+  },
+  tap(){ this.env(1250,.02,"square",.03); },
+  key(){ this.env(880,.025,"square",.03); },
+  poof(){ if(!this.on)return; const ac=this.ctx(), b=ac.createBuffer(1,2400,24000), d=b.getChannelData(0);
+    for(let i=0;i<2400;i++) d[i]=(Math.random()*2-1)*(1-i/2400)*.25;
+    const s=ac.createBufferSource(); s.buffer=b; const f=ac.createBiquadFilter();
+    f.type="lowpass"; f.frequency.value=1400; s.connect(f); f.connect(ac.destination); s.start(); },
+  chime(){ this.env(988,.24,"triangle",.06); setTimeout(()=>this.env(1319,.32,"triangle",.06),140); },
+  dtmf(d){ if(!this.on) return; const F={1:[697,1209],2:[697,1336],3:[697,1477],4:[770,1209],5:[770,1336],
+    6:[770,1477],7:[852,1209],8:[852,1336],9:[852,1477],0:[941,1336],"*":[941,1209],"#":[941,1477]}[d];
+    if(F){ this.env(F[0],.14,"sine",.05); this.env(F[1],.14,"sine",.05); } },
+};
+
+/* ==========================================================================
+   MODULE 6 — the soups
+   --------------------------------------------------------------------------
+   A Newton has no files. Data lives in system-wide, queryable stores
+   called SOUPS, which is why Find can search everything and the
+   Assistant can wire applications together. This object *is* the
+   machine's storage; the guide's Soups tab renders it live.
+   ========================================================================== */
+let DB = null;
+const STORE_KEY = "newton21.museum.v1";
+function defaultDB(){
+  const today = new Date(); const d0 = ymd(today);
+  return {
+    prefs: { recog:"text", sound:false, backlight:false, folderNotes:"all",
+             penSounds:true, alarmVolume:2, inkThickness:1, guideSeen:false },
+    owner: { name:"Ann Newton", title:"Field researcher", org:"The OS Museum" },
+    folders: ["Business","Personal"],
+    notes: [
+      { id:1, type:"note", folder:null, created: Date.now()-86400000*2,
+        title:"Welcome",
+        tokens: tokensFrom("Welcome to Newton OS 2.1.\nWrite anywhere on this pad. Tap A on the status bar to choose how ink is recognised. Scrub a word out with a zigzag to delete it.\nEverything here is a slip, a drawer, or the pad itself.") },
+      { id:2, type:"checklist", folder:"Business", created: Date.now()-86400000,
+        title:"Before the demo",
+        items:[ {done:true, text:"Charge the battery pack"},
+                {done:true, text:"Beam agenda to Rachel"},
+                {done:false,text:"Print handouts at the office"},
+                {done:false,text:"Backup to the flash card"} ] },
+      { id:3, type:"note", folder:"Personal", created: Date.now()-3600000*5,
+        title:"Egg freckles?",
+        tokens: tokensFrom("The recogniser is better than the joke now. Write badly and you can still summon the joke.") },
+    ],
+    nextNote: 4,
+    names: [
+      { id:1, kind:"person", first:"Rachel", last:"Okafor", hon:"Ms.",
+        company:"Lightfield Systems", title:"Webmaster",
+        phones:[["Work","(408) 555-0184"],["Fax","(408) 555-0119"]],
+        email:"rachel@lightfield.example", address:"2140 Byte Ave", city:"San Jose, CA 95110", notes:"Wants the beta on a flash card." },
+      { id:2, kind:"person", first:"Marco", last:"Beaulieu", hon:"Mr.",
+        company:"Café Vesuvio", title:"Owner",
+        phones:[["Work","(415) 555-0134"]],
+        email:"", address:"310 Columbus Ave", city:"San Francisco, CA 94133", notes:"Reserve the corner table." },
+      { id:3, kind:"company", first:"", last:"Newton Cafe", hon:"",
+        company:"Newton Cafe", title:"",
+        phones:[["Main","(617) 555-8123"],["Fax","(617) 555-8124"]],
+        email:"", address:"1 Infinite Loop Diner", city:"Boston, MA 02110", notes:"The fax number from the manuals." },
+      { id:4, kind:"person", first:"Priya", last:"Sharma", hon:"Dr.",
+        company:"Bay Imaging Group", title:"Radiologist",
+        phones:[["Work","(510) 555-0172"],["Pager","(510) 555-0199"]],
+        email:"psharma@bayimaging.example", address:"44 Shoreline Blvd", city:"Oakland, CA 94607", notes:"Newton in the reading room since '95." },
+      { id:5, kind:"person", first:"Walter", last:"Igoe", hon:"Mr.",
+        company:"Igoe & Daughters Printing", title:"Sales, Western Region",
+        phones:[["Work","(206) 555-0146"],["Home","(206) 555-0117"]],
+        email:"73201.442@online.example", address:"801 Ink Way", city:"Seattle, WA 98101", notes:"" },
+    ],
+    nextName: 6,
+    events: [
+      { id:1, date:d0, start:9*60,  dur:60, title:"Staff meeting", loc:"Conference room", alarm:false },
+      { id:2, date:d0, start:12*60+30, dur:60, title:"Lunch, Café Vesuvio", loc:"310 Columbus", alarm:false },
+      { id:3, date:ymd(addDays(today,1)), start:10*60, dur:90, title:"Demo for Rachel", loc:"Lightfield", alarm:true },
+      { id:4, date:ymd(addDays(today,4)), start:15*60, dur:60, title:"Print run w/ Walter", loc:"Igoe & D.", alarm:false },
+    ],
+    nextEvent: 5,
+    todos: [ {id:1, done:false, text:"Send fax to Newton Cafe"},
+             {id:2, done:true,  text:"Align the pen"} ],
+    nextTodo: 3,
+    recent: ["lunch tomorrow","call Rachel","find demo","remember buy AA batteries"],
+    callLog: [],
+  };
+}
+function tokensFrom(text){
+  const toks=[];
+  text.split("\n").forEach((line,i)=>{
+    if(i) toks.push({t:"\n"});
+    line.split(" ").forEach(w=>{ if(w) toks.push({t:"w", s:w}); });
+  });
+  return toks;
+}
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
+function load(){
+  try{ const s=localStorage.getItem(STORE_KEY); if(s){ DB=JSON.parse(s); return; } }catch(e){}
+  DB = defaultDB();
+}
+function ymd(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+function fromYmd(s){ const p=s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+const WDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function fmtTime(min){ let h=Math.floor(min/60), m=min%60; const ap=h<12?"am":"pm";
+  h=h%12; if(h===0)h=12; return h+":"+pad2(m)+" "+ap; }
+function fmtDateShort(d){ return WDAYS[d.getDay()].slice(0,3)+" "+(d.getMonth()+1)+"/"+d.getDate(); }
+function fmtDateLong(d){ return WDAYS[d.getDay()]+", "+MONTHS[d.getMonth()].slice(0,3)+" "+d.getDate(); }
+
+/* ---- undo: one action deep, tapping again redoes, per the guidelines ---- */
+const Undo = {
+  last:null,
+  mark(label){ this.last = { label, state: deepcopy({notes:DB.notes,names:DB.names,events:DB.events,todos:DB.todos,
+    nextNote:DB.nextNote,nextName:DB.nextName,nextEvent:DB.nextEvent,nextTodo:DB.nextTodo}) }; },
+  tap(){
+    if(!this.last){ Notify.post("Nothing to undo."); return; }
+    const cur = deepcopy({notes:DB.notes,names:DB.names,events:DB.events,todos:DB.todos,
+      nextNote:DB.nextNote,nextName:DB.nextName,nextEvent:DB.nextEvent,nextTodo:DB.nextTodo});
+    Object.assign(DB, this.last.state);
+    const was=this.last.label;
+    this.last = { label:"redo of "+was, state:cur };
+    Notify.glance("Undo: "+was);
+    save(); repaint();
+  }
+};
+
+/* ==========================================================================
+   MODULE 7 — pixel icons (all original drawings)
+   ========================================================================== */
+const ICONSRC = {
+ names:  ["................","..############..",".#..#......#..#.",".#..#......#..#.","#################","#..............#","#.###########..#","#..............#","#.#########....#","#..............#","#.######.......#","#..............#","#################"],
+ dates:  ["..#..........#..","..#..........#..","################","#..............#","#..##.##.##.##.#","#..............#","#.##.##.##.##..#","#..............#","#..##.##.###...#","#..............#","################"],
+ extras: ["....########....","...#........#...","..#..........#..",".#############..",".#..........#...",".#.########.#...",".#.#......#.#...",".#.#......#.#.#.",".#.########.#.##",".#..........#.#.",".#############.."],
+ undo:   ["....########....","...#........#...","..#..........#..","..............#.","....#.........#.","...##.........#.","..############..","...##...........","....#..........."],
+ find:   ["...####.........","..#....#........",".#......#.......",".#......#.......",".#......#.......","..#....#........","...####.........","......##........",".......##.......","........##......"],
+ assist: ["....######......","...#......#.....","..#........#....","..#........#....","..#..#..#..#....","...#..##..#.....","....#....#......","....#....#......","....######......",".....#..#.......",".....####......."],
+ note:   ["..##############","..#............#","..#.##########.#","..#............#","..#.########...#","..#............#","..#.##########.#","..#............#","..##############"],
+ check:  ["#########.......","#.......#.....#.","#.......#....##.","#..#....#...##..","#...#...#..##...","#....####.##....","#.......###.....","#.......#.......","#########......."],
+ calc:   ["..##########....","..#........#....","..#.######.#....","..#........#....","..#.#.#.#..#....","..#........#....","..#.#.#.#..#....","..#........#....","..#.#.#.##.#....","..#........#....","..##########...."],
+ clock:  ["....######......","..##......##....",".#..........#...",".#....#.....#...","#.....#......#..","#.....###....#..",".#..........#...",".#..........#...","..##......##....","....######......"],
+ prefs:  ["################","....#...........","..#####.........","....#...........","................","..........#.....","........#####...","..........#.....","................","......#.........","....#####.......","......#........."],
+ owner:  ["..############..","..#..........#..","..#...####...#..","..#...#..#...#..","..#...####...#..","..#..........#..","..#..######..#..","..#..........#..","..############.."],
+ zones:  ["....######......","..##..#...##....",".#....#.....#...",".#..###.....#...","#..##..#.....#..","#.##...###...#..",".#......#...#...",".#......##..#...","..##......##....","....######......"],
+ styles: ["....##..........","...#..#.........","..#....#....##..","..######...#..#.",".#......#..#..#.",".#......#..#..#.","#........#..####","................"],
+ inbox:  ["......##........","......##........","......##........","...########.....","....######......",".....####.......","......##........","#..............#","#..............#","################"],
+ outbox: ["......##........",".....####.......","....######......","...########.....","......##........","......##........","......##........","#..............#","#..............#","################"],
+ calls:  ["..###......###..",".#...######...#.","#....#....#....#","#.##........##.#","..#..........#..","..#.########.#..","..#.#......#.#..","....#......#....","....########...."],
+ formula:["....#...........","....#...........","..#####.........","....#...........","....#...........","................","..#####.....##..","............##..","..#####........."],
+ help:   ["...#########....","..#.........#...",".#.###...##..#..",".#.#..#.#..#.#..",".#....#....#.#..",".#...#....#..#..",".#...#...#...#..",".#...........#..",".#...#.......#..","..#.........#...","...#########...."],
+ card:   ["################","#..............#","#.####.........#","#..............#","#..........###.#","#..............#","################"],
+ book:   [".......#........","...####.####....","..#....#....#...","..#....#....#...","..#....#....#...","..#....#....#...","...####.####....",".......#........"],
+};
+const ICONS={};
+for(const k in ICONSRC){ ICONS[k]=ICONSRC[k]; }
+function drawIcon(x,y,name,ink){
+  const g=ICONS[name]; if(!g) return;
+  for(let r=0;r<g.length;r++) for(let c=0;c<g[r].length;c++)
+    if(g[r][c]==="#") px(x+c,y+r,ink);
+}
+
+/* ==========================================================================
+   MODULE 8 — views, pickers, alerts, glances
+   ========================================================================== */
+const Wins = {
+  list: [],
+  open(v){ this.list.push(v); repaint(); return v; },
+  close(v){ const i=this.list.indexOf(v); if(i>=0) this.list.splice(i,1);
+    if(v.onClose) v.onClose();
+    /* a slip going away takes its input focus with it */
+    if(v.kind!=="keyboard" && Field.obj) Field.drop();
+    repaint(); },
+  closeKind(k){ this.list.filter(v=>v.kind===k).forEach(v=>this.close(v)); },
+  find(k){ return this.list.find(v=>v.kind===k); },
+  front(v){ const i=this.list.indexOf(v); if(i>=0){ this.list.splice(i,1); this.list.push(v);} },
+};
+/* view factory: border 'matte'|'plain'|'wavy'|'striped'|'none' */
+function makeView(o){
+  return Object.assign({ x:20,y:60,w:W-40,h:200, border:"matte", drag:true, kind:"slip" }, o);
+}
+function drawView(v){
+  ctx.save();
+  if (v.border==="matte") matteFrame(v.x,v.y,v.w,v.h);
+  else if (v.border==="plain"){ fillRect(v.x,v.y,v.w,v.h,PAPER); strokeRect(v.x,v.y,v.w,v.h,INK); }
+  else if (v.border==="wavy") wavyFrame(v.x,v.y,v.w,v.h);
+  else if (v.border==="striped") stripedFrame(v.x,v.y,v.w,v.h);
+  /* swallow taps that hit the view body but no widget */
+  hit(v.x,v.y,v.w,v.h,()=>{ Wins.front(v); }, {viewBody:v});
+  if (v.drag && v.border==="matte") dragHandle(v.x,v.y,v.w,v);
+  if (v.draw) v.draw(v);
+  ctx.restore();
+}
+
+/* pickers: plain black-framed lists; tap outside closes */
+const Picker = {
+  cur:null,
+  open(x,y,items,cb,opt){ this.cur={x,y,items,cb,opt:opt||{}}; repaint(); },
+  close(){ this.cur=null; repaint(); },
+  draw(){
+    const p=this.cur; if(!p) return;
+    const iw = Math.max(...p.items.map(i=>i.sep?10:measSys(i.label)+(i.check!==undefined?14:6)))+14;
+    const ih = p.items.reduce((a,i)=>a+(i.sep?5:13),0)+4;
+    let x=clamp(p.x, 2, W-iw-2), y=p.y; if (y+ih>H-50) y=Math.max(2,p.y-ih-LH-4);
+    fillRect(x,y,iw,ih,PAPER); strokeRect(x,y,iw,ih,INK);
+    fillRect(x+2,y+ih,iw,2,INK); fillRect(x+iw,y+2,2,ih,INK);  /* period drop shadow */
+    let cy=y+2;
+    hit(0,0,W,H,()=>{ this.close(); });
+    for (const it of p.items){
+      if (it.sep){ hline(x+2,cy+2,iw-4,INK); cy+=5; continue; }
+      const yy=cy;
+      if (it.check) drawSys(x+3,yy+1,"\u2713",INK,{bold:true});
+      drawSys(x+(p.items.some(i=>i.check!==undefined)?14:5), yy+1, it.label, it.dim?GREY:INK);
+      hit(x,yy,iw,13,()=>{
+        this.close(); Snd.tap();
+        if(!it.dim) p.cb && p.cb(it);
+      },{label:it.label});
+      cy+=13;
+    }
+  }
+};
+
+/* notification alerts (wavy border) and 3-second glances */
+const Notify = {
+  q:[], glanceMsg:null, glanceT:0,
+  post(msg, title){ this.q.push({msg,title}); Snd.chime(); repaint(); },
+  dismiss(){ this.q.shift(); repaint(); },
+  glance(msg){ this.glanceMsg=msg; this.glanceT=Date.now();
+    setTimeout(()=>{ if(Date.now()-this.glanceT>=2800){ this.glanceMsg=null; repaint(); } },3000); repaint(); },
+  draw(){
+    if (this.q.length){
+      const {msg,title}=this.q[0];
+      const lines = wrapSys(msg, W-84);
+      const h = 44+lines.length*LH, w=W-48, x=24, y=Math.round(H/2-h/2)-30;
+      wavyFrame(x,y,w,h);
+      let cy=y+12;
+      if(title){ drawSys(x+14,cy,title,INK,{bold:true}); cy+=LH+3; }
+      for(const ln of lines){ drawSys(x+14,cy,ln,INK); cy+=LH; }
+      closeBox(x+w-24, y+h-22, true, ()=>this.dismiss());
+      hit(x,y,w,h,()=>{},{});
+    }
+    if (this.glanceMsg){
+      const tw = measSys(this.glanceMsg)+18, x=Math.round(W/2-tw/2), y=H-46-30;
+      roundRect(x,y,tw,18,3,PAPER,INK);
+      drawSys(x+9,y+4,this.glanceMsg,INK);
+    }
+  }
+};
+function wrapSys(text, width){
+  const out=[];
+  for (const para of String(text).split("\n")){
+    let line="";
+    for (const w of para.split(" ")){
+      const t=line?line+" "+w:w;
+      if (measSys(t)>width && line){ out.push(line); line=w; } else line=t;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+/* ==========================================================================
+   MODULE 9 — fields & the on-screen keyboards
+   ========================================================================== */
+const Field = {
+  focus:null, obj:null, opt:null,
+  take(f,opt){ this.focus=f.id; this.obj=f; this.opt=opt||{}; repaint(); },
+  drop(){ this.focus=null; this.obj=null; repaint(); },
+  type(ch){
+    if (this.obj){ this.obj.set(this.obj.get()+ch); repaint(); return; }
+    NotesApp.typeChar(ch);
+  },
+  del(){
+    if (this.obj){ this.obj.set(this.obj.get().slice(0,-1)); repaint(); return; }
+    NotesApp.backspace();
+  },
+  ret(){ if (this.obj){ if(this.obj.onReturn) this.obj.onReturn(); return; } NotesApp.typeChar("\n"); }
+};
+
+const KBD = {
+  view:null, layout:"typewriter", shift:false, caps:false, option:false,
+  layouts:{
+    typewriter:[
+      ["`","1","2","3","4","5","6","7","8","9","0","-","=","del"],
+      ["tab","q","w","e","r","t","y","u","i","o","p","[","]","\\"],
+      ["caps","a","s","d","f","g","h","j","k","l",";","'","ret"],
+      ["shift","z","x","c","v","b","n","m",",",".","/","shift2"],
+      ["kbd","option","space","larr","rarr"]
+    ],
+    numeric:[ ["7","8","9","del"],["4","5","6","am"],["1","2","3","pm"],["0","/","-",":"],["kbd","space","larr","rarr"] ],
+    phone:[ ["1","2","3","del"],["4","5","6","("],["7","8","9",")"],["*","0","#",","],["kbd","space","larr","rarr"] ],
+    timedate:[ ["7","8","9","/","del"],["4","5","6","x","="],["1","2","3","-","("],["0",".",":","+",")"],["kbd","space","larr","rarr"] ],
+  },
+  shiftMap:{"1":"!","2":"@","3":"#","4":"$","5":"%","6":"^","7":"&","8":"*","9":"(","0":")","-":"_","=":"+",
+    "[":"{","]":"}","\\":"|",";":":","'":"\"",",":"<",".":">","/":"?","`":"~"},
+  optMap:{"r":"\u00ae","g":"\u00a9","2":"\u2122","8":"\u2022","-":"\u2013","4":"\u00a2","e":"\u00e9"},
+  toggle(){
+    if (this.view){ Wins.close(this.view); this.view=null; }
+    else this.show();
+  },
+  show(layout, above){
+    if(layout) this.layout=layout;
+    if(this.view){ Wins.front(this.view); repaint(); return; }
+    const kw = 234, kh = 96;
+    /* centred above the status bar, per the guidelines — unless a slip is
+       already down there, in which case sit above the slip instead */
+    let ky = H-46-24-kh-8;
+    if (above) ky = Math.max(18, above.y - kh - 8);
+    this.view = makeView({ kind:"keyboard", x:Math.round(W/2-kw/2), y:ky, w:kw, h:kh,
+      border:"matte", drag:true, draw:v=>this.drawK(v),
+      onClose:()=>{ this.view=null; } });
+    Wins.open(this.view);
+  },
+  picker(x,y){
+    const items=[ {label:"Typewriter",check:this.layout==="typewriter"},
+      {label:"Numeric",check:this.layout==="numeric"}, {label:"Phone",check:this.layout==="phone"},
+      {label:"Time/Date",check:this.layout==="timedate"} ];
+    Picker.open(x,y,items,it=>{
+      this.layout = it.label==="Typewriter"?"typewriter": it.label==="Numeric"?"numeric":
+                    it.label==="Phone"?"phone":"timedate";
+      if(this.view){ repaint(); } else this.show();
+    });
+  },
+  press(k){
+    Snd.key();
+    if (k==="del"){ Field.del(); return; }
+    if (k==="ret"){ Field.ret(); return; }
+    if (k==="tab"){ Field.type("  "); return; }
+    if (k==="shift"||k==="shift2"){ this.shift=!this.shift; repaint(); return; }
+    if (k==="caps"){ this.caps=!this.caps; repaint(); return; }
+    if (k==="option"){ this.option=!this.option; repaint(); return; }
+    if (k==="space"){ Field.type(" "); return; }
+    if (k==="larr"||k==="rarr"){ NotesApp.moveCaret(k==="larr"?-1:1); return; }
+    if (k==="kbd"){ return; } /* handled by its own hit */
+    if (k==="am"||k==="pm"){ Field.type(" "+k); return; }
+    let ch=k;
+    if (this.option && this.optMap[k]){ ch=this.optMap[k]; this.option=false; }
+    else if (this.shift){ ch=this.shiftMap[k]||k.toUpperCase(); this.shift=false; }
+    else if (this.caps && /^[a-z]$/.test(k)) ch=k.toUpperCase();
+    Field.type(ch);
+    repaint();
+  },
+  drawK(v){
+    const inner={x:v.x+7,y:v.y+7,w:v.w-14,h:v.h-14};
+    const rows=this.layouts[this.layout];
+    const rh=16, gap=2;
+    const wide={tab:20,caps:22,ret:20,shift:26,shift2:26,del:20,space:86,option:30,kbd:16,larr:16,rarr:16,am:18,pm:18};
+    let cy=inner.y+2;
+    for (const row of rows){
+      let tot=0; row.forEach(k=>tot+= (wide[k]|| (this.layout==="typewriter"?13:26))+gap);
+      let cx=inner.x+Math.max(0,Math.round((inner.w-tot)/2));
+      for (const k of row){
+        const kw=wide[k]|| (this.layout==="typewriter"?13:26);
+        const lab = k==="del"?"del":k==="ret"?"\u21b5":k==="tab"?"\u2192":k==="caps"?"caps":
+          (k==="shift"||k==="shift2")?"shift":k==="space"?"":k==="option"?"option":
+          k==="larr"?"\u2190":k==="rarr"?"\u2192":k==="kbd"?"":k;
+        const on = (k==="caps"&&this.caps)||((k==="shift"||k==="shift2")&&this.shift)||(k==="option"&&this.option);
+        roundRect(cx,cy,kw,rh-2,2, on?INK:PAPER, INK);
+        if (k==="kbd"){ drawIcon(cx+1,cy+3,"card",on?PAPER:INK); }
+        else {
+          const disp = this.shift&&this.shiftMap[k]? this.shiftMap[k] :
+                       (this.shift||this.caps)&&/^[a-z]$/.test(k)? k.toUpperCase() : lab;
+          drawSys(cx+Math.max(2,Math.round((kw-measSys(disp))/2)), cy+2, disp, on?PAPER:INK);
+        }
+        ((key)=>{ hit(cx,cy,kw,rh-2, ()=>{
+          if(key==="kbd"){ this.picker(v.x+10, v.y-4); } else this.press(key);
+        }, {repeat:key!=="kbd"}); })(k);
+        cx+=kw+gap;
+      }
+      cy+=rh;
+    }
+    closeBox(v.x+v.w-16, v.y+v.h-16, false, ()=>{ Wins.close(v); this.view=null; });
+  }
+};
+
+/* ==========================================================================
+   MODULE 10 — the soft button bar (the MessagePad 2000 drew its own)
+   ========================================================================== */
+const BAR_H = 44;
+const BAR_Y = H - BAR_H;
+function drawButtonBar(){
+  hline(0,BAR_Y,W,INK);
+  fillRect(0,BAR_Y+1,W,BAR_H-1,13);
+  const items=[
+    {id:"names", icon:"names", label:"Names", cb:()=>NamesApp.toggle()},
+    {id:"dates", icon:"dates", label:"Dates", cb:()=>DatesApp.toggle()},
+    {id:"extras",icon:"extras",label:"Extras",cb:()=>Extras.toggle()},
+    {id:"scroll"},
+    {id:"undo",  icon:"undo",  label:"Undo",  cb:()=>Undo.tap()},
+    {id:"find",  icon:"find",  label:"Find",  cb:()=>FindSvc.open()},
+    {id:"assist",icon:"assist",label:"Assist",cb:()=>Assist.open()},
+  ];
+  const cellW = 44, scrollW = 26;
+  const total = cellW*6 + scrollW + 12;
+  let cx = Math.round((W-total)/2);
+  for (const it of items){
+    if (it.id==="scroll"){
+      /* the universal scroll arrows with the Overview dot between them */
+      const sx=cx+6, sy=BAR_Y+4;
+      tri(sx+6,sy+1,12,7,true,INK);   hit(sx,sy-2,24,12,()=>{ Snd.tap(); Scroll.up(); },{repeat:true});
+      ctx.fillStyle=PAL[INK]; ctx.beginPath(); ctx.arc(sx+12,sy+18,3.4,0,7); ctx.fill();
+      hit(sx+2,sy+12,20,11,()=>{ Snd.tap(); Scroll.overview(); });
+      tri(sx+6,sy+29,12,7,false,INK); hit(sx,sy+26,24,12,()=>{ Snd.tap(); Scroll.down(); },{repeat:true});
+      cx += scrollW+12; continue;
+    }
+    const pressed = Pen.flash && Pen.flash.k===("bar:"+it.id);
+    if (pressed) fillRect(cx+2,BAR_Y+3,cellW-4,BAR_H-6,INK);
+    drawIcon(cx+Math.round((cellW-16)/2), BAR_Y+6, it.icon, pressed?PAPER:INK);
+    const lw=measSys(it.label);
+    drawSys(cx+Math.round((cellW-lw)/2), BAR_Y+BAR_H-13, it.label, pressed?PAPER:INK);
+    ((item)=>{ hit(cx,BAR_Y+2,cellW,BAR_H-2,()=>{ Snd.tap(); flash("bar:"+item.id, item.cb); }); })(it);
+    cx += cellW;
+  }
+}
+function tri(x,y,w,h,up,ink){
+  ctx.fillStyle=PAL[ink]; ctx.beginPath();
+  if(up){ ctx.moveTo(x,y+h); ctx.lineTo(x+w,y+h); ctx.lineTo(x+w/2,y); }
+  else  { ctx.moveTo(x,y);   ctx.lineTo(x+w,y);   ctx.lineTo(x+w/2,y+h); }
+  ctx.closePath(); ctx.fill();
+}
+/* universal scrolling & Overview go to the frontmost app that wants them */
+const Scroll = {
+  target(){ return Wins.find("app") || NotesApp; },
+  up(){ const t=this.target(); t.scroll&&t.scroll(-1); },
+  down(){ const t=this.target(); t.scroll&&t.scroll(1); },
+  overview(){ const t=this.target(); t.overview&&t.overview(); },
+};
+
+/* ==========================================================================
+   MODULE 11 — status bar & the standard Newton buttons
+   ========================================================================== */
+function statusBarLine(x,y,w){ fillRect(x+2,y,w-4,2,INK); }
+function stdButton(x,y,draw,cb,wdt){
+  const wd=wdt||15, ht=13;
+  const key="std:"+x+":"+y;
+  const inv = Pen.flash && Pen.flash.k===key;
+  roundRect(x,y,wd,ht,3, inv?INK:PAPER, INK);
+  draw(x,y,inv?PAPER:INK);
+  hit(x,y,wd,ht,()=>{ Snd.tap(); flash(key,cb); });
+  return wd;
+}
+function clockButton(x,y){
+  return stdButton(x,y,(bx,by,ink)=>{
+    ctx.strokeStyle=PAL[ink]; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(bx+7.5,by+6.5,4.6,0,7); ctx.stroke();
+    const t=new Date(), a=(t.getHours()%12+t.getMinutes()/60)/12*2*Math.PI-Math.PI/2,
+          m=t.getMinutes()/60*2*Math.PI-Math.PI/2;
+    ctx.beginPath(); ctx.moveTo(bx+7.5,by+6.5); ctx.lineTo(bx+7.5+Math.cos(a)*2.4,by+6.5+Math.sin(a)*2.4);
+    ctx.moveTo(bx+7.5,by+6.5); ctx.lineTo(bx+7.5+Math.cos(m)*3.8,by+6.5+Math.sin(m)*3.8); ctx.stroke();
+  }, ()=>ClockGlance.show(x,y));
+}
+function infoButton(x,y,items,cb){
+  return stdButton(x,y,(bx,by,ink)=>{ drawSys(bx+5,by+2,"i",ink,{bold:true}); },
+    ()=>Picker.open(x,y-2-items.length*13, items, cb));
+}
+function recogButton(x,y){
+  return stdButton(x,y,(bx,by,ink)=>{
+    const m=DB.prefs.recog;
+    if (m==="text") drawSys(bx+4,by+2,"A",ink,{bold:true});
+    else if (m==="ink"){ ctx.strokeStyle=PAL[ink]; ctx.lineWidth=1.3; ctx.beginPath();
+      ctx.moveTo(bx+3,by+9); ctx.quadraticCurveTo(bx+6,by+2,bx+8,by+8); ctx.quadraticCurveTo(bx+10,by+11,bx+12,by+4); ctx.stroke(); }
+    else if (m==="shapes"){ strokeRect(bx+3,by+4,5,6,ink); ctx.strokeStyle=PAL[ink];
+      ctx.beginPath(); ctx.arc(bx+10.6,by+7,3,0,7); ctx.stroke(); }
+    else { for(const [dx,dy] of [[3,8],[5,5],[7,9],[9,4],[11,8]]) px(bx+dx,by+dy,ink); }
+  }, ()=>{
+    Picker.open(x,y-70,[
+      {label:"Text", check:DB.prefs.recog==="text"},
+      {label:"Ink Text", check:DB.prefs.recog==="ink"},
+      {label:"Shapes", check:DB.prefs.recog==="shapes"},
+      {label:"Sketches", check:DB.prefs.recog==="sketch"},
+      {sep:true},{label:"Preferences…"}
+    ], it=>{
+      if (it.label==="Text") DB.prefs.recog="text";
+      else if (it.label==="Ink Text") DB.prefs.recog="ink";
+      else if (it.label==="Shapes") DB.prefs.recog="shapes";
+      else if (it.label==="Sketches") DB.prefs.recog="sketch";
+      else { PrefsApp.open(); return; }
+      save(); Notify.glance("Recognise: "+it.label);
+    });
+  });
+}
+function kbdButton(x,y){
+  return stdButton(x,y,(bx,by,ink)=>{
+    strokeRect(bx+2,by+3,11,7,ink);
+    for(const dx of [4,6,8,10]) px(bx+dx,by+5,ink);
+    hline(bx+4,by+8,7,ink);
+  }, ()=>{ if (KBD.view) KBD.picker(x,y-70); else KBD.show(); });
+}
+function newButton(x,y,items,cb){
+  const key="new:"+x+":"+y;
+  const inv = Pen.flash && Pen.flash.k===key;
+  const wnew = measSys("New",true)+16;
+  roundRect(x,y,wnew,13,3,inv?INK:PAPER,INK);
+  drawSys(x+4,y+2,"◆",inv?PAPER:INK); drawSys(x+11,y+2,"New",inv?PAPER:INK,{bold:true});
+  hit(x,y,wnew,13,()=>{ Snd.tap(); Picker.open(x,y-items.length*13-6,items,cb); });
+  return wnew;
+}
+function showButton(x,y,items,cb){
+  const wshow = measSys("Show",true)+16;
+  roundRect(x,y,wshow,13,3,PAPER,INK);
+  drawSys(x+4,y+2,"◆",INK); drawSys(x+11,y+2,"Show",INK,{bold:true});
+  hit(x,y,wshow,13,()=>{ Snd.tap(); Picker.open(x,y-items.length*13-6,items,cb); });
+  return wshow;
+}
+function filingButton(x,y,cb){
+  return stdButton(x,y,(bx,by,ink)=>{
+    ctx.strokeStyle=PAL[ink];
+    ctx.beginPath(); ctx.moveTo(bx+2,by+9.5); ctx.lineTo(bx+2,by+4.5); ctx.lineTo(bx+5,by+4.5);
+    ctx.lineTo(bx+6,by+6); ctx.lineTo(bx+12,by+6); ctx.lineTo(bx+12,by+9.5); ctx.closePath(); ctx.stroke();
+  }, cb);
+}
+function actionButton(x,y,items,cb){
+  return stdButton(x,y,(bx,by,ink)=>{
+    strokeRect(bx+2,by+3,11,8,ink);
+    ctx.strokeStyle=PAL[ink]; ctx.beginPath();
+    ctx.moveTo(bx+2,by+3); ctx.lineTo(bx+7.5,by+7.5); ctx.lineTo(bx+13,by+3); ctx.stroke();
+  }, ()=>Picker.open(x-40,y-items.length*13-6,items,cb));
+}
+const ClockGlance = {
+  until:0, x:0, y:0,
+  show(x,y){ this.until=Date.now()+3000; this.x=x; this.y=y; repaint();
+    setTimeout(()=>repaint(),3050); },
+  draw(){
+    if (Date.now()>this.until) return;
+    const t=new Date();
+    const msg=fmtTime(t.getHours()*60+t.getMinutes())+"  "+fmtDateShort(t);
+    const w=measSys(msg)+58, x=clamp(this.x,4,W-w-4), y=this.y-24;
+    roundRect(x,y,w,20,3,PAPER,INK);
+    drawSys(x+6,y+5,msg,INK);
+    /* battery gauge */
+    const gx=x+w-44;
+    strokeRect(gx,y+6,34,8,INK); fillRect(gx+34,y+8,2,4,INK);
+    fillRect(gx+2,y+8,Math.round(30*Batt.level),4,INK);
+    hit(x,y,w,20,()=>{ this.until=0; repaint(); });
+  }
+};
+const Batt = { level:.82 };
+setInterval(()=>{ Batt.level=Math.max(.05, Batt.level - (DB&&DB.prefs.backlight? .0011 : .0002)); }, 30000);
+
+/* ==========================================================================
+   MODULE 12 — the recogniser (a parody with a good heart; see the guide)
+   ========================================================================== */
+const LEX = ("lunch dinner breakfast coffee meeting demo fax beam print call phone mail email note memo idea "+
+ "today tomorrow monday tuesday wednesday thursday friday saturday sunday noon morning "+
+ "batteries battery backup modem pager flash card newton apple pen ink paper hello world thanks "+
+ "buy send read write remember schedule find time work home office room lab web netscape server "+
+ "the a an and or to with at for of on in is are was be this that egg freckles milk bread taxi "+
+ "train plane hotel airport ticket money bank dentist doctor gym library books music film").split(" ");
+const JOKES = ["egg freckles","Eat up Martha","catching on?"];
+const Recog = {
+  guess(strokes){
+    /* features */
+    let n=strokes.length, len=0, minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9, turns=0;
+    for (const s of strokes){
+      let pdx=0,pdy=0;
+      for (let i=0;i<s.length;i++){
+        const [x,y]=s[i]; minx=Math.min(minx,x);maxx=Math.max(maxx,x);
+        miny=Math.min(miny,y);maxy=Math.max(maxy,y);
+        if(i){ const dx=x-s[i-1][0], dy=y-s[i-1][1]; len+=Math.hypot(dx,dy);
+          if(dx*pdx+dy*pdy<0) turns++; pdx=dx; pdy=dy; }
+      }
+    }
+    const w=maxx-minx, h=Math.max(1,maxy-miny);
+    const messy = clamp(turns/(n*6) + (len/(w+40))/6, 0, 1.6);
+    let letters = clamp(Math.round(n*0.8 + w/26), 1, 12);
+    /* candidate words near the letter estimate */
+    const seed = Math.round(minx*7+miny*13+n*31+len);
+    const cands = LEX.filter(x=>Math.abs(x.length-letters)<=1);
+    const pool = cands.length? cands : LEX;
+    const pick = k => pool[(seed+k*17) % pool.length];
+    let word = pick(0);
+    /* a name you actually have is preferred when plausible */
+    const nameHit = DB.names.map(nm=>nm.first||nm.last).filter(x=>x&&Math.abs(x.length-letters)<=1);
+    if (nameHit.length && (seed%4===0)) word = nameHit[seed%nameHit.length];
+    /* the historic failure mode, reserved for genuine scrawl */
+    if (messy>0.85 && (seed%3===0)) word = JOKES[seed%JOKES.length];
+    const alts=[pick(1),pick(2),pick(3),pick(4)].filter((v,i,a)=>v!==word&&a.indexOf(v)===i);
+    if (messy<=0.85) alts.push(JOKES[seed%JOKES.length]);
+    return { word, alts, messy };
+  },
+  /* shape fitting for Shapes mode */
+  fitShape(stroke){
+    const xs=stroke.map(p=>p[0]), ys=stroke.map(p=>p[1]);
+    const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+    const w=maxx-minx,h=maxy-miny;
+    const closed = Math.hypot(stroke[0][0]-stroke[stroke.length-1][0], stroke[0][1]-stroke[stroke.length-1][1]) < Math.max(14,(w+h)/6);
+    if (!closed || (w<6&&h<6) ) return {kind:"line", x1:stroke[0][0],y1:stroke[0][1],x2:stroke[stroke.length-1][0],y2:stroke[stroke.length-1][1]};
+    /* circle-ness: radial variance about centroid */
+    const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
+    let rsum=0; stroke.forEach(p=>rsum+=Math.hypot(p[0]-cx,p[1]-cy));
+    const rmean=rsum/stroke.length;
+    let rvar=0; stroke.forEach(p=>rvar+=Math.abs(Math.hypot(p[0]-cx,p[1]-cy)-rmean));
+    rvar/=stroke.length;
+    if (rvar < rmean*0.22) return {kind:"ellipse", cx, cy, rx:w/2, ry:h/2};
+    return {kind:"rect", x:minx, y:miny, w, h};
+  },
+  isScrub(stroke){
+    if (stroke.length<8) return false;
+    let turns=0, pdx=0;
+    for(let i=1;i<stroke.length;i++){ const dx=stroke[i][0]-stroke[i-1][0];
+      if (dx*pdx<0) turns++; if(dx) pdx=dx; }
+    const xs=stroke.map(p=>p[0]), ys=stroke.map(p=>p[1]);
+    const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
+    return turns>=4 && h<34 && w>10;
+  }
+};
+
+/* ==========================================================================
+   MODULE 13 — the Notepad (the backdrop: it cannot be closed)
+   ========================================================================== */
+const NotesApp = {
+  scrollY:0, caret:null, /* {note, ti} token index position */
+  inkbuf:[], inkTimer:null,
+  visibleNotes(){
+    const f=DB.prefs.folderNotes;
+    return DB.notes.filter(n=> f==="all" || (f==="unfiled" ? !n.folder : n.folder===f));
+  },
+  /* ---------- layout: returns per-note geometry in roll coordinates ------- */
+  layout(){
+    /* every block is a multiple of the 18px rule grid, so text sits on rules */
+    const out=[]; let y=0;
+    for (const n of this.visibleNotes()){
+      const lay={ note:n, y };
+      if (n.type==="checklist"){
+        lay.lines = n.items.map((it,i)=>({kind:"chk", i, it}));
+        lay.h = 18*(1 + lay.lines.length);
+      } else {
+        lay.lines = this.flowTokens(n);
+        const skx = (n.sketches&&n.sketches.length)? Math.ceil(this.sketchExtent(n)/18)*18 : 0;
+        lay.h = 18*(1 + Math.max(1,lay.lines.length)) + skx;
+      }
+      out.push(lay); y += lay.h;
+    }
+    return out;
+  },
+  flowTokens(n){
+    const lines=[]; let cur=[], cw=0; const maxw=W-24;
+    (n.tokens||[]).forEach((tok,idx)=>{
+      if (tok.t==="\n"){ cur.push({tok,idx,w:0}); lines.push(cur); cur=[]; cw=0; return; }
+      const tw = tok.t==="w" ? measCas(tok.s,13)+6 : tok.w+8;
+      if (cw+tw>maxw && cur.length){ lines.push(cur); cur=[]; cw=0; }
+      cur.push({tok,idx,w:tw}); cw+=tw;
+    });
+    lines.push(cur);
+    return lines;
+  },
+  sketchExtent(n){
+    let maxy=0; (n.sketches||[]).forEach(sk=>{
+      if(sk.kind==="ink") sk.strokes.forEach(s=>s.forEach(p=>maxy=Math.max(maxy,p[1])));
+      else if(sk.kind==="line") maxy=Math.max(maxy,sk.y1,sk.y2);
+      else if(sk.kind==="rect") maxy=Math.max(maxy,sk.y+sk.h);
+      else if(sk.kind==="ellipse") maxy=Math.max(maxy,sk.cy+sk.ry);
+    });
+    return Math.max(0, maxy);
+  },
+  /* ---------- drawing ---------- */
+  draw(){
+    /* the paper */
+    fillRect(0,0,W,BAR_Y,PAPER);
+    /* top black bar: time at left, folder picker at right */
+    fillRect(0,0,W,13,INK);
+    const t=new Date();
+    drawSys(3,1,fmtTime(t.getHours()*60+t.getMinutes())+" "+fmtDateShort(t),PAPER,{bold:true});
+    const fol = DB.prefs.folderNotes==="all"?"All Notes": DB.prefs.folderNotes==="unfiled"?"Unfiled Notes":DB.prefs.folderNotes;
+    const fw = measSys("◆"+fol,true)+4;
+    drawSys(W-fw-3,1,"◆"+fol,PAPER,{bold:true});
+    hit(W-fw-8,0,fw+8,13,()=>{
+      const items=[{label:"All Notes",check:DB.prefs.folderNotes==="all"},
+        {label:"Unfiled Notes",check:DB.prefs.folderNotes==="unfiled"},
+        ...DB.folders.map(f=>({label:f,check:DB.prefs.folderNotes===f}))];
+      Picker.open(W-120,14,items,it=>{
+        DB.prefs.folderNotes = it.label==="All Notes"?"all": it.label==="Unfiled Notes"?"unfiled":it.label;
+        this.scrollY=0; save(); repaint();
+      });
+    });
+    /* the roll */
+    const top=13, bot=BAR_Y-17;
+    ctx.save(); ctx.beginPath(); ctx.rect(0,top,W,bot-top); ctx.clip();
+    /* dotted rules: one per 18px row, on the grid the notes are laid out on */
+    for(let y=top+16-((this.scrollY)%18); y<bot; y+=18) if(y>top+2) dotline(0,y,W,11,3);
+    const lays=this.layout();
+    for (const lay of lays){
+      const sy = top + lay.y - this.scrollY;
+      if (sy > bot || sy+lay.h < top) continue;
+      this.drawNote(lay, sy);
+    }
+    /* live ink being written */
+    ctx.strokeStyle=PAL[INK]; ctx.lineWidth=1.4+((DB.prefs.inkThickness-1)*0.7); ctx.lineCap="round"; ctx.lineJoin="round";
+    for (const s of this.inkbuf.concat(Pen.stroke && Pen.surface==="notes" ? [Pen.stroke]:[])){
+      ctx.beginPath();
+      s.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]-this.scrollY+top):ctx.moveTo(p[0],p[1]-this.scrollY+top));
+      ctx.stroke();
+    }
+    ctx.restore();
+    /* writing surface hit region (lowest priority: registered first) */
+    /* status bar */
+    const sy=BAR_Y-16;
+    statusBarLine(0,sy,W);
+    let bx=4;
+    bx+=clockButton(bx,sy-6)+2;
+    bx+=infoButton(bx,sy-6,[{label:"About Notes"},{label:"Help"},{label:"Prefs"}],it=>{
+      if(it.label==="About Notes") Notify.post("Notes is the backdrop: the one application that cannot be closed.","About Notes");
+      else if(it.label==="Help") Guide.show("start");
+      else PrefsApp.open();
+    })+2;
+    bx+=recogButton(bx,sy-6)+2;
+    bx+=kbdButton(bx,sy-6)+2;
+    bx+=newButton(bx,sy-6,[{label:"Note"},{label:"Checklist"}],it=>this.newNote(it.label==="Checklist"))+2;
+    let rx=W-4;
+    rx-=15; actionButton(rx,sy-6,
+      [{label:"Print Note"},{label:"Fax"},{label:"Beam"},{label:"Mail"},{sep:true},{label:"Duplicate"},{label:"Delete"}],
+      it=>this.actionOn(this.noteAtCaretOrTop(), it.label));
+  },
+  drawNote(lay, sy){
+    const n=lay.note;
+    /* --- separator bar: heavy line with the title resting on it --- */
+    const by=sy+7;
+    fillRect(2,by,W-4,2,INK);
+    const title=this.titleOf(n);
+    const tw=measSys(title,true);
+    fillRect(17,sy,tw+8,15,PAPER);                 /* title interrupts the line */
+    drawSys(20,sy+2,title,INK,{bold:true});
+    roundRect(3,by-6,13,13,2,PAPER,INK);           /* item info button */
+    drawIcon(4,by-5,n.type==="checklist"?"check":"note",INK);
+    hit(3,by-7,13,15,()=>{ Snd.tap(); this.itemInfo(n); });
+    let rx=W-6;
+    rx-=15; ((note)=>{ actionButton(rx,by-6,
+      [{label:"Print Note"},{label:"Fax"},{label:"Beam"},{label:"Mail"},{sep:true},{label:"Duplicate"},{label:"Delete"}],
+      it=>this.actionOn(note,it.label)); })(n);
+    rx-=17; filingButton(rx,by-6,()=>Filing.open(n));
+    if (DB.prefs.folderNotes==="all" && n.folder){
+      const fw=measSys(n.folder);
+      fillRect(rx-fw-8,sy+1,fw+6,13,PAPER);
+      drawSys(rx-fw-5,sy+2,n.folder,INK); }
+    /* --- content rows: baselines on the rules --- */
+    if (n.type==="checklist"){
+      lay.lines.forEach((l,i)=>{
+        const ry=sy+18*(1+i);
+        const it=l.it;
+        strokeRect(14,ry+6,9,9,INK);
+        if (it.done) drawSys(15,ry+4,"✓",INK,{bold:true});
+        drawSys(28,ry+8,"•",INK);
+        drawCas(36,ry+6,it.text,13,INK,"chk"+n.id+l.i);
+        if (it.done){ hline(34,ry+12,measCas(it.text,13)+6,INK); }
+        ((note,ii)=>{ hit(12,ry+3,14,15,()=>{ Snd.tap(); Undo.mark("check"); note.items[ii].done=!note.items[ii].done; save(); repaint(); }); })(n,l.i);
+      });
+      hit(10,sy+18*(1+lay.lines.length)-4,W-20,16,()=>{ this.addChecklistItem(n); });
+    } else {
+      lay.lines.forEach((line,i)=>{
+        const ry=sy+18*(1+i);
+        let cx=12;
+        for (const seg of line){
+          if (seg.tok.t==="w"){
+            drawCas(cx,ry+6,seg.tok.s,13,INK,"w"+n.id+seg.idx);
+            ((note,idx,sx,wpx)=>{
+              hit(sx-2,ry+3,wpx+4,17,(px,py,ev)=>{ this.tapWord(note,idx,ev); },{inkable:true});
+            })(n,seg.idx,cx,seg.w-6);
+          } else if (seg.tok.t==="ink"){
+            this.drawInkToken(seg.tok, cx, ry+4);
+            ((note,idx,sx,wpx)=>{
+              hit(sx-2,ry+3,wpx+4,17,(px,py,ev)=>{ this.tapInk(note,idx,ev); },{inkable:true});
+            })(n,seg.idx,cx,seg.w-8);
+          }
+          if (this.caret && this.caret.note===n.id && this.caret.ti===seg.idx)
+            vline(cx-3,ry+5,13,INK);
+          cx+=seg.w;
+        }
+        if (this.caret && this.caret.note===n.id && line===lay.lines[lay.lines.length-1]
+            && this.caret.ti>=((line[line.length-1]||{idx:-1}).idx+1))
+          vline(cx-1,ry+5,13,INK);
+      });
+      /* sketches live below/over the text, in note-relative coordinates */
+      (n.sketches||[]).forEach(sk=>{
+        ctx.strokeStyle=PAL[INK]; ctx.lineWidth=1.4; ctx.lineCap="round";
+        const oy=sy+18;
+        if (sk.kind==="ink"){ sk.strokes.forEach(s=>{ ctx.beginPath();
+          s.forEach((p,i)=> i?ctx.lineTo(p[0],oy+p[1]):ctx.moveTo(p[0],oy+p[1])); ctx.stroke(); }); }
+        else if (sk.kind==="line"){ ctx.beginPath(); ctx.moveTo(sk.x1,oy+sk.y1); ctx.lineTo(sk.x2,oy+sk.y2); ctx.stroke(); }
+        else if (sk.kind==="rect"){ strokeRect(Math.round(sk.x),Math.round(oy+sk.y),Math.round(sk.w),Math.round(sk.h),INK); }
+        else if (sk.kind==="ellipse"){ ctx.beginPath(); ctx.ellipse(sk.cx,oy+sk.cy,sk.rx,sk.ry,0,0,7); ctx.stroke(); }
+      });
+    }
+  },
+  drawInkToken(tok,x,y){
+    ctx.strokeStyle=PAL[2]; ctx.lineWidth=1.3; ctx.lineCap="round"; ctx.lineJoin="round";
+    const sc = 13/Math.max(13,tok.h);
+    for (const s of tok.strokes){ ctx.beginPath();
+      s.forEach((p,i)=>{ const gx=x+p[0]*sc, gy=y+p[1]*sc; i?ctx.lineTo(gx,gy):ctx.moveTo(gx,gy); });
+      ctx.stroke(); }
+    if (tok.busy){ drawSys(x+tok.w/2-3,y-9,"↩",INK,{bold:true}); }
+  },
+  titleOf(n){
+    if (n.title) return n.title;
+    if (n.type==="checklist") return "Checklist";
+    const words=(n.tokens||[]).filter(t=>t.t==="w").slice(0,3).map(t=>t.s).join(" ");
+    return words||"Note";
+  },
+  /* ---------- interactions ---------- */
+  noteAt(rollY){
+    const lays=this.layout();
+    for (const lay of lays) if (rollY>=lay.y && rollY<lay.y+lay.h) return lay;
+    return lays[lays.length-1]||null;
+  },
+  noteAtCaretOrTop(){
+    if (this.caret){ const n=DB.notes.find(n=>n.id===this.caret.note); if(n) return n; }
+    const lay=this.noteAt(this.scrollY+40); return lay?lay.note:null;
+  },
+  tapWord(note,idx,ev){
+    const tok=note.tokens[idx];
+    if (ev==="double"){
+      /* correction picker: alternates + keyboard, as on the machine */
+      const g=Recog.guess(tok.src||[[[0,0],[8,8]]]);
+      const alts=(tok.alts&&tok.alts.length?tok.alts:g.alts).slice(0,4);
+      const items=[...alts.map(a=>({label:a})), {sep:true}, {label:"Keyboard…"}, {label:"Delete word"}];
+      Picker.open(60,140,items,it=>{
+        if (it.label==="Keyboard…"){ this.caret={note:note.id, ti:idx+1}; KBD.show(); return; }
+        Undo.mark("correction");
+        if (it.label==="Delete word") note.tokens.splice(idx,1);
+        else tok.s=it.label;
+        save(); repaint();
+      });
+    } else {
+      this.caret={note:note.id, ti:idx+1}; repaint();
+    }
+  },
+  tapInk(note,idx,ev){
+    const tok=note.tokens[idx];
+    if (ev==="double"){
+      /* deferred recognition: the little arrow, then typeset text */
+      tok.busy=true; repaint(); Snd.tap();
+      setTimeout(()=>{
+        const g=Recog.guess(tok.strokes);
+        Undo.mark("recognise");
+        note.tokens[idx]={t:"w", s:g.word, alts:g.alts, src:tok.strokes};
+        save(); repaint();
+      }, 420);
+    } else { this.caret={note:note.id, ti:idx+1}; repaint(); }
+  },
+  tapBlank(rollY, ev){
+    const lay=this.noteAt(rollY);
+    if (!lay) return;
+    if (ev==="double"){ KBD.show(); return; }
+    if (lay.note.type==="checklist") return;
+    /* caret to end of the line nearest the tap */
+    const li = clamp(Math.floor((rollY-lay.y-18)/18), 0, lay.lines.length-1);
+    const line=lay.lines[li]||[];
+    const last=line[line.length-1];
+    this.caret={note:lay.note.id, ti: last? last.idx+1 : 0};
+    Field.drop(); repaint();
+  },
+  moveCaret(d){
+    if(!this.caret) return;
+    const n=DB.notes.find(n=>n.id===this.caret.note); if(!n||!n.tokens) return;
+    this.caret.ti=clamp(this.caret.ti+d,0,n.tokens.length); repaint();
+  },
+  typeChar(ch){
+    let c=this.caret;
+    if (!c){ const lay=this.noteAt(this.scrollY+60); if(!lay) return;
+      c=this.caret={note:lay.note.id, ti:(lay.note.tokens||[]).length}; }
+    const n=DB.notes.find(n=>n.id===c.note); if(!n) return;
+    if (n.type==="checklist") return;
+    n.tokens=n.tokens||[];
+    if (ch==="\n"){ n.tokens.splice(c.ti,0,{t:"\n"}); c.ti++; save(); repaint(); return; }
+    if (ch===" "){ c.ti++; c.space=true; save(); repaint(); return; }
+    const prev=n.tokens[c.ti-1];
+    if (prev && prev.t==="w" && !c.space){ prev.s+=ch; }
+    else { n.tokens.splice(c.ti,0,{t:"w",s:ch}); c.ti++; }
+    c.space=false;
+    save(); repaint();
+  },
+  backspace(){
+    const c=this.caret; if(!c) return;
+    const n=DB.notes.find(n=>n.id===c.note); if(!n||!n.tokens) return;
+    const prev=n.tokens[c.ti-1];
+    if (!prev) return;
+    if (prev.t==="w" && prev.s.length>1){ prev.s=prev.s.slice(0,-1); }
+    else { n.tokens.splice(c.ti-1,1); c.ti--; }
+    save(); repaint();
+  },
+  newNote(checklist){
+    Undo.mark("new item");
+    const n={ id:DB.nextNote++, type:checklist?"checklist":"note",
+      folder: DB.prefs.folderNotes==="all"||DB.prefs.folderNotes==="unfiled"? null : DB.prefs.folderNotes,
+      created:Date.now(), title:"" };
+    if (checklist) n.items=[{done:false,text:"New task"}]; else n.tokens=[];
+    DB.notes.push(n); save();
+    /* scroll to it */
+    const lays=this.layout(); const lay=lays.find(l=>l.note===n);
+    if (lay) this.scrollY=Math.max(0, lay.y - 20);
+    this.caret={note:n.id, ti:0};
+    repaint();
+  },
+  addChecklistItem(n){
+    Undo.mark("new task");
+    const f={id:"chk"+n.id+"_"+n.items.length, get:()=>"", set(){}};
+    n.items.push({done:false,text:""});
+    const item=n.items[n.items.length-1];
+    Field.take({ id:"chki"+n.id+"_"+(n.items.length-1),
+      get:()=>item.text, set:v=>{ item.text=v; save(); } });
+    KBD.show(); save(); repaint();
+  },
+  itemInfo(n){
+    const v=makeView({kind:"slip", x:26, y:120, w:W-52, h:132, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"Item Information",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        drawSys(vv.x+12,vv.y+28,"Title",INK);
+        inputLine(vv.x+46,vv.y+28,vv.w-62,{id:"title"+n.id, get:()=>n.title||"", set:s=>{n.title=s; save();}});
+        drawSys(vv.x+12,vv.y+46,"Kind: "+(n.type==="checklist"?"Checklist":"Note"),INK);
+        drawSys(vv.x+12,vv.y+58,"Created: "+new Date(n.created).toLocaleDateString(),INK);
+        drawSys(vv.x+12,vv.y+70,"Stored: Internal (soup Notes)",INK);
+        drawSys(vv.x+12,vv.y+82,"Size: "+JSON.stringify(n).length+" bytes",INK);
+        textButton(vv.x+12,vv.y+vv.h-24,"Keyboard",()=>KBD.show());
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>{ Field.drop(); Wins.close(v); });
+      }});
+    Wins.open(v);
+    Field.take({id:"title"+n.id, get:()=>n.title||"", set:s=>{n.title=s; save();}});
+  },
+  actionOn(n,label){
+    if (!n){ Notify.post("Nothing selected."); return; }
+    if (label==="Delete"){
+      Undo.mark("delete note");
+      DB.notes=DB.notes.filter(x=>x!==n);
+      if (this.caret && this.caret.note===n.id) this.caret=null;
+      Snd.poof(); save(); repaint();
+      Notify.glance("Deleted — tap Undo to take it back");
+    } else if (label==="Duplicate"){
+      Undo.mark("duplicate");
+      const c=deepcopy(n); c.id=DB.nextNote++; c.created=Date.now(); c.title=(this.titleOf(n))+" copy";
+      DB.notes.push(c); save(); repaint();
+    } else {
+      Routing.slip(label, this.titleOf(n));
+    }
+  },
+  /* scrolling & overview */
+  scroll(dir){
+    const lays=this.layout(); const total=lays.length? lays[lays.length-1].y+lays[lays.length-1].h : 0;
+    this.scrollY=clamp(this.scrollY+dir*54, 0, Math.max(0,total-100)); repaint();
+  },
+  overview(){
+    const items=this.visibleNotes().map(n=>({label:this.titleOf(n).slice(0,26)+"  • "+new Date(n.created).toLocaleDateString(), id:n.id}));
+    if(!items.length){ Notify.post("No notes in this folder."); return; }
+    Picker.open(30,60,items,it=>{
+      const lays=this.layout(); const lay=lays.find(l=>l.note.id===it.id);
+      if(lay){ this.scrollY=Math.max(0,lay.y-6); repaint(); }
+    });
+  },
+  /* ---------- ink handling ---------- */
+  penDown(x,y){ Pen.surface="notes"; Pen.stroke=[[x,y+this.scrollY-13]]; },
+  penMove(x,y){ if(Pen.stroke) Pen.stroke.push([x,y+this.scrollY-13]); repaint(); },
+  penUp(){
+    const s=Pen.stroke; Pen.stroke=null; Pen.surface=null;
+    if (!s || s.length<2) return;
+    /* a tap? handled elsewhere; a scrub? delete what lies beneath */
+    if (Recog.isScrub(s)){ this.scrubAt(s); return; }
+    this.inkbuf.push(s);
+    clearTimeout(this.inkTimer);
+    this.inkTimer=setTimeout(()=>this.commitInk(), 620);
+    repaint();
+  },
+  scrubAt(s){
+    const xs=s.map(p=>p[0]), ys=s.map(p=>p[1]);
+    const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
+    /* find a token under the scrub */
+    const lays=this.layout();
+    for (const lay of lays){
+      if (cy<lay.y+14 || cy>lay.y+lay.h) continue;
+      const n=lay.note;
+      if (n.type==="checklist"){
+        const li=Math.floor((cy-lay.y-18)/18);
+        if (n.items[li]){ Undo.mark("scrub"); n.items.splice(li,1); Snd.poof(); save(); repaint(); return; }
+        continue;
+      }
+      const li=clamp(Math.floor((cy-lay.y-18)/18),0,lay.lines.length-1);
+      let px2=12;
+      for (const seg of (lay.lines[li]||[])){
+        if (cx>=px2-2 && cx<=px2+seg.w){
+          Undo.mark("scrub");
+          n.tokens.splice(seg.idx,1); Snd.poof(); save(); repaint(); return;
+        }
+        px2+=seg.w;
+      }
+      /* maybe a sketch */
+      if (n.sketches && n.sketches.length){
+        Undo.mark("scrub"); n.sketches.pop(); Snd.poof(); save(); repaint(); return;
+      }
+    }
+  },
+  commitInk(){
+    const strokes=this.inkbuf; this.inkbuf=[];
+    if (!strokes.length) return;
+    let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+    strokes.forEach(s=>s.forEach(p=>{minx=Math.min(minx,p[0]);miny=Math.min(miny,p[1]);
+      maxx=Math.max(maxx,p[0]);maxy=Math.max(maxy,p[1]);}));
+    const cy=(miny+maxy)/2;
+    const lay=this.noteAt(cy);
+    if (!lay){ repaint(); return; }
+    const n=lay.note;
+    const mode=DB.prefs.recog;
+    if (n.type==="checklist"){ repaint(); return; }
+    Undo.mark("write");
+    if (mode==="sketch" || mode==="shapes"){
+      n.sketches=n.sketches||[];
+      const rel=strokes.map(s=>s.map(p=>[p[0], p[1]-lay.y-18]));
+      if (mode==="sketch") n.sketches.push({kind:"ink", strokes:rel});
+      else {
+        const flat=rel.flat();
+        const sh=Recog.fitShape(flat);
+        n.sketches.push(sh);
+      }
+      save(); repaint(); return;
+    }
+    /* text-flavoured modes insert at the line nearest the ink */
+    const li=clamp(Math.floor((cy-lay.y-18)/18),0,lay.lines.length-1);
+    const line=lay.lines[li]||[];
+    const insertAt = line.length ? line[line.length-1].idx+1 : ((lay.lines[li-1]||[]).length? lay.lines[li-1][lay.lines[li-1].length-1].idx+1 : (n.tokens||[]).length);
+    n.tokens=n.tokens||[];
+    if (mode==="ink"){
+      const rel=strokes.map(s=>s.map(p=>[p[0]-minx, p[1]-miny]));
+      const h=Math.max(10,maxy-miny);
+      const wpx=Math.max(12,(maxx-minx)*(14/Math.max(14,h)));
+      n.tokens.splice(insertAt,0,{t:"ink", strokes:rel, w:Math.round(wpx), h:Math.round(h)});
+      this.caret={note:n.id, ti:insertAt+1};
+    } else {
+      const g=Recog.guess(strokes);
+      n.tokens.splice(insertAt,0,{t:"w", s:g.word, alts:g.alts, src:strokes.map(s=>s.map(p=>[p[0]-minx,p[1]-miny]))});
+      this.caret={note:n.id, ti:insertAt+1};
+      Snd.tap();
+    }
+    save(); repaint();
+  },
+};
+
+/* ==========================================================================
+   MODULE 14 — the Name File
+   ========================================================================== */
+const NamesApp = {
+  view:null, idx:0, mode:"card",
+  sorted(){ return [...DB.names].sort((a,b)=> (a.last||a.company).localeCompare(b.last||b.company)); },
+  toggle(){ if(this.view){ Wins.close(this.view); this.view=null; } else this.open(); },
+  open(sel){
+    if (sel!==undefined){ const i=this.sorted().findIndex(n=>n.id===sel); if(i>=0) this.idx=i; }
+    if (this.view){ Wins.front(this.view); repaint(); return; }
+    this.view = makeView({ kind:"app", x:0,y:0,w:W,h:BAR_Y, border:"none", drag:false,
+      draw:v=>this.drawApp(v), onClose:()=>{ this.view=null; } });
+    Wins.open(this.view);
+  },
+  scroll(d){ const L=this.sorted().length; this.idx=clamp(this.idx+d,0,L-1); repaint(); },
+  overview(){ this.mode = this.mode==="list"?"card":"list"; repaint(); },
+  drawApp(v){
+    fillRect(v.x,v.y,v.w,v.h,PAPER); strokeRect(v.x,v.y,v.w,v.h,INK);
+    /* folder bar */
+    fillRect(v.x+1,v.y+1,v.w-2,13,INK);
+    const lab="◆All Names";
+    drawSys(v.x+Math.round((v.w-measSys(lab,true))/2), v.y+2, lab, PAPER, {bold:true});
+    /* index tabs */
+    const tabs="ab cd ef gh ij kl mn op qr st uv wx yz".split(" ");
+    let tx=v.x+3;
+    const tw=Math.floor((v.w-6)/13);
+    tabs.forEach((t,i)=>{
+      strokeRect(tx,v.y+15,tw+1,12,INK);
+      drawSys(tx+2,v.y+16,t,INK);
+      ((pair)=>{ hit(tx,v.y+15,tw,12,()=>{ Snd.tap();
+        const L=this.sorted(); const j=L.findIndex(n=>((n.last||n.company)[0]||"z").toLowerCase()>=pair[0]);
+        this.idx=j<0?L.length-1:j; this.mode="card"; repaint(); }); })(t);
+      tx+=tw;
+    });
+    const top=v.y+30, bot=v.y+v.h-18;
+    const L=this.sorted();
+    if (this.mode==="list"){
+      drawSys(v.x+10,top+2,"Name",INK,{bold:true}); drawSys(v.x+190,top+2,"Phone",INK,{bold:true});
+      hline(v.x+6,top+13,v.w-12,INK);
+      let cy=top+17;
+      L.forEach((n,i)=>{
+        if (cy>bot-10) return;
+        const nm = n.kind==="company"? n.company : n.last+", "+n.first;
+        if (i===this.idx){ fillRect(v.x+4,cy-1,v.w-8,12,INK); }
+        drawSys(v.x+10,cy,nm.slice(0,30),i===this.idx?PAPER:INK);
+        drawSys(v.x+190,cy,(n.phones[0]||["",""])[1],i===this.idx?PAPER:INK);
+        ((j)=>{ hit(v.x+4,cy-1,v.w-8,12,()=>{ Snd.tap(); this.idx=j; this.mode="card"; repaint(); }); })(i);
+        cy+=13;
+      });
+    } else {
+      const n=L[this.idx];
+      if (!n){ drawSys(v.x+20,top+30,"No names.",INK); }
+      else {
+        const cx=v.x+16; let cy=top+12;
+        const nm = n.kind==="company"? n.company : (n.hon?n.hon+" ":"")+n.first+" "+n.last;
+        drawSys(cx,cy,nm,INK,{bold:true,scale:2}); cy+=24;
+        /* the little decorative rule the card view drew */
+        ctx.strokeStyle=PAL[INK]; ctx.beginPath();
+        for(let i=0;i<10;i++){ ctx.lineTo(cx+i*9, cy + (i%2? 0:3)); } ctx.stroke(); cy+=10;
+        if (n.kind!=="company" && n.company){ drawSys(cx,cy,n.title? n.title+", "+n.company : n.company,INK); cy+=13; }
+        if (n.address){ drawSys(cx,cy,n.address,INK); cy+=11; drawSys(cx,cy,n.city||"",INK); cy+=15; }
+        for (const [locp,num] of n.phones){
+          drawSys(cx,cy,"☎",INK); drawSys(cx+14,cy,num+"  "+locp[0],INK,{bold:true});
+          ((numv,who)=>{ hit(cx,cy-2,150,13,()=>{ Calls.open(who, numv); }); })(num, nm);
+          cy+=13;
+        }
+        if (n.email){ drawSys(cx,cy,n.email,INK); cy+=13; }
+        if (this.mode==="all"){
+          cy+=4; hline(cx,cy,v.w-40,9); cy+=6;
+          drawSys(cx,cy,"Notes: "+(n.notes||"—"),INK); cy+=13;
+          drawSys(cx,cy,"Card kind: "+n.kind,INK); cy+=13;
+        }
+        drawSys(v.x+v.w-46,bot-12,(this.idx+1)+" of "+L.length,3);
+      }
+    }
+    /* status bar */
+    const sy=v.y+v.h-16;
+    statusBarLine(v.x,sy,v.w);
+    let bx=v.x+4;
+    bx+=infoButton(bx,sy-6,[{label:"About Names"},{label:"Help"}],it=>{
+      if(it.label==="Help") Guide.show("start");
+      else Notify.post("The Name File. Everything here lives in one soup, which is why Find and the Assistant can see it.","About Names");
+    })+2;
+    bx+=newButton(bx,sy-6,[{label:"Person"},{label:"Company"}],it=>this.newCard(it.label==="Company"))+2;
+    const waddb=measSys("Add",true)+16;
+    roundRect(bx,sy-6,waddb,13,3,PAPER,INK);
+    drawSys(bx+4,sy-4,"◆",INK); drawSys(bx+11,sy-4,"Add",INK,{bold:true});
+    ((bx2)=>{ hit(bx2,sy-6,waddb,13,()=>{ Snd.tap();
+      const n=this.sorted()[this.idx]; if(!n) return;
+      Picker.open(bx2,sy-6-60,[{label:"E-mail"},{label:"Notes"},{label:"Phone"}],it=>this.editCard(n, it.label)); }); })(bx);
+    bx+=waddb+2;
+    bx+=showButton(bx,sy-6,[{label:"Card",check:this.mode==="card"},{label:"All Info",check:this.mode==="all"},{label:"Overview",check:this.mode==="list"}],
+      it=>{ this.mode = it.label==="Card"?"card": it.label==="All Info"?"all":"list"; repaint(); })+2;
+    let rx=v.x+v.w-4;
+    rx-=13; closeBox(rx,sy-6,false,()=>{ Wins.close(v); });
+    rx-=17; actionButton(rx,sy-6,[{label:"Print Card"},{label:"Fax"},{label:"Beam"},{sep:true},{label:"Delete"}],it=>{
+      const n=this.sorted()[this.idx]; if(!n) return;
+      if (it.label==="Delete"){ Undo.mark("delete card"); DB.names=DB.names.filter(x=>x!==n);
+        this.idx=clamp(this.idx,0,this.sorted().length-1); Snd.poof(); save(); repaint(); }
+      else Routing.slip(it.label, n.kind==="company"? n.company : n.first+" "+n.last);
+    });
+  },
+  newCard(company){
+    const card={ id:DB.nextName++, kind:company?"company":"person", first:"",last:"",hon:"",
+      company:"", title:"", phones:[["Work",""]], email:"", address:"", city:"", notes:"" };
+    this.editCard(card, null, true);
+  },
+  editCard(card, focusField, isNew){
+    const fields = card.kind==="company" ?
+      [["Company", ()=>card.company, s=>{card.company=s; card.last=s;}],
+       ["Phone", ()=>card.phones[0][1], s=>card.phones[0][1]=s],
+       ["First", ()=>card.first, s=>card.first=s],
+       ["◆Last", ()=>card.last, s=>card.last=s]] :
+      [["First", ()=>card.first, s=>card.first=s],
+       ["◆Last", ()=>card.last, s=>card.last=s],
+       ["◆Ms./Mr.", ()=>card.hon, s=>card.hon=s],
+       ["Company", ()=>card.company, s=>card.company=s],
+       ["◆Work", ()=>card.phones[0][1], s=>card.phones[0][1]=s],
+       ["E-mail", ()=>card.email, s=>card.email=s]];
+    if (focusField==="Notes") fields.push(["Notes",()=>card.notes,s=>card.notes=s]);
+    const vh = 46+fields.length*20+14;
+    const v=makeView({ kind:"slip", x:14, y:26, w:W-28, h:vh, border:"matte",
+      onClose:()=>{
+        Field.drop();
+        if (isNew){
+          if (card.first||card.last||card.company){ Undo.mark("new card");
+            DB.names.push(card); save();
+            this.open(card.id); Notify.glance("Card filed in Names"); }
+        } else save();
+        repaint();
+      },
+      draw:vv=>{
+        /* black title lozenge, as the New-entry slips had */
+        const ttl = (card.kind==="company"? (card.company||"New Company") : ((card.last||"New")+", "+(card.first||"Person")));
+        const tw2=measSys(ttl,true)+18;
+        fillRect(vv.x+Math.round((vv.w-tw2)/2), vv.y+8, tw2, 13, INK);
+        drawSys(vv.x+Math.round((vv.w-tw2)/2)+9, vv.y+9, ttl, PAPER, {bold:true});
+        let cy=vv.y+30;
+        for (const [lab,get,set] of fields){
+          drawSys(vv.x+12,cy,lab,INK,{bold:lab.startsWith("◆")});
+          const fid="nf:"+card.id+":"+lab;
+          inputLine(vv.x+74,cy,vv.w-90,{id:fid,get,set:(s)=>{set(s); save();}});
+          cy+=20;
+        }
+        const bx0=vv.x+10, by0=vv.y+vv.h-24;
+        stdButton(bx0,by0,(x,y,ink)=>drawSys(x+4,y+2,"A",ink,{bold:true}),()=>{});
+        textButton(bx0+20,by0,"Keyboard",()=>KBD.show());
+        closeBox(vv.x+vv.w-24,by0,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+    const f0=fields[0];
+    Field.take({id:"nf:"+card.id+":"+f0[0], get:f0[1], set:s=>{f0[2](s);}});
+    KBD.show();
+  },
+};
+
+/* ==========================================================================
+   MODULE 15 — the Date Book
+   ========================================================================== */
+const DatesApp = {
+  view:null, mode:"day", cur:null, monthCur:null,
+  toggle(){ if(this.view){ Wins.close(this.view); this.view=null; } else this.open(); },
+  open(dateStr, mode){
+    this.cur = dateStr || this.cur || ymd(new Date());
+    if (mode) this.mode=mode;
+    if (this.view){ Wins.front(this.view); repaint(); return; }
+    this.view=makeView({ kind:"app", x:0,y:0,w:W,h:BAR_Y, border:"none", drag:false,
+      draw:v=>this.drawApp(v), onClose:()=>{ this.view=null; } });
+    Wins.open(this.view);
+  },
+  scroll(d){
+    if (this.mode==="month"){ const dt=fromYmd(this.cur); dt.setMonth(dt.getMonth()+d); this.cur=ymd(dt); }
+    else this.cur=ymd(addDays(fromYmd(this.cur),d));
+    repaint();
+  },
+  overview(){ this.mode = this.mode==="day" ? "month" : "day"; repaint(); },
+  eventsOn(dstr){ return DB.events.filter(e=>e.date===dstr).sort((a,b)=>a.start-b.start); },
+  drawApp(v){
+    fillRect(v.x,v.y,v.w,v.h,PAPER); strokeRect(v.x,v.y,v.w,v.h,INK);
+    if (this.mode==="day") this.drawDay(v);
+    else if (this.mode==="month") this.drawMonth(v);
+    else this.drawTodo(v);
+    /* status bar */
+    const sy=v.y+v.h-16;
+    statusBarLine(v.x,sy,v.w);
+    let bx=v.x+4;
+    bx+=clockButton(bx,sy-6)+2;
+    bx+=infoButton(bx,sy-6,[{label:"About Dates"},{label:"Go to today"}],it=>{
+      if (it.label==="Go to today"){ this.cur=ymd(new Date()); repaint(); }
+      else Notify.post("The Date Book: a calendar and a to-do list. The Assistant writes into the same soup — try 'lunch tomorrow'.","About Dates");
+    })+2;
+    bx+=newButton(bx,sy-6,[{label:"Meeting"},{label:"To Do"}],it=>{
+      if (it.label==="Meeting") this.meetingSlip(null);
+      else this.newTodo();
+    })+2;
+    bx+=showButton(bx,sy-6,[{label:"Day",check:this.mode==="day"},{label:"Month",check:this.mode==="month"},{label:"To Do List",check:this.mode==="todo"}],
+      it=>{ this.mode= it.label==="Day"?"day": it.label==="Month"?"month":"todo"; repaint(); })+2;
+    let rx=v.x+v.w-4;
+    rx-=13; closeBox(rx,sy-6,false,()=>Wins.close(v));
+  },
+  drawDay(v){
+    const d=fromYmd(this.cur);
+    drawSys(v.x+8,v.y+6,fmtDateLong(d),INK,{bold:true});
+    /* mini month, top right */
+    const mm={x:v.x+v.w-104, y:v.y+4, w:98, h:66};
+    this.drawMiniMonth(mm, d);
+    /* schedule: 8 am to 8 pm; anything outside is listed under the title */
+    const t0=8*60, rows=13, rh=26;
+    const gy=v.y+74;
+    let ay=v.y+22;
+    for (const e of this.eventsOn(this.cur)){
+      if (e.start>=t0 && e.start<t0+rows*60) continue;
+      roundRect(v.x+8,ay,13,12,2,PAPER,INK); drawIcon(v.x+7,ay+1,"dates",INK);
+      drawSys(v.x+24,ay+2,fmtTime(e.start)+"  "+e.title.slice(0,24),INK);
+      ((ev)=>{ hit(v.x+6,ay,180,14,()=>{ Snd.tap(); this.meetingSlip(ev); }); })(e);
+      ay+=15; if (ay>gy-16) break;
+    }
+    for (let i=0;i<rows;i++){
+      const min=t0+i*60, y=gy+i*rh;
+      const hh=Math.floor(min/60), lab=(hh%12===0?12:hh%12);
+      drawSys(v.x+4,y-3,String(lab),INK,{bold:hh===12});
+      if (hh===8||hh===12) drawSys(v.x+4,y+7,hh<12?"am":"pm",3);
+      dotline(v.x+24,y,v.w-30,10,3);
+      ((minv)=>{ hit(v.x+24,y,v.w-34,rh,(px,py,ev)=>{ if(ev==="double") this.meetingSlip(null,{start:minv}); },{inkable:false}); })(min);
+    }
+    for (const e of this.eventsOn(this.cur)){
+      const y=gy+((e.start-t0)/60)*rh;
+      if (e.start<t0 || e.start>=t0+rows*60) continue;
+      const hgt=Math.max(10,(e.dur/60)*rh-2);
+      fillRect(v.x+26,y+1,3,hgt,INK);
+      roundRect(v.x+32,y,13,12,2,PAPER,INK); drawIcon(v.x+31,y+1,"dates",INK);
+      drawSys(v.x+48,y-2,fmtTime(e.start)+" – "+fmtTime(e.start+e.dur),INK);
+      drawCas(v.x+48,y+8,e.title,13,INK,"ev"+e.id);
+      if (e.loc) drawSys(v.x+48,y+22,"@ "+e.loc,3);
+      if (e.alarm) drawSys(v.x+v.w-16,y-2,"!",INK,{bold:true});
+      ((ev)=>{ hit(v.x+30,y,v.w-44,Math.max(hgt,20),()=>{ Snd.tap(); this.meetingSlip(ev); }); })(e);
+    }
+  },
+  drawMiniMonth(mm, sel){
+    const first=new Date(sel.getFullYear(),sel.getMonth(),1);
+    const lab=MONTHS[sel.getMonth()].slice(0,3)+" "+sel.getFullYear();
+    drawSys(mm.x+10,mm.y,"←",INK); drawSys(mm.x+mm.w-16,mm.y,"→",INK);
+    hit(mm.x,mm.y-2,20,12,()=>{ const d=new Date(sel); d.setMonth(d.getMonth()-1); this.cur=ymd(d); repaint(); });
+    hit(mm.x+mm.w-22,mm.y-2,22,12,()=>{ const d=new Date(sel); d.setMonth(d.getMonth()+1); this.cur=ymd(d); repaint(); });
+    drawSys(mm.x+Math.round((mm.w-measSys(lab,true))/2), mm.y, lab, INK,{bold:true});
+    "smtwtfs".split("").forEach((c,i)=>drawSys(mm.x+2+i*14+4, mm.y+10, c, 3));
+    let day=1-first.getDay();
+    const dim=new Date(sel.getFullYear(),sel.getMonth()+1,0).getDate();
+    for (let r=0;r<6;r++) for(let c=0;c<7;c++,day++){
+      if (day<1||day>dim) continue;
+      const x=mm.x+2+c*14, y=mm.y+19+r*8;
+      const isSel = day===sel.getDate();
+      if (isSel){ fillRect(x,y-1,13,8,INK); }
+      drawSys(x+2,y-2,String(day),isSel?PAPER:INK);
+      ((dd)=>{ hit(x,y-1,13,8,()=>{ const d=new Date(sel); d.setDate(dd); this.cur=ymd(d); Snd.tap(); repaint(); }); })(day);
+    }
+  },
+  drawMonth(v){
+    const d=fromYmd(this.cur);
+    const lab=MONTHS[d.getMonth()]+" "+d.getFullYear();
+    drawSys(v.x+Math.round((v.w-measSys(lab,true)*2)/2), v.y+6, lab, INK, {bold:true, scale:2});
+    const gx=v.x+4, gy=v.y+32, cw=Math.floor((v.w-8)/7), chh=62;
+    "S M T W T F S".split(" ").forEach((c,i)=>drawSys(gx+i*cw+cw/2-2, gy-10, c, 3,{bold:true}));
+    const first=new Date(d.getFullYear(),d.getMonth(),1);
+    const dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+    let day=1-first.getDay();
+    const todayS=ymd(new Date());
+    for (let r=0;r<6;r++) for (let c=0;c<7;c++,day++){
+      const x=gx+c*cw, y=gy+r*chh;
+      if (r<5 || day<=dim) strokeRect(x,y,cw+1,chh+1,11);
+      if (day<1||day>dim) continue;
+      const dstr=ymd(new Date(d.getFullYear(),d.getMonth(),day));
+      const isToday=dstr===todayS;
+      if (isToday) fillRect(x+2,y+2,12,9,INK);
+      drawSys(x+3,y+1,String(day),isToday?PAPER:INK,{bold:isToday});
+      let ey=y+13;
+      for (const e of this.eventsOn(dstr).slice(0,4)){
+        if (ey>y+chh-8) break;
+        fillRect(x+3,ey+2,2,7,INK);
+        drawSysClipped(x+7,ey,e.title,INK,cw-10);
+        ey+=11;
+      }
+      ((ds)=>{ hit(x,y,cw,chh,()=>{ Snd.tap(); this.cur=ds; this.mode="day"; repaint(); }); })(dstr);
+    }
+  },
+  drawTodo(v){
+    drawSys(v.x+8,v.y+6,"To Do List",INK,{bold:true,scale:2});
+    hline(v.x+6,v.y+26,v.w-12,INK);
+    let cy=v.y+34;
+    if (!DB.todos.length) drawSys(v.x+12,cy,"Nothing to do. Ask the Assistant to remember something.",3);
+    DB.todos.forEach((td,i)=>{
+      strokeRect(v.x+10,cy+2,9,9,INK);
+      if (td.done) drawSys(v.x+11,cy,"✓",INK,{bold:true});
+      drawCas(v.x+26,cy,td.text,13,INK,"td"+td.id);
+      if (td.done) hline(v.x+24,cy+8,measCas(td.text,13)+6,INK);
+      ((j)=>{ hit(v.x+8,cy,14,14,()=>{ Snd.tap(); Undo.mark("check to do"); DB.todos[j].done=!DB.todos[j].done; save(); repaint(); }); })(i);
+      ((j)=>{ hit(v.x+24,cy,v.w-60,14,(px,py,ev)=>{ if(ev==="double"){ Undo.mark("delete to do"); DB.todos.splice(j,1); Snd.poof(); save(); repaint(); } }); })(i);
+      cy+=17;
+    });
+    drawSys(v.x+10,v.y+v.h-34,"Tap a box to check it off. Double-tap a task to delete it.",3);
+  },
+  newTodo(){
+    Undo.mark("new to do");
+    const td={id:DB.nextTodo++, done:false, text:""};
+    DB.todos.push(td); this.mode="todo";
+    Field.take({id:"todo"+td.id, get:()=>td.text, set:v=>{td.text=v; save();}});
+    KBD.show(); save(); repaint();
+  },
+  meetingSlip(ev, preset){
+    const isNew=!ev;
+    const m = ev || { id:null, date:this.cur, start:(preset&&preset.start)||12*60, dur:60,
+      title:(preset&&preset.title)||"", loc:(preset&&preset.loc)||"", alarm:false };
+    const v=makeView({kind:"slip", x:18, y:60, w:W-36, h:196, border:"matte",
+      draw:vv=>{
+        const tw2=measSys("Meeting",true)+30;
+        fillRect(vv.x+Math.round((vv.w-tw2)/2), vv.y+8, tw2, 13, INK);
+        drawIcon(vv.x+Math.round((vv.w-tw2)/2)+3, vv.y+9, "dates", PAPER);
+        drawSys(vv.x+Math.round((vv.w-tw2)/2)+20, vv.y+9, "Meeting", PAPER, {bold:true});
+        let cy=vv.y+30;
+        drawSys(vv.x+12,cy,"◆Title",INK,{bold:true});
+        inputLine(vv.x+64,cy,vv.w-84,{id:"mt"+(m.id||"new"), get:()=>m.title, set:s=>m.title=s},{cas:true});
+        cy+=22;
+        const days=[]; for(let i=0;i<14;i++){ const dd=addDays(new Date(),i);
+          days.push({label:(i===0?"Today — ":i===1?"Tomorrow — ":"")+fmtDateLong(dd), val:ymd(dd)}); }
+        pickerLabel(vv.x+12,cy,"Date ",fmtDateLong(fromYmd(m.date)),days,it=>{ m.date=it.val; repaint(); });
+        cy+=18;
+        const times=[]; for(let t=7*60;t<=20*60;t+=30) times.push({label:fmtTime(t), val:t});
+        pickerLabel(vv.x+12,cy,"Time ",fmtTime(m.start)+" – "+fmtTime(m.start+m.dur),times,it=>{ m.start=it.val; repaint(); });
+        cy+=18;
+        const durs=[30,60,90,120].map(d=>({label:d+" minutes",val:d}));
+        pickerLabel(vv.x+12,cy,"Duration ",m.dur+" min",durs,it=>{ m.dur=it.val; repaint(); });
+        cy+=18;
+        drawSys(vv.x+12,cy,"◆Location",INK,{bold:true});
+        inputLine(vv.x+76,cy,vv.w-96,{id:"ml"+(m.id||"new"), get:()=>m.loc||"", set:s=>m.loc=s});
+        cy+=20;
+        checkbox(vv.x+12,cy,"Alarm",m.alarm,val=>{ m.alarm=val; repaint(); });
+        const by=vv.y+vv.h-24;
+        textButton(vv.x+10,by,"Keyboard",()=>KBD.show());
+        if (!isNew) textButton(vv.x+76,by,"Delete",()=>{
+          Undo.mark("delete meeting"); DB.events=DB.events.filter(x=>x.id!==m.id);
+          Snd.poof(); save(); Wins.close(v); repaint(); });
+        textButton(vv.x+vv.w-72,by, isNew?"Schedule":"Done", ()=>{
+          Field.drop();
+          if (isNew){
+            if (!m.title) m.title="Meeting";
+            Undo.mark("schedule"); m.id=DB.nextEvent++;
+            DB.events.push(m); save();
+            Wins.close(v);
+            this.open(m.date,"day");
+            Notify.glance("Scheduled: "+m.title+", "+fmtDateShort(fromYmd(m.date)));
+            if (m.alarm) armAlarm(m);
+          } else { save(); Wins.close(v); }
+          repaint();
+        },{bold:true});
+        closeBox(vv.x+vv.w-24,by,true,()=>{ Field.drop(); Wins.close(v); });
+      }});
+    Wins.open(v);
+    if (isNew && !m.title){
+      Field.take({id:"mt"+(m.id||"new"), get:()=>m.title, set:s=>m.title=s});
+      KBD.show();
+    }
+    return v;
+  },
+};
+function drawSysClipped(x,y,s,ink,maxw){
+  let cx=x;
+  for (const ch of s){ const g=SYS[ch]||SYS["?"]; if (cx+g.w>x+maxw) break;
+    drawSys(cx,y,ch,ink); cx+=g.w+1; }
+}
+function armAlarm(m){
+  const when=fromYmd(m.date); when.setMinutes(m.start);
+  const ms=when-Date.now();
+  if (ms>0 && ms<12*3600*1000) setTimeout(()=>{ Snd.chime();
+    Notify.post(m.title+" — "+fmtTime(m.start)+(m.loc?" @ "+m.loc:""),"Alarm"); }, ms);
+}
+
+/* ==========================================================================
+   MODULE 16 — the Extras Drawer & the small applications
+   ========================================================================== */
+const Extras = {
+  view:null, folder:"Unfiled Icons",
+  toggle(){ if(this.view){ Wins.close(this.view); this.view=null; } else this.open(); },
+  open(){
+    const dh=286;
+    this.view=makeView({ kind:"drawer", x:0, y:BAR_Y-dh, w:W, h:dh, border:"none", drag:false,
+      draw:v=>this.drawD(v), onClose:()=>{ this.view=null; } });
+    Wins.open(this.view);
+  },
+  icons(){
+    if (this.folder==="Setup") return [
+      {icon:"prefs", label:"Prefs", cb:()=>PrefsApp.open()},
+      {icon:"owner", label:"Owner Info", cb:()=>OwnerApp.open()},
+      {icon:"styles", label:"Styles", cb:()=>StylesApp.open()},
+      {icon:"book", label:"Writing Guide", cb:()=>Guide.show("recog")},
+    ];
+    if (this.folder==="Storage") return [
+      {icon:"card", label:"Internal", cb:()=>this.storageSlip("Internal","flash, 4 MB")},
+      {icon:"card", label:"Card", cb:()=>Notify.post("No card is inserted. The slot on top took two PC Cards — modems, pagers, whole hard disks.","Storage")},
+    ];
+    return [
+      {icon:"calls", label:"Calls", cb:()=>Calls.open()},
+      {icon:"calc",  label:"Calculator", cb:()=>Calc.open()},
+      {icon:"clock", label:"Clock", cb:()=>ClockApp.open()},
+      {icon:"zones", label:"Time Zones", cb:()=>Zones.open()},
+      {icon:"formula",label:"Formulas", cb:()=>Notify.post("Formulas converted lengths, loan payments and metric cooking measures. Not in this exhibit.","Formulas")},
+      {icon:"inbox", label:"In Box", cb:()=>Notify.post("The In Box received beams, faxes and mail. Nothing is beaming at this exhibit, so it stays empty.","In Box")},
+      {icon:"outbox",label:"Out Box", cb:()=>Notify.post("The Out Box held everything queued to print, fax or beam. This exhibit ends at the glass.","Out Box")},
+      {icon:"help",  label:"Help", cb:()=>{ Guide.show("start"); }},
+      {icon:"styles",label:"Styles", cb:()=>StylesApp.open()},
+      {icon:"prefs", label:"Prefs", cb:()=>PrefsApp.open()},
+      {icon:"owner", label:"Owner Info", cb:()=>OwnerApp.open()},
+      {icon:"names", label:"Names", cb:()=>{ this.toggle(); NamesApp.open(); }},
+    ];
+  },
+  drawD(v){
+    fillRect(v.x,v.y,v.w,v.h,PAPER); strokeRect(v.x,v.y,v.w,v.h,INK); hline(v.x,v.y+1,v.w,INK);
+    /* folder tab */
+    const lab="◆"+this.folder;
+    const tw2=measSys(lab,true)+16;
+    fillRect(v.x+Math.round((v.w-tw2)/2), v.y+3, tw2, 13, INK);
+    drawSys(v.x+Math.round((v.w-tw2)/2)+8, v.y+4, lab, PAPER, {bold:true});
+    hit(v.x+Math.round((v.w-tw2)/2), v.y+3, tw2, 13, ()=>{
+      Picker.open(v.x+100, v.y+17,
+        [{label:"Unfiled Icons",check:this.folder==="Unfiled Icons"},
+         {label:"Setup",check:this.folder==="Setup"},
+         {label:"Storage",check:this.folder==="Storage"}],
+        it=>{ this.folder=it.label; repaint(); });
+    });
+    /* icons */
+    const list=this.icons();
+    const cols=4, cw=Math.floor((v.w-16)/cols);
+    list.forEach((ic,i)=>{
+      const r=Math.floor(i/cols), c=i%cols;
+      const x=v.x+8+c*cw, y=v.y+24+r*46;
+      const pressed=Pen.flash&&Pen.flash.k===("ex:"+ic.label);
+      if(pressed) fillRect(x+8,y,cw-16,42,INK);
+      drawIcon(x+Math.round((cw-16)/2), y+4, ic.icon, pressed?PAPER:INK);
+      const lw=measSys(ic.label);
+      drawSys(x+Math.round((cw-lw)/2), y+24, ic.label, pressed?PAPER:INK);
+      ((item)=>{ hit(x+4,y,cw-8,40,()=>{ Snd.tap(); flash("ex:"+item.label, ()=>{
+        if (item.icon!=="names") { Wins.close(v); this.view=null; }
+        item.cb(); }); }); })(ic);
+    });
+    /* battery gauge */
+    const gy=v.y+v.h-34;
+    drawSys(v.x+10,gy-2,"Battery",3);
+    strokeRect(v.x+52,gy,90,8,INK);
+    fillRect(v.x+54,gy+2,Math.round(86*Batt.level),4,INK);
+    /* status bar */
+    const sy=v.y+v.h-16;
+    statusBarLine(v.x,sy,v.w);
+    let bx=v.x+4;
+    bx+=infoButton(bx,sy-6,[{label:"About Extras"}],()=>{
+      Notify.post("Every application lives here as an icon. Drag was how you customised the button bar on a 2000; in this exhibit the bar is furniture.","Extras Drawer");
+    })+2;
+    const wrot=measSys("Rotate",true)+16;
+    roundRect(bx,sy-6,wrot,13,3,PAPER,INK);
+    drawSys(bx+4,sy-4,"◆",INK); drawSys(bx+11,sy-4,"Rotate",INK,{bold:true});
+    hit(bx,sy-6,wrot,13,()=>{ Snd.tap();
+      Picker.open(bx,sy-70,[{label:"Portrait",check:true},{label:"Landscape"},{label:"Portrait, flipped"},{label:"Landscape, flipped"}],
+        it=>{ if(it.label!=="Portrait") Notify.post("A real 2000 rotated its screen and its button bar to all four orientations. This exhibit keeps the portrait bezel — the guide owns up to it.","Rotate"); });
+    });
+    let rx=v.x+v.w-4;
+    rx-=13; closeBox(rx,sy-6,false,()=>{ Wins.close(v); });
+  },
+  storageSlip(name,desc){
+    const used=JSON.stringify(DB).length;
+    Notify.post(name+" store ("+desc+"): "+DB.notes.length+" notes, "+DB.names.length+" names, "+
+      DB.events.length+" meetings in the soups — "+(used/1024).toFixed(1)+" KB of "+
+      "this page's localStorage standing in for flash memory.","Storage");
+  },
+};
+
+/* ---- Calculator: four functions and a paper look ---- */
+const Calc = {
+  view:null, disp:"0", acc:null, op:null, clear:true,
+  open(){
+    if(this.view){ Wins.front(this.view); repaint(); return; }
+    this.view=makeView({kind:"slip", x:60, y:120, w:150, h:186, border:"matte",
+      draw:v=>this.drawC(v), onClose:()=>{ this.view=null; }});
+    Wins.open(this.view);
+  },
+  key(k){
+    Snd.key();
+    if (k==="C"){ this.disp="0"; this.acc=null; this.op=null; this.clear=true; }
+    else if ("0123456789.".includes(k)){
+      if (this.clear){ this.disp = k==="."?"0.":k; this.clear=false; }
+      else if (!(k==="."&&this.disp.includes("."))) this.disp+=k;
+    }
+    else if (k==="±"){ this.disp = this.disp.startsWith("-")? this.disp.slice(1) : "-"+this.disp; }
+    else if ("+-x÷".includes(k)){ this.evalOp(); this.op=k; this.acc=parseFloat(this.disp); this.clear=true; }
+    else if (k==="="){ this.evalOp(); this.op=null; this.clear=true; }
+    repaint();
+  },
+  evalOp(){
+    if (this.op===null || this.acc===null) return;
+    const b=parseFloat(this.disp); let r=this.acc;
+    if (this.op==="+") r+=b; else if(this.op==="-") r-=b;
+    else if (this.op==="x") r*=b; else if (this.op==="÷") r = b===0? NaN : r/b;
+    this.disp = (isNaN(r)||!isFinite(r))? "Error" : String(Math.round(r*1e8)/1e8).slice(0,12);
+    this.acc=r;
+  },
+  drawC(v){
+    drawSys(v.x+10,v.y+8,"Calculator",INK,{bold:true});
+    roundRect(v.x+10,v.y+20,v.w-20,16,2,PAPER,INK);
+    const dw=measSys(this.disp,true);
+    drawSys(v.x+v.w-14-dw,v.y+23,this.disp,INK,{bold:true});
+    const keys=[["7","8","9","÷"],["4","5","6","x"],["1","2","3","-"],["0",".","±","+"],["C","="]];
+    let cy=v.y+42;
+    for (const row of keys){
+      let cx=v.x+10;
+      for (const k of row){
+        const kw = row.length===2? 62:29;
+        const key="calc:"+k;
+        const inv=Pen.flash&&Pen.flash.k===key;
+        roundRect(cx,cy,kw,20,3,inv?INK:PAPER,INK);
+        drawSys(cx+Math.round((kw-measSys(k,true))/2),cy+5,k,inv?PAPER:INK,{bold:true});
+        ((kk,kx,ky,kwv)=>{ hit(kx,ky,kwv,20,()=>flash("calc:"+kk,()=>this.key(kk))); })(k,cx,cy,kw);
+        cx+=kw+3;
+      }
+      cy+=23;
+    }
+    closeBox(v.x+v.w-22,v.y+v.h-22,false,()=>{ Wins.close(v); });
+  }
+};
+
+/* ---- Clock (alarm) ---- */
+const ClockApp = {
+  open(){
+    const v=makeView({kind:"slip", x:44, y:150, w:W-88, h:96, border:"matte",
+      draw:vv=>{
+        const t=new Date();
+        drawSys(vv.x+12,vv.y+10,"Clock",INK,{bold:true});
+        const msg=fmtTime(t.getHours()*60+t.getMinutes());
+        drawSys(vv.x+Math.round((vv.w-measSys(msg,true)*2)/2), vv.y+26, msg, INK, {bold:true,scale:2});
+        drawSys(vv.x+Math.round((vv.w-measSys(fmtDateLong(t)))/2), vv.y+52, fmtDateLong(t), INK);
+        textButton(vv.x+10,vv.y+vv.h-24,"Alarm in 1 min",()=>{
+          setTimeout(()=>{ Snd.chime(); Notify.post("Time!","Alarm"); }, 60000);
+          Notify.glance("Alarm set");
+        });
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ---- Preferences (incl. the pen alignment ritual) ---- */
+const PrefsApp = {
+  open(){
+    const v=makeView({kind:"slip", x:22, y:74, w:W-44, h:210, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"Prefs",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        let cy=vv.y+30;
+        drawSys(vv.x+12,cy,"Recognition",INK,{bold:true}); cy+=14;
+        radio(vv.x+18,cy,"Text",DB.prefs.recog==="text",()=>{DB.prefs.recog="text";save();repaint();}); cy+=15;
+        radio(vv.x+18,cy,"Ink Text (recognise later)",DB.prefs.recog==="ink",()=>{DB.prefs.recog="ink";save();repaint();}); cy+=15;
+        radio(vv.x+18,cy,"Shapes",DB.prefs.recog==="shapes",()=>{DB.prefs.recog="shapes";save();repaint();}); cy+=15;
+        radio(vv.x+18,cy,"Sketches (raw ink)",DB.prefs.recog==="sketch",()=>{DB.prefs.recog="sketch";save();repaint();}); cy+=19;
+        checkbox(vv.x+12,cy,"Pen sound effects",DB.prefs.penSounds && Snd.on,val=>{
+          if (!Snd.on){ Notify.post("Sound is off at the museum rail above the exhibit. Turn it on there first."); }
+          else { DB.prefs.penSounds=val; save(); } repaint(); }); cy+=17;
+        checkbox(vv.x+12,cy,"Backlight",DB.prefs.backlight,val=>{ setBacklight(val); }); cy+=17;
+        checkbox(vv.x+12,cy,"Thick ink",DB.prefs.inkThickness>1,val=>{ DB.prefs.inkThickness=val?2:1; save(); repaint(); }); cy+=20;
+        textButton(vv.x+12,cy,"Align Pen",()=>{ Wins.close(v); PenAlign.start(); });
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+  }
+};
+const PenAlign = {
+  active:false, step:0, spots:[[40,80],[W-40,H-120],[W/2,H/2]],
+  start(){ this.active=true; this.step=0; repaint(); },
+  draw(){
+    if (!this.active) return;
+    fillRect(0,0,W,H,PAPER);
+    drawSys(40,30,"Pen Alignment",INK,{bold:true,scale:2});
+    drawSys(40,58,"Tap the centre of the target.",INK);
+    drawSys(40,70,"(Every Newton owner did this. Now you have too.)",3);
+    const [x,y]=this.spots[this.step];
+    ctx.strokeStyle=PAL[INK]; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(x-8,y); ctx.lineTo(x+8,y); ctx.moveTo(x,y-8); ctx.lineTo(x,y+8); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x,y,5.5,0,7); ctx.stroke();
+    hit(0,0,W,H,(px,py)=>{
+      if (Math.hypot(px-x,py-y)<14){ Snd.tap(); this.step++;
+        if (this.step>=this.spots.length){ this.active=false; Notify.glance("The pen is aligned. It was always aligned."); }
+      } else Snd.poof();
+      repaint();
+    });
+  }
+};
+
+/* ---- Owner Info ---- */
+const OwnerApp = {
+  open(){
+    const v=makeView({kind:"slip", x:30, y:120, w:W-60, h:118, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"Owner Info",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        let cy=vv.y+30;
+        for (const [lab,key] of [["Name","name"],["Title","title"],["Org.","org"]]){
+          drawSys(vv.x+12,cy,lab,INK);
+          inputLine(vv.x+50,cy,vv.w-70,{id:"own"+key, get:()=>DB.owner[key], set:s=>{DB.owner[key]=s; save();}});
+          cy+=20;
+        }
+        textButton(vv.x+10,vv.y+vv.h-24,"Keyboard",()=>KBD.show());
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>{ Field.drop(); Wins.close(v); });
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ---- Time Zones ---- */
+const Zones = {
+  city:"Cupertino", zones:{ "Cupertino":-7,"New York":-4,"London":1,"Paris":2,"Tokyo":9,"Sydney":10,"Honolulu":-10,"Reykjavik":0 },
+  open(){
+    const v=makeView({kind:"slip", x:36, y:130, w:W-72, h:110, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"Time Zones",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        pickerLabel(vv.x+12,vv.y+30,"City ",this.city,
+          Object.keys(this.zones).map(c=>({label:c,check:c===this.city})),
+          it=>{ this.city=it.label; repaint(); });
+        const now=new Date();
+        const utc=now.getTime()+now.getTimezoneOffset()*60000;
+        const t=new Date(utc + this.zones[this.city]*3600000);
+        const msg=fmtTime(t.getHours()*60+t.getMinutes());
+        drawSys(vv.x+Math.round((vv.w-measSys(msg,true)*2)/2), vv.y+50, msg, INK, {bold:true,scale:2});
+        drawSys(vv.x+12,vv.y+76,"When it is "+fmtTime(now.getHours()*60+now.getMinutes())+" here.",3);
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ---- Styles ---- */
+const StylesApp = {
+  open(){
+    const v=makeView({kind:"slip", x:36, y:140, w:W-72, h:96, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"Styles",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        drawSys(vv.x+12,vv.y+30,"Notes are written in the exhibit's",INK);
+        drawSys(vv.x+12,vv.y+41,"hand-built ink face;",INK);
+        drawCas(vv.x+108,vv.y+39,"it looks like this,",13,INK,"sty");
+        drawSys(vv.x+12,vv.y+54,"and the chrome uses its bitmap face.",INK);
+        drawSys(vv.x+12,vv.y+66,"Both are original. Neither is Apple's.",3);
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ---- Calls: the dialer really dials (through your speaker) ---- */
+const Calls = {
+  open(who, num){
+    let name = who||"", number = num||"";
+    const v=makeView({kind:"slip", x:26, y:110, w:W-52, h:130, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"Calls",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        pickerLabel(vv.x+12,vv.y+30,"Name ",name||"—",
+          DB.names.map(n=>({label:(n.kind==="company"?n.company:n.first+" "+n.last)})),
+          it=>{ name=it.label;
+            const n=DB.names.find(n=>(n.kind==="company"?n.company:n.first+" "+n.last)===it.label);
+            if (n&&n.phones[0]) number=n.phones[0][1]; repaint(); });
+        drawSys(vv.x+12,vv.y+48,"◆Number",INK,{bold:true});
+        inputLine(vv.x+72,vv.y+48,vv.w-92,{id:"callnum", get:()=>number, set:s=>{number=s;}});
+        drawSys(vv.x+12,vv.y+66,"Hold the handset to the speaker,",3);
+        drawSys(vv.x+12,vv.y+77,"exactly as the manual said.",3);
+        textButton(vv.x+10,vv.y+vv.h-24,"☎ Call",()=>{
+          const digits=(number.match(/[0-9*#]/g)||[]);
+          if (!digits.length){ Notify.post("No number to dial."); return; }
+          if (!Snd.on) Notify.glance("Dialing silently — sound is off at the rail");
+          digits.forEach((d,i)=>setTimeout(()=>Snd.dtmf(d), i*170));
+          setTimeout(()=>Notify.post("Dialed "+number+(name?" ("+name+")":"")+". The exhibit ends at the dial tone.","Calls"), digits.length*170+320);
+          DB.callLog.push({when:Date.now(), name, number}); save();
+        },{bold:true});
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>{ Field.drop(); Wins.close(v); });
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ---- Filing slip ---- */
+const Filing = {
+  open(note){
+    const v=makeView({kind:"slip", x:44, y:130, w:W-88, h:118, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"File this note in",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        let cy=vv.y+30;
+        radio(vv.x+14,cy,"Unfiled",!note.folder,()=>{ Undo.mark("file"); note.folder=null; save(); repaint(); }); cy+=15;
+        for (const f of DB.folders){
+          ((fol)=>{ radio(vv.x+14,cy,fol,note.folder===fol,()=>{ Undo.mark("file"); note.folder=fol; save(); repaint(); }); })(f);
+          cy+=15;
+        }
+        drawSys(vv.x+12,cy+2,"Stored internally — there is no card.",3);
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ---- Routing slips (print/fax/beam/mail): the striped envelope ---- */
+const Routing = {
+  slip(kind, what){
+    const verb=kind.replace(" Note","").replace(" Card","");
+    const v=makeView({kind:"slip", x:20, y:100, w:W-40, h:150, border:"striped", drag:false,
+      draw:vv=>{
+        drawSys(vv.x+14,vv.y+12,DB.owner.name,INK,{bold:true});
+        drawSys(vv.x+14,vv.y+23,DB.owner.org,INK);
+        const kw=measSys(verb,true);
+        drawSys(vv.x+vv.w-kw-34,vv.y+12,verb,INK,{bold:true});
+        drawIcon(vv.x+vv.w-28,vv.y+9,"outbox",INK);
+        hline(vv.x+12,vv.y+36,vv.w-24,INK);
+        drawSys(vv.x+14,vv.y+44,"◆Item  "+what.slice(0,26),INK);
+        drawSys(vv.x+14,vv.y+58,"◆Format  All of it",INK);
+        if (verb==="Fax"||verb==="Mail"){
+          drawSys(vv.x+14,vv.y+72,"◆To  "+(DB.names[0]? (DB.names[0].first+" "+DB.names[0].last):"—"),INK);
+        }
+        drawSys(vv.x+14,vv.y+92,"There is no wire out of this exhibit;",3);
+        drawSys(vv.x+14,vv.y+103,"the envelope is the point.",3);
+        textButton(vv.x+12,vv.y+vv.h-26,"◆"+verb,()=>{
+          Wins.close(v);
+          Notify.post(what+" left for the Out Box, where it will wait forever, politely.",verb);
+        },{bold:true});
+        closeBox(vv.x+vv.w-26,vv.y+vv.h-26,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ==========================================================================
+   MODULE 17 — Find (one service for every soup)
+   ========================================================================== */
+const FindSvc = {
+  open(prefill){
+    let text=prefill||"", scope="everywhere";
+    const v=makeView({kind:"slip", x:22, y:150, w:W-44, h:108, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,"◆Look for",INK,{bold:true});
+        inputLine(vv.x+76,vv.y+10,vv.w-96,{id:"find", get:()=>text, set:s=>{text=s;}},{cas:true});
+        drawSys(vv.x+12,vv.y+32,"Where",INK,{bold:true});
+        let cx=vv.x+58;
+        cx+=radio(cx,vv.y+31,"Everywhere",scope==="everywhere",()=>{scope="everywhere";repaint();})+10;
+        radio(cx,vv.y+31,"Notes",scope==="notes",()=>{scope="notes";repaint();});
+        drawSys(vv.x+12,vv.y+50,"Text finds the beginnings of words,",3);
+        drawSys(vv.x+12,vv.y+61,"in every application at once, open or not.",3);
+        textButton(vv.x+vv.w-92,vv.y+vv.h-24,"Find",()=>{ this.run(text,scope); Field.drop(); Wins.close(v); },{bold:true});
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-24,true,()=>{ Field.drop(); Wins.close(v); });
+      }});
+    Wins.open(v);
+    Field.take({id:"find", get:()=>text, set:s=>{text=s;},
+      onReturn:()=>{ Field.drop(); Wins.close(v); this.run(text,scope); }});
+    KBD.show(undefined, v);
+  },
+  run(text, scope){
+    const q=(text||"").trim().toLowerCase();
+    if (!q){ Notify.post("Write something to look for."); return; }
+    const starts = s => String(s||"").toLowerCase().split(/[^a-z0-9@.]+/).some(w=>w.startsWith(q));
+    const res=[];
+    for (const n of DB.notes){
+      const hay = (n.title||"")+" "+(n.type==="checklist" ? n.items.map(i=>i.text).join(" ")
+        : (n.tokens||[]).filter(t=>t.t==="w").map(t=>t.s).join(" "));
+      if (starts(hay)) res.push({app:"Notes", label:NotesApp.titleOf(n), go:()=>{
+        Wins.closeKind("app");
+        DB.prefs.folderNotes="all";
+        const lay=NotesApp.layout().find(l=>l.note.id===n.id);
+        if(lay) NotesApp.scrollY=Math.max(0,lay.y-6); repaint(); } });
+    }
+    if (scope==="everywhere"){
+      for (const nm of DB.names){
+        if (starts(nm.first+" "+nm.last+" "+nm.company+" "+nm.email))
+          res.push({app:"Names", label:(nm.kind==="company"?nm.company:nm.first+" "+nm.last), go:()=>NamesApp.open(nm.id)});
+      }
+      for (const e of DB.events){
+        if (starts(e.title+" "+(e.loc||"")))
+          res.push({app:"Dates", label:e.title+" — "+e.date, go:()=>DatesApp.open(e.date,"day")});
+      }
+      for (const td of DB.todos){
+        if (starts(td.text)) res.push({app:"To Do", label:td.text, go:()=>DatesApp.open(undefined,"todo")});
+      }
+    }
+    if (!res.length){ Notify.post("Nothing found beginning with “"+text+"”.","Find"); return; }
+    const v=makeView({kind:"slip", x:18, y:90, w:W-36, h:Math.min(240, 58+res.length*15), border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+12,vv.y+10,res.length+" found for “"+text+"”",INK,{bold:true});
+        hline(vv.x+10,vv.y+22,vv.w-20,INK);
+        let cy=vv.y+28;
+        for (const r of res.slice(0,11)){
+          drawSys(vv.x+14,cy,r.app,3);
+          drawSys(vv.x+60,cy,r.label.slice(0,32),INK);
+          ((rr)=>{ hit(vv.x+10,cy-2,vv.w-20,14,()=>{ Snd.tap(); Wins.close(v); rr.go(); }); })(r);
+          cy+=15;
+        }
+        closeBox(vv.x+vv.w-24,vv.y+vv.h-22,true,()=>Wins.close(v));
+      }});
+    Wins.open(v);
+  }
+};
+
+/* ==========================================================================
+   MODULE 18 — the Intelligent Assistant
+   --------------------------------------------------------------------------
+   Verbs first, word order free, unknown words ignored, fifteen words max —
+   as the guidelines specify. "lunch tomorrow" becomes a meeting because
+   lunch IS a verb here, as it was on the machine.
+   ========================================================================== */
+const Assist = {
+  open(prefill){
+    let text = prefill!==undefined? prefill : this.lastWritten();
+    const v=makeView({kind:"slip", x:14, y:H-46-24-118, w:W-28, h:112, border:"matte",
+      draw:vv=>{
+        drawSys(vv.x+Math.round((vv.w-measSys("Tap 'Please' for more options."))/2), vv.y+8,
+          "Tap 'Please' for more options.",3);
+        const items=[
+          {label:"call"},{label:"fax"},{label:"find"},{label:"mail"},{label:"print"},
+          {label:"remember"},{label:"schedule"},{label:"time"},{sep:true},
+          ...DB.recent.slice(0,8).map(r=>({label:r}))
+        ];
+        drawSys(vv.x+12,vv.y+24,"◆Please",INK,{bold:true});
+        hit(vv.x+10,vv.y+22,54,13,()=>{ Snd.tap(); Picker.open(vv.x+12,vv.y+38,items,it=>{
+          if (["call","fax","find","mail","print","remember","schedule","time"].includes(it.label))
+            text = it.label+" "+text.replace(/^\s*(call|fax|find|mail|print|remember|schedule|time)\s+/i,"");
+          else text = it.label;
+          repaint();
+        }); });
+        inputLine(vv.x+66,vv.y+24,vv.w-86,{id:"assist", get:()=>text, set:s=>{text=s;}, onReturn:()=>this.doIt(text,v)},{cas:true});
+        drawSys(vv.x+12,vv.y+46,"Write a request: “lunch tomorrow”,",3);
+        drawSys(vv.x+12,vv.y+57,"“call Rachel”, “remember buy milk”…",3);
+        textButton(vv.x+10,vv.y+vv.h-24,"How Do I?",()=>{ Guide.show("assist"); });
+        textButton(vv.x+vv.w-64,vv.y+vv.h-24,"Do",()=>this.doIt(text,v),{bold:true});
+        closeBox(vv.x+vv.w-26,vv.y+vv.h-24,true,()=>{ Field.drop(); Wins.close(v); });
+      }});
+    Wins.open(v);
+    Field.take({id:"assist", get:()=>text, set:s=>{text=s;}, onReturn:()=>this.doIt(text,v)});
+    KBD.show(undefined, v);
+  },
+  lastWritten(){
+    /* the Assistant takes the most recently written words */
+    if (!NotesApp.caret) return "";
+    const n=DB.notes.find(n=>n.id===NotesApp.caret.note);
+    if (!n||!n.tokens) return "";
+    const words=n.tokens.slice(Math.max(0,NotesApp.caret.ti-3),NotesApp.caret.ti)
+      .filter(t=>t.t==="w").map(t=>t.s);
+    return words.join(" ");
+  },
+  doIt(text, v){
+    const phrase=(text||"").trim();
+    if (!phrase){ Notify.glance("Write a request first"); return; }
+    if (phrase.split(/\s+/).length>15){ Notify.post("The Assistant does not attempt phrases of more than fifteen words. It said so in the manual.","Assist"); return; }
+    Field.drop(); Wins.close(v);
+    DB.recent.unshift(phrase); DB.recent=DB.recent.filter((x,i,a)=>a.indexOf(x)===i).slice(0,8); save();
+    const words=phrase.toLowerCase().split(/\s+/);
+    const has=(...xs)=>xs.find(x=>words.includes(x));
+    /* meal words are schedule verbs, as on the machine */
+    const meal=has("lunch","dinner","breakfast","coffee");
+    const verb= meal? "schedule" :
+      has("call","phone","dial","ring")? "call" :
+      has("schedule","meet","meeting","see")? "schedule" :
+      has("find","locate")? "find" :
+      has("remember","todo","remind")? "remember" :
+      has("fax")? "fax" : has("mail","email")? "mail" : has("print")? "print" :
+      has("time")? "time" : null;
+    /* a known name? */
+    const nameHit=DB.names.find(n=>words.includes((n.first||"").toLowerCase())||words.includes((n.last||"").toLowerCase()));
+    /* a day? */
+    let date=ymd(new Date());
+    if (has("tomorrow")) date=ymd(addDays(new Date(),1));
+    else { const wd=WDAYS.findIndex(d=>words.includes(d.toLowerCase()));
+      if (wd>=0){ let d=new Date(); do{ d=addDays(d,1); }while(d.getDay()!==wd); date=ymd(d); } }
+    /* a time? plain numbers before 8 are taken as afternoon, as one would */
+    let start = meal==="breakfast"? 8*60 : meal==="coffee"? 10*60+30 : meal==="dinner"? 19*60 : 12*60;
+    if (has("noon")) start=12*60;
+    const tm=phrase.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+    if (tm){ let hh=+tm[1]; const mm2=+(tm[2]||0);
+      if (/pm/i.test(tm[3]||"") && hh<12) hh+=12;
+      else if (/am/i.test(tm[3]||"") && hh===12) hh=0;
+      else if (!tm[3] && hh<8) hh+=12;
+      if (hh>=0 && hh<=23) start=hh*60+mm2; }
+    if (!verb){
+      Notify.post("The Assistant classifies what you wrote as: unknown. Tap 'Please' in the Assist slip and choose an action — or add a verb it knows: call, find, schedule, remember…","Assist");
+      this.open(phrase);
+      return;
+    }
+    if (verb==="schedule"){
+      let title;
+      if (meal) title = meal[0].toUpperCase()+meal.slice(1) + (nameHit? " with "+nameHit.first : "");
+      else {
+        const drop=new Set(["schedule","meet","meeting","see","today","tomorrow","at","on","with","a","an","the","am","pm",...WDAYS.map(d=>d.toLowerCase())]);
+        title=phrase.split(/\s+/).filter(w=>!drop.has(w.toLowerCase())&&!/^\d/.test(w)).join(" ") || "Meeting";
+      }
+      /* the task slip: the Date Book's own meeting slip, pre-filled */
+      DatesApp.cur=date;
+      DatesApp.meetingSlip(null,{title, start});
+      Notify.glance("Assist: schedule — confirm the slip");
+    } else if (verb==="call"){
+      Calls.open(nameHit? nameHit.first+" "+nameHit.last : "", nameHit&&nameHit.phones[0]? nameHit.phones[0][1] : "");
+    } else if (verb==="find"){
+      const drop=new Set(["find","locate"]);
+      const q=phrase.split(/\s+/).filter(w=>!drop.has(w.toLowerCase())).join(" ");
+      FindSvc.run(q||phrase,"everywhere");
+    } else if (verb==="remember"){
+      const drop=new Set(["remember","remind","todo","to","me"]);
+      const t=phrase.split(/\s+/).filter(w=>!drop.has(w.toLowerCase())).join(" ")||"Something";
+      Undo.mark("remember");
+      DB.todos.push({id:DB.nextTodo++, done:false, text:t}); save();
+      DatesApp.open(undefined,"todo");
+      Notify.glance("Added to the To Do list");
+    } else if (verb==="time"){
+      Zones.open();
+    } else {
+      Routing.slip(verb[0].toUpperCase()+verb.slice(1), nameHit? "for "+nameHit.first+" "+nameHit.last : phrase);
+    }
+  }
+};
+
+/* ==========================================================================
+   MODULE 19 — the main loop
+   ========================================================================== */
+const Power = { on:false };
+function repaint(){
+  HITS=[];
+  if (!Power.on){
+    /* an unpowered supertwist panel: faintly darker than paper, uniform */
+    ctx.fillStyle = DB && DB.prefs.backlight ? "#9db8a4" : "#939e8c";
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="rgba(0,0,0,.05)";
+    ctx.fillRect(0,0,W,H);
+    return;
+  }
+  if (PenAlign.active){ PenAlign.draw(); Notify.draw(); return; }
+  NotesApp.draw();
+  for (const v of Wins.list) drawView(v);
+  drawButtonBar();
+  ClockGlance.draw();
+  Picker.draw();
+  Notify.draw();
+}
+
+/* ---- pen events: tap, double-tap, drag, write ---- */
+const Pen = { stroke:null, surface:null, dragView:null, dragOff:null, flash:null,
+  lastTap:{t:0,x:0,y:0}, pendingHit:null, downAt:null, repeatT:null };
+function lcdPos(e){
+  const r=lcd.getBoundingClientRect();
+  return [ (e.clientX-r.left)*W/r.width, (e.clientY-r.top)*H/r.height ];
+}
+lcd.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  try{ lcd.setPointerCapture(e.pointerId); }catch(_e){}
+  if (!Power.on) return;
+  const [x,y]=lcdPos(e);
+  Pen.downAt={x,y,t:Date.now()};
+  const h=hitAt(x,y);
+  if (h && !h.opts.inkable){
+    if (h.opts.drag){ h.cb(x,y,"down");
+      if (Pen.dragView) Pen.dragOff=[x-Pen.dragView.x, y-Pen.dragView.y];
+      return; }
+    if (h.opts.repeat){
+      h.cb(x,y,"down");
+      Pen.repeatT=setTimeout(function rep(){ h.cb(x,y,"repeat"); Pen.repeatT=setTimeout(rep,110); },420);
+      return; }
+    h.cb(x,y,"down");
+    return;
+  }
+  /* writable surface: begin a stroke; keep the token hit for a possible tap */
+  Pen.pendingHit=h||null;
+  if (y>13 && y<BAR_Y-18 && DB.notes.length) NotesApp.penDown(x,y);
+});
+lcd.addEventListener("pointermove", e=>{
+  if (!Power.on) return;
+  const [x,y]=lcdPos(e);
+  if (Pen.dragView){
+    Pen.dragView.x=Math.round(clamp(x-Pen.dragOff[0], -40, W-40));
+    Pen.dragView.y=Math.round(clamp(y-Pen.dragOff[1], 4, H-70));
+    repaint(); return;
+  }
+  if (Pen.stroke) NotesApp.penMove(x,y);
+});
+function penFinish(e){
+  clearTimeout(Pen.repeatT); Pen.repeatT=null;
+  if (!Power.on) return;
+  if (Pen.dragView){ Pen.dragView=null; return; }
+  if (!Pen.stroke){ Pen.pendingHit=null; return; }
+  const s=Pen.stroke;
+  const xs=s.map(p=>p[0]), ys=s.map(p=>p[1]);
+  const spanned=Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys));
+  const dur=Date.now()-(Pen.downAt?Pen.downAt.t:0);
+  if (spanned<5 && dur<420){
+    /* a tap, not a stroke */
+    Pen.stroke=null; Pen.surface=null;
+    const now=Date.now();
+    const isDouble = (now-Pen.lastTap.t<450) && Math.hypot(Pen.downAt.x-Pen.lastTap.x, Pen.downAt.y-Pen.lastTap.y)<12;
+    Pen.lastTap={t:now, x:Pen.downAt.x, y:Pen.downAt.y};
+    const ev=isDouble?"double":"tap";
+    if (Pen.pendingHit) Pen.pendingHit.cb(Pen.downAt.x, Pen.downAt.y, ev);
+    else NotesApp.tapBlank(Pen.downAt.y+NotesApp.scrollY-13, ev);
+    Pen.pendingHit=null;
+    repaint();
+    return;
+  }
+  Pen.pendingHit=null;
+  NotesApp.penUp();
+  repaint();
+}
+lcd.addEventListener("pointerup", penFinish);
+lcd.addEventListener("pointercancel", penFinish);
+
+/* ---- the physical keyboard is a courtesy; the pad never had one ---- */
+document.addEventListener("keydown", e=>{
+  if (!Power.on) return;
+  if (e.target && (e.target.closest && e.target.closest("#guide"))) return;
+  if (e.metaKey||e.ctrlKey||e.altKey) return;
+  if (e.key==="Backspace"){ Field.del(); e.preventDefault(); }
+  else if (e.key==="Enter"){ Field.ret(); e.preventDefault(); }
+  else if (e.key==="Escape"){ const v=Wins.list[Wins.list.length-1]; if(v) Wins.close(v); }
+  else if (e.key==="ArrowUp"){ Scroll.up(); e.preventDefault(); }
+  else if (e.key==="ArrowDown"){ Scroll.down(); e.preventDefault(); }
+  else if (e.key==="ArrowLeft"){ NotesApp.moveCaret(-1); }
+  else if (e.key==="ArrowRight"){ NotesApp.moveCaret(1); }
+  else if (e.key.length===1){ Field.type(e.key); e.preventDefault(); }
+});
+
+/* ---- power & backlight ---- */
+function setPower(on){
+  Power.on=on;
+  $id("powerswitch").classList.toggle("on",on);
+  if (on){ Snd.tap(); }
+  repaint();
+}
+function setBacklight(on){
+  DB.prefs.backlight=on; save();
+  PAL = on? RAMP_LIT : RAMP_DAY;
+  $id("lcdclip").classList.toggle("lit",on);
+  $id("btnBacklight").classList.toggle("on",on);
+  repaint();
+}
+(function wirePower(){
+  const sw=$id("powerswitch");
+  let holdT=null, held=false;
+  sw.addEventListener("pointerdown",e=>{
+    e.preventDefault(); held=false;
+    holdT=setTimeout(()=>{ held=true; setBacklight(!DB.prefs.backlight);
+      Notify.glance&&Power.on&&Notify.glance("Backlight "+(DB.prefs.backlight?"on":"off")); repaint(); },600);
+  });
+  const up=()=>{ clearTimeout(holdT);
+    if (!held){ setPower(!Power.on); if(!Power.on){ /* powering off drops transient UI */ } }
+    held=false; };
+  sw.addEventListener("pointerup",up);
+  sw.addEventListener("pointercancel",()=>clearTimeout(holdT));
+})();
+
+/* ---- museum rail ---- */
+$id("btnBacklight").onclick=()=>setBacklight(!DB.prefs.backlight);
+$id("btnSound").onclick=function(){
+  Snd.on=!Snd.on; this.textContent="Sound: "+(Snd.on?"on":"off"); this.classList.toggle("on",Snd.on);
+  if (Snd.on) Snd.tap();
+};
+$id("btnGuide").onclick=()=>Guide.toggle();
+$id("guideclose").onclick=()=>Guide.toggle(false);
+(function wireReset(){
+  const b=$id("btnReset"); let armed=false, t=null;
+  b.onclick=()=>{
+    if (!armed){ armed=true; b.textContent="Erase everything?"; b.style.borderColor="#ff8f8f"; b.style.color="#ffd7d7";
+      t=setTimeout(()=>{ armed=false; b.textContent="Reset"; b.style.borderColor=""; b.style.color=""; },3200); return; }
+    clearTimeout(t);
+    try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+    location.reload();
+  };
+})();
+$id("doorPower").onclick=()=>{ $id("door").classList.add("off"); setPower(true); };
+$id("doorGuide").onclick=()=>{ $id("door").classList.add("off"); setPower(true); Guide.show("start"); };
+
+/* periodic: the clock on the black bar, the blinking caret */
+setInterval(()=>{ if(Power.on && !document.hidden) repaint(); }, 500);
+
+/* ==========================================================================
+   MODULE 20 — the guide
+   ========================================================================== */
+const Guide = {
+  cur:"start",
+  TABS:[["start","Start here"],["instant","Instant on"],["ui","Slips & the ⊠"],["recog","Recognition"],
+        ["assist","The Assistant"],["soups","Soups"],["hw","The hardware"],["try","Try this"],
+        ["limits","Limitations"],["fall","1993–1998"],["about","About"]],
+  toggle(force){ const g=$id("guide");
+    const on = force!==undefined? force : !g.classList.contains("on");
+    g.classList.toggle("on",on); $id("btnGuide").classList.toggle("on",on);
+    if (on) this.render(); },
+  show(tab){ this.cur=tab||this.cur; this.toggle(true); },
+  render(){
+    const tabs=$id("gtabs"); tabs.innerHTML="";
+    for (const [id,label] of this.TABS){
+      const b=document.createElement("button");
+      b.textContent=label; if(id===this.cur) b.className="on";
+      b.onclick=()=>{ this.cur=id; this.render(); };
+      tabs.appendChild(b);
+    }
+    const body=$id("gbody");
+    body.innerHTML=this.PAGES[this.cur]||"";
+    body.scrollTop=0;
+    this.wire();
+  },
+  wire(){
+    const on=(id,fn)=>{ const e=$id(id); if(e) e.onclick=fn; };
+    on("g-power",()=>{ if(!Power.on) setPower(true); });
+    on("g-write",()=>{ if(!Power.on) setPower(true); Guide.toggle(false); });
+    on("g-assist",()=>{ if(!Power.on) setPower(true); Assist.open("lunch tomorrow"); });
+    on("g-extras",()=>{ if(!Power.on) setPower(true); if(!Extras.view) Extras.open(); });
+    on("g-names",()=>{ if(!Power.on) setPower(true); NamesApp.open(); });
+    on("g-dates",()=>{ if(!Power.on) setPower(true); DatesApp.open(); });
+    on("g-find",()=>{ if(!Power.on) setPower(true); FindSvc.open("egg"); });
+    on("g-back",()=>setBacklight(!DB.prefs.backlight));
+    on("g-inkmode",()=>{ DB.prefs.recog="ink"; save(); Notify.glance("Recognise: Ink Text"); repaint(); });
+    on("g-shapes",()=>{ DB.prefs.recog="shapes"; save(); Notify.glance("Recognise: Shapes"); repaint(); });
+    on("g-align",()=>{ if(!Power.on) setPower(true); Guide.toggle(false); PenAlign.start(); });
+    on("g-calc",()=>{ if(!Power.on) setPower(true); Calc.open(); });
+    on("g-call",()=>{ if(!Power.on) setPower(true); Calls.open("Newton Cafe","(617) 555-8123"); });
+    on("g-soup",()=>{ this.render(); });
+    const s=$id("g-soupview");
+    if (s){
+      const dump=(title,rows)=> "── "+title+" ─────────────\n"+rows.join("\n")+"\n\n";
+      s.textContent =
+        dump("soup: Notes ("+DB.notes.length+")", DB.notes.map(n=>"  {id:"+n.id+", type:"+n.type+", folder:"+(n.folder||"nil")+
+          ", title:\""+NotesApp.titleOf(n).slice(0,22)+"\"}"))+
+        dump("soup: Names ("+DB.names.length+")", DB.names.map(n=>"  {id:"+n.id+", name:\""+(n.kind==="company"?n.company:(n.last+", "+n.first))+
+          "\", phones:"+n.phones.length+"}"))+
+        dump("soup: Calendar ("+DB.events.length+")", DB.events.map(e=>"  {id:"+e.id+", date:"+e.date+", start:\""+fmtTime(e.start)+"\", title:\""+e.title.slice(0,18)+"\"}"))+
+        dump("soup: ToDo ("+DB.todos.length+")", DB.todos.map(t=>"  {id:"+t.id+", done:"+t.done+", text:\""+t.text.slice(0,24)+"\"}"))+
+        dump("soup: System", ["  {owner:\""+DB.owner.name+"\", recog:"+DB.prefs.recog+", backlight:"+DB.prefs.backlight+"}",
+          "  {callLog:"+DB.callLog.length+" entries}"]);
+    }
+  },
+  PAGES:{}
+};
+Guide.PAGES.start = `
+<h3>A computer for your hand, 1997</h3>
+<p>This is <b>Newton OS 2.1</b> as it shipped on Apple's <b>MessagePad 2000</b> in March 1997 —
+the first exhibit in the museum's Mobile wing, and the machine that defined what the wing means:
+designed for the hand, run with a pen, awake the instant you slide the switch.</p>
+<p>Nothing here is emulated. This is a hand-built simulation: one HTML file drawing sixteen
+greys onto one canvas, with its own bitmap face for the chrome and its own ink face for
+your words. The geometry follows Apple's published <i>Newton 2.0 User Interface Guidelines</i>.</p>
+<h4>The first five minutes</h4>
+<ul>
+<li><span class="gbtn" id="g-power">Slide the power switch</span> — on the left edge of the case. There is no boot screen. That is the point.</li>
+<li><b>Write in the Notepad.</b> Draw a word with the mouse; after a beat it becomes text — probably not the text you meant. That, too, is the point (see <i>Recognition</i>).</li>
+<li><b>Scrub it out.</b> Zigzag over any word and it goes, with a small puff of authenticity. Tap <b>Undo</b> in the button bar; tap it again and the undo undoes.</li>
+<li><span class="gbtn" id="g-extras">Open Extras</span> — the drawer is the launcher. Everything is an icon; the Notepad is the <b>backdrop</b>, the one application that cannot be closed.</li>
+<li><span class="gbtn" id="g-assist">Tap the light bulb</span> and write <code>lunch tomorrow</code>. The Assistant will schedule it, and you will see why this button is the exhibit's best argument.</li>
+</ul>
+<p class="note">The status bar at the bottom of each application carries its standard buttons:
+the analog clock (tap it), <b>i</b> for about, <b>A</b> for how ink is recognised, the keyboard,
+◆New and ◆Show. The ⊠ close box lives in the bottom-right corner — of every slip, every
+application, every keyboard. Apple's guidelines are unbending on this.</p>`;
+Guide.PAGES.instant = `
+<h3>Instant on</h3>
+<p>Every desktop exhibit in this museum begins with a wait: memory counts, boot chimes, kernels
+scrolling by. The Newton begins with <b>nothing</b>. Slide the switch and the screen you left is
+simply there again, mid-thought. Slide it off and nothing is lost.</p>
+<p>This wasn't a party trick; it was the design constraint that separates the Mobile wing from
+the Desktop wing. A thing used standing up, in the seconds between a handshake and a meeting,
+cannot ask you to wait ninety seconds or to remember to save. So the Newton has:</p>
+<ul>
+<li><b>no boot sequence</b> — the OS lives in 8 MB of ROM and never shuts down, it only sleeps;</li>
+<li><b>no Save command anywhere</b> — there is nothing to save <i>to</i>; every stroke lands in
+storage as it happens (see <i>Soups</i>);</li>
+<li><b>no files, no Finder, no desktop</b> — a filing metaphor assumes a desk.</li>
+</ul>
+<p>Try it: write half a word, power off with the switch, power on. The half-word is waiting.
+This page persists your machine the same way — close the tab and come back.</p>
+<p class="note">Every phone in every pocket now works exactly like this, and none of them call
+it anything, because it stopped being a feature and became the water.</p>`;
+Guide.PAGES.ui = `
+<h3>Slips, drawers, and a ⊠ in the corner</h3>
+<p>Newton's window vocabulary is small and strict, and this exhibit keeps to it:</p>
+<ul>
+<li>A <b>slip</b> is a small view for one task — a meeting's details, a search, a new name.
+Movable slips have the <b>matte border</b> (grey band edged in black) and a <b>drag handle</b>,
+the black tab with a hole at the top. Stationary ones don't. Drag one by its handle.</li>
+<li>The <b>Close box ⊠ is always bottom-right</b>. On a slip that performs an action, a verb
+button (<code>Do</code>, <code>Find</code>, <code>Schedule</code>) sits beside it: verb means
+<i>do it</i>, ⊠ means <i>never mind</i>. Apple's guidelines call any other arrangement ambiguous,
+and they are right.</li>
+<li>A <b>drawer</b> slides up from the bottom — tap <b>Extras</b>.</li>
+<li>An <b>alert</b> wears a thick wavy border; a <b>routing slip</b> (print, fax, beam, mail)
+wears the striped border of an airmail envelope. Try the envelope button on any note's
+separator bar.</li>
+<li><b>Pickers</b> pop from anything marked ◆. The list is plain, black-framed, and closes when
+you tap elsewhere.</li>
+<li>Each note in the Notepad hangs under a <b>separator bar</b>: item-type button on the left,
+title in bold, filing and envelope buttons on the right. Drawing a line all the way across the
+pad would start a new note on the real machine; here, tap ◆New.</li>
+</ul>
+<p>The <b>button bar</b> along the bottom is the machine's fixed furniture: Names, Dates,
+Extras, the scroll arrows with the Overview dot between them (tap the dot — every application
+answers it with a list), then Undo, Find, Assist. On the MessagePad 2000 this bar was drawn on
+the LCD — earlier models had it silk-screened on the case — and it rotated with the screen.</p>`;
+Guide.PAGES.recog = `
+<h3>Recognition, honestly</h3>
+<p>The first Newton (1993) shipped with a cursive recogniser licensed from a Russian team —
+dictionary-bound, needing training, and slow on the day-one hardware. Within three weeks Garry
+Trudeau had a <i>Doonesbury</i> week where "Catching on?" came out <b>"Egg freckles?"</b>, and
+The Simpsons later turned "Beat up Martin" into <b>"Eat up Martha"</b>. The reputation never
+recovered — even after Newton 2.0 (1996) added <b>Rosetta</b>, a printed-text recogniser built
+at Apple by Larry Yaeger's group that was, by every contemporary account, genuinely good.
+By 2.1 on this hardware it was arguably the best handwriting recognition ever shipped.
+Rosetta outlived the Newton as Mac OS X's Inkwell.</p>
+<h4>What this exhibit does</h4>
+<p class="note">The recogniser here is a <b>parody with a good heart</b>, and the museum will
+not pretend otherwise: it measures your strokes — how many, how wide, how frantic — and picks
+the nearest word from a small 1997 vocabulary. Writing neatly and slowly genuinely improves
+its guesses; scrawling genuinely summons the jokes. It cannot read. Neither can it libel the
+real Rosetta, which could.</p>
+<ul>
+<li><b>Text</b> mode (the <b>A</b> button): strokes become a typeset word after a pause.
+<b>Double-tap any word</b> for the correction picker — alternates, a keyboard, and the truth.</li>
+<li><b>Ink Text</b> <span class="gbtn" id="g-inkmode">switch to it</span>: your writing stays
+ink, flowing with the text; <b>double-tap the ink</b> later to recognise it. This deferred
+recognition was 2.0's cleverest idea — take notes at writing speed, recognise at leisure.</li>
+<li><b>Shapes</b> <span class="gbtn" id="g-shapes">switch</span>: circles become circles,
+boxes become boxes, wobbly lines become straight.</li>
+<li><b>Sketches</b>: the pen is just a pen.</li>
+<li>Typing on the on-screen keyboards is always exact. It was on the machine, too.</li>
+<li><span class="gbtn" id="g-align">Align the pen</span> — the small ritual every owner knew.</li>
+</ul>`;
+Guide.PAGES.assist = `
+<h3>The Intelligent Assistant</h3>
+<p>The light bulb is the oldest ancestor of every "assistant" in your life. Tap it (or select
+words first), write a request, tap <b>Do</b>. The rules — Apple documented them precisely —
+are the same rules this exhibit implements:</p>
+<ul>
+<li><b>Verbs first</b>: call, fax, find, mail, print, remember, schedule, time. Meal words count
+as scheduling verbs, so <code>lunch tomorrow</code> is a complete sentence.</li>
+<li><b>Word order is free</b>: "Rachel call" and "call Rachel" are the same request.</li>
+<li><b>Unknown words are ignored</b>, so "please do remember to buy milk somehow" works.</li>
+<li>Fifteen words maximum. After that the Assistant declines, as the manual promised.</li>
+<li>The Assistant never acts blind: it fills in a <b>task slip</b> — the application's own
+slip, pre-filled — and you confirm. Try <span class="gbtn" id="g-assist">lunch tomorrow</span>.</li>
+</ul>
+<p>What made it more than a parlour trick: the Assistant reaches into the same soups as every
+application, so "call Rachel" finds Rachel's number in Names, and "lunch tomorrow" writes into
+the Date Book. In 1994 this was science fiction with a ship date. In 2011 Apple shipped it
+again with a microphone and called it Siri — whose canonical demo, scheduling lunch, is this
+demo.</p>`;
+Guide.PAGES.soups = `
+<h3>There are no files in this machine</h3>
+<p>The Newton has no filesystem in the user's world: no documents, no folders-of-files, no
+Save As. Data lives in system-wide, queryable stores called <b>soups</b> — one for notes, one
+for names, one for the calendar — and applications ask for <i>entries</i>, not files. That is
+why <b>Find</b> searches every application at once (including closed ones), why the
+<b>Assistant</b> can wire Names into Dates, and why nothing ever needs saving.</p>
+<p>These are this exhibit's actual soups, live — write a note and refresh:</p>
+<div class="soup" id="g-soupview"></div>
+<span class="gbtn" id="g-soup">Refresh</span>
+<p>Cards (the PCMCIA kind) added stores: insert a card and its soups <i>union</i> with internal
+ones — the Names file shows one alphabet, wherever the cards actually live. The museum's other
+radical filing cabinet is the <a href="chokanji.html">Chokanji</a> exhibit's web of 実身 and 仮身;
+the Newton's answer to the same question was to abolish the cabinet entirely.</p>`;
+Guide.PAGES.hw = `
+<h3>The hardware under the glass</h3>
+<ul>
+<li><b>StrongARM SA-110 at 162 MHz</b> — DEC's implementation of the ARM architecture, roughly
+ten times the speed of the ARM 610 in the original 1993 MessagePad, sipping from four AA cells.
+The fastest processor Apple shipped in <i>anything</i> in March 1997 was in the hand-held.</li>
+<li><b>480 × 320 at 100 dpi, sixteen greys</b>, transflective supertwist LCD with the green-grey
+cast this exhibit wears. The <b>backlight</b> is an electroluminescent panel — wristwatch-glow
+technology. Hold the power switch to toggle it, exactly as on the real case.</li>
+<li><b>1 MB of DRAM, 4 MB of flash</b> for storage, <b>8 MB of ROM</b> holding the OS.</li>
+<li>Two PC Card slots on the top edge, an infrared window, the InterConnect port.
+8.3 × 4.7 × 1.1 inches, 1.4 pounds, $949.</li>
+</ul>
+<h4>The ARM in the room</h4>
+<p>ARM Ltd exists in large part <i>because of this product line</i>: Apple, Acorn and VLSI
+founded it in November 1990, largely so the Newton project would have a processor. The museum's
+<a href="riscos.html">RISC OS exhibit</a> tells the Acorn half of that story; this machine is the
+Apple half. The instruction set they spun out is now in essentially every phone on Earth —
+which means the Newton's processor won even though the Newton lost.</p>`;
+Guide.PAGES.try = `
+<h3>Try this</h3>
+<ul>
+<li><span class="gbtn" id="g-write">Write on the Notepad</span> — then double-tap the word it guessed.</li>
+<li>Tap <b>A</b> on the status bar, pick <b>Shapes</b>, draw a bad circle. Watch it improve.</li>
+<li>Pick <b>Ink Text</b>, write three words fast, then double-tap each one to recognise it later.</li>
+<li>Zigzag (<b>scrub</b>) over a word: gone. <b>Undo</b>, then Undo again.</li>
+<li><span class="gbtn" id="g-assist">Assist: “lunch tomorrow”</span> — confirm the slip, then open
+<span class="gbtn" id="g-dates">Dates</span> and find it there.</li>
+<li><span class="gbtn" id="g-names">Open Names</span> — tap a phone number, and let the
+speaker dial it with real touch-tones (sound on at the rail first). Hold your phone to the
+speaker if you want the joke to complete.</li>
+<li><span class="gbtn" id="g-find">Find “egg”</span> — one search, every soup, closed
+applications included.</li>
+<li>Tap the ● dot between the scroll arrows: the Overview, in any application.</li>
+<li>Tap the little clock on the status bar: time and battery, gone in three seconds.</li>
+<li><span class="gbtn" id="g-back">Toggle the backlight</span>, or hold the power switch —
+then check the battery gauge again in a while.</li>
+<li>Double-tap a blank line: the keyboard slides up. Drag it around by its handle. Find its ⊠.</li>
+<li><span class="gbtn" id="g-calc">Open the Calculator</span>, or Extras → Time Zones.</li>
+</ul>`;
+Guide.PAGES.limits = `
+<h3>Honest limitations</h3>
+<h4>The recogniser is a parody</h4>
+<p>Stated plainly in the Recognition tab, and again here: strokes are measured, not read.
+The real Rosetta recognised printed English better than most humans read doctors' notes.</p>
+<h4>The screen does not rotate</h4>
+<p>A real 2000 turned its display — and the soft button bar — to all four orientations from
+the Extras Drawer. This exhibit keeps the portrait bezel; the Rotate button owns up rather
+than pretending it isn't there.</p>
+<h4>Nothing leaves the machine</h4>
+<p>Printing, faxing, beaming and mail end at a routing slip and a polite notification.
+The In/Out Box, dial-up, the modem cards and NewtonMail are beyond a museum page — but the
+striped envelope border they shared is here.</p>
+<h4>Simplifications</h4>
+<p>Ink flows word-by-word rather than mixing mid-word with typed text; caret gestures (the
+insertion-caret picker, scrub variants, tap-and-a-half selection) are reduced to tap, double-tap
+and scrub; folders exist for notes only; repeating meetings, week and year views are absent;
+and slips here are drawn in whole pixels at one scale, where the real screen packed 100 to
+the inch. The soft button bar cannot be customised by dragging icons onto it, which the
+real 2000 allowed. Where the guidelines gave a measurement, the measurement was followed;
+where memory and screenshots disagreed, the plainer option won.</p>
+<h4>What this exhibit is not</h4>
+<p>It contains no Apple code, ROMs, fonts or artwork. Both typefaces are original, drawn for
+this page; the light bulb is redrawn from a written description; the case wears an original
+placeholder where Apple's mark sat. If you want the true machine in a browser, the
+<b>Einstein</b> emulator runs real Newton ROMs — bring your own.</p>`;
+Guide.PAGES.fall = `
+<h3>1993–1998, in one panel</h3>
+<p><b>1987</b> — Steve Sakoman starts the project; Steve Capps, Walter Smith and a small team
+build the software. <b>1991</b> — Michael Tchao pitches John Sculley on turning it from a
+$8,000 tablet into a pocket product, famously on a flight. <b>January 1992</b> — Sculley coins
+a phrase for the CES keynote: <i>personal digital assistant</i>. The initials outlived everything.</p>
+<p><b>2 August 1993</b> — the original MessagePad ships at Macworld Boston, $699. Three weeks
+later, "Egg freckles?" The hardware was slow, the recogniser needed training, and the joke
+arrived before the fixes did. <b>1994–95</b> — MessagePad 100–130: better hardware, and Newton
+2.0 with Rosetta, the printed-handwriting recogniser that actually worked.</p>
+<p><b>March 1997</b> — this machine: the MessagePad 2000, StrongARM inside, and Newton OS 2.1.
+The reviews were the best the product ever had. The <b>eMate 300</b> — a Newton in a clamshell
+for schools — shipped the same spring. Apple spun the division out as Newton Inc.,
+then pulled it back in.</p>
+<p><b>27 February 1998</b> — Steve Jobs, back at a desperate Apple, cancels the platform to
+concentrate on the Macintosh. The ideas never left the building: instant-on, no visible
+filesystem, data one query away, an assistant that fills the form in for you — the iPhone
+shipped nine years later, from the same company, with ARM inside, and its launch keynote
+spent one of its biggest laughs on the stylus.</p>
+<p>The community never quite stopped: newtontalk still talks, UNNA archives the software,
+Einstein emulates the ROMs, and MessagePads still turn up at conferences, holding a charge,
+instantly on.</p>`;
+Guide.PAGES.about = `
+<h3>Credit where it is due</h3>
+<p>Newton OS was built at Apple Computer by, among many others, <b>Steve Sakoman</b> and
+<b>Larry Tesler</b> (who led it), <b>Steve Capps</b> (much of the interface), <b>Walter Smith</b>
+(NewtonScript), <b>Michael Tchao</b> (who made it a product), and <b>Larry Yaeger</b>'s group
+(the Rosetta recogniser). The MessagePad 2000's UI guidance came from Apple's published
+<i>Newton 2.0 User Interface Guidelines</i> (1996), which this exhibit follows and quotes.</p>
+<p>This is an unofficial homage, made for The OS Museum: one HTML file, no dependencies, no
+network access, nothing emulated, no Apple assets. Apple, Newton, MessagePad and the light
+bulb logo are trademarks of Apple Inc.; none of them had anything to do with this page.
+The typefaces here are original hand-built stand-ins for the system face and the Casual ink
+face, and the mark on the case is an <b>original placeholder</b>.</p>
+<h4>Around the museum</h4>
+<p>The ARM story continues in <a href="riscos.html">RISC OS 3.11</a> (Acorn's half of the
+joint venture). The other assault on the filing cabinet is <a href="chokanji.html">超漢字V</a>.
+The mobile lineage that <i>didn't</i> die — GEOS becoming the Nokia 9000's OS — hides at the
+end of the <a href="geos.html">GEOS exhibit</a>'s history tab.</p>
+<h4>Sources</h4>
+<p>Newton 2.0 User Interface Guidelines (Apple, 1996); Apple MessagePad Handbook (1995);
+MessagePad 2000 specifications and reviews of March–May 1997; newtonfaq.com; the newted.org
+archives.</p>
+<p style="margin-top:14px"><a href="index.html">← back to The OS Museum</a></p>`;
+
+/* ==========================================================================
+   BOOT
+   ========================================================================== */
+load();
+PAL = DB.prefs.backlight? RAMP_LIT : RAMP_DAY;
+$id("lcdclip").classList.toggle("lit",DB.prefs.backlight);
+$id("btnBacklight").classList.toggle("on",DB.prefs.backlight);
+for(let i=0;i<24;i++){ const d=document.createElement("i"); $id("speaker").appendChild(d); }
+DB.events.filter(e=>e.alarm).forEach(armAlarm);
+fit();
+repaint();
+</script>
+</body>
+</html>

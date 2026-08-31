@@ -85,7 +85,9 @@ Edge cases, settled in advance:
 
 ### 📱 Mobile
 
-*The wing is open and its first exhibit is being hung — nothing here yet.*
+| Year | Exhibit | Vendor | File | What you get |
+|------|---------|--------|------|--------------|
+| 1997 | **Newton OS 2.1 — MessagePad 2000** | Apple | [`newton.html`](newton.html) | The museum's first hand-held, and the wing's founding argument in one gesture: slide the power switch and the screen you left is simply *there* — no memory count, no chime, no kernel scroll, because an operating system that lives in ROM never boots, and nothing here ever needs saving. Portrait inside a MessagePad-style bezel, 320 × 480 in exactly **sixteen shades** of LCD green-grey; hold the power switch and the whole ramp swaps for the pale glow of the electroluminescent backlight, which was wristwatch technology and looked it. The pen is the entire interface. **Write in the Notepad** and the strokes become words after a beat — through a recogniser this exhibit openly admits is a **parody with a good heart**: it measures your strokes and picks the nearest word from a small 1997 vocabulary, so writing neatly genuinely helps, and scrawling genuinely summons *egg freckles* (the guide tells the real story: the cursive recogniser that shipped half-ready in August 1993, the Doonesbury week three weeks later, and Rosetta — Larry Yaeger's print recogniser in Newton 2.0 — which was genuinely excellent and arrived after the joke had already stuck). Double-tap any word for the correction picker. Flip the **A** button to **Ink Text** and your writing stays ink until you double-tap it recognised — deferred recognition, 2.0's cleverest idea; flip it to **Shapes** and wobbly circles become circles. **Scrub a zigzag** over anything and it is gone; tap Undo, then tap Undo again and the undo undoes, exactly as the guidelines specify. The window vocabulary is Apple's own, followed to the pixel where the published *Newton 2.0 User Interface Guidelines* give pixels: matte borders on movable slips only, drag handles with the hole in the middle, a status bar two pixels thick ending two pixels from each edge, wavy alert borders, airmail-striped routing slips, and the **Close box ⊠ in the bottom-right corner of everything**, which every window system since has disagreed with. **Names** is a card file with a–z index tabs and period phone numbers that really dial — tap one and the speaker plays the touch-tones, exactly as the manual suggested you hold the handset to it. **Dates** has day and month views and the to-do list. **Extras** slides up as the drawer of icons. And the **light bulb** is the exhibit's best argument: write *lunch tomorrow*, tap Assist, and the direct ancestor of every assistant in your life reads the phrase — verbs first, word order free, unknown words ignored, fifteen words maximum, all as documented — and fills in the Date Book's own slip for you to confirm, fourteen years before the same company shipped the same demo with a microphone and called it Siri. Underneath there are **no files**: notes, names and meetings live in queryable **soups**, which is why Find searches every application at once (open or not) and why the guide can show you the live soup of everything you have written. Both typefaces — the chrome's bitmap face and the Casual-flavoured ink your words appear in — are **hand-built for this page**, pixel by pixel and stroke by stroke; no Apple fonts, ROMs or artwork anywhere, and an original placeholder sits where the maker's mark sat. A StrongARM at 162 MHz in your hand in March 1997, the fastest processor Apple shipped in anything that year; cancelled 27 February 1998; the instruction set is in your pocket right now |
 
 ## ✨ How the exhibits are built
 
@@ -98,9 +100,10 @@ Every simulation in this museum follows the same rules:
   they don't execute original software or contain any copyrighted binaries. Where an exhibit
   goes deeper — the C64's BASIC interpreter, its video chip, its sound chip and its 6510,
   TempleOS's HolyC compiler and its DolDoc engine, RISC OS's Wimp, its data transfer
-  protocol and its BBC BASIC with an ARM assembler, or GEOS's colour-card display model,
-  its VLIR filesystem and its bitmap font engine — every byte of it is written from
-  scratch to behave like the real thing.
+  protocol and its BBC BASIC with an ARM assembler, GEOS's colour-card display model,
+  its VLIR filesystem and its bitmap font engine, or the Newton's sixteen-grey panel,
+  its hand-built system and ink typefaces and its stroke-measuring recogniser — every
+  byte of it is written from scratch to behave like the real thing.
 
 The landing page ([`index.html`](index.html)) follows the same rules and renders its gallery
 from a small data array, so the museum grows without any structural changes.
