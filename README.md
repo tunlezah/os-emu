@@ -19,6 +19,36 @@ You can also open any exhibit's `.html` file directly; each one is fully standal
 
 ## 🗂️ The exhibits
 
+The collection hangs in **two wings**, and every exhibit belongs to exactly one of them:
+
+- **🖥️ Desktop** — operating systems designed for a desk: desktop computers, workstations,
+  home computers, laptops/luggables, servers and terminals. Keyboard-and-mouse or
+  command-line first.
+- **📱 Mobile** — operating systems designed for the hand: handhelds, palmtops, pocket
+  computers, PDAs and phones. Stylus, keypad or touch first; battery-powered; instant-on.
+
+### Which wing? (the decision rule)
+
+Categorise by the **device class the OS was designed for**, never by the hardware it
+happens to be demoed on here (everything in this museum runs in a browser anyway).
+
+- **Desktop**: Windows, Mac OS, DOS variants, Amiga Workbench, BeOS, OS/2, classic UNIX
+  desktops, mainframe and server systems — anything that assumed a desk, mains power and
+  a keyboard (with or without a mouse).
+- **Mobile**: Newton OS, Palm OS, Windows CE / Pocket PC, Symbian, EPOC (Psion),
+  BlackBerry OS, early iPhone OS / Android — anything that assumed a hand, a battery and
+  a stylus, keypad or thumb.
+
+Edge cases, settled in advance:
+
+- **Tablets → Mobile.** Touch-first and battery-powered decides it, whatever the size.
+- **Sub-notebooks and luggables running desktop OSes → Desktop.** A Compaq Portable or a
+  Libretto running Windows 95 is a small desk, not a big palm.
+- **An OS with both desktop and handheld editions is categorised per edition.** Windows 95
+  is Desktop; Windows CE is Mobile — even though one is drawn to look like the other.
+
+### 🖥️ Desktop
+
 | Year | Exhibit | Vendor | File | What you get |
 |------|---------|--------|------|--------------|
 | 1981 | **Xerox 8010 Information System (Star)** | Xerox | [`star.html`](star.html) | The machine almost everything on your screen came from, and the only exhibit here that is an argument about *your* computer. 1024 × 808 pixels, one bit deep, 72 dots to the inch: no greys except dither, no colour, nothing antialiased, on a Desktop that is 14 × 11 squares of one inch — 154 places for an icon, exactly as Star's designers described it. The mouse has **two** buttons, SELECT and ADJUST, and there is no third and no context menu, because Star's designers built six different mouse designs and argued in print that three was too many and one too few. Everything is **noun then verb**: select the thing, then press the key. And the keys are the point. Nine of them, on the housing under the screen, doing the same nine things to every object in the system — a character, a paragraph, a line inside a drawing, a table column, a record, an icon, a folder, a printer, a directory entry, a window, a property sheet, and the Desktop itself. Select a word and press **PROP'S**; select the printer and press the same key; select nothing at all and get the Desktop's own sheet. **MOVE is not dragging**: select, press the key, then point at where it goes — and because a printer, an out-basket and a file drawer are *places* rather than commands, printing, mailing and filing are one gesture aimed at three services, which is the moment the design lands. There is no New command anywhere: you copy blank stationery. **UNDO works on everything**, including emptying the wastebasket, closing a window and changing the depth of the display. The document editor is the showpiece — proportional type in nine faces laid out as it will print, real page boundaries, structured drawing inside the document, tables with editable structure, and a **typeset equation editor**, in 1981. Plus file drawers on an 8000-series file server, an in-basket that fills up while you work with mail from colleagues (one complaining that long documents take half a minute to open, one about the price), printer queues, records processing with forms, sort, select and merge, a calculator, a canned terminal session through a gateway, and a character-set browser covering Greek, Cyrillic, Arabic, Hebrew, kana, kanji and mathematics — because the sixteen-bit code underneath it, Xerox's own from 1980, is the direct ancestor of the Unicode drawing those glyphs in your browser right now. There is a button in the museum notes that **registers a brand-new object type while the page is running**, and all nine keys work on it without a line of new code, which is the claim Star's designers made and the reason it was worth making. It shipped on 27 April 1981 at $16,595 — six figures for anything usable — four months before the IBM PC, and sold perhaps 25,000 units |
@@ -53,6 +83,10 @@ You can also open any exhibit's `.html` file directly; each one is fully standal
 | 2025 | **SymbOS 4.0** | Prodatron / SymbiosiS | [`symbos.html`](symbos.html) | A Win9x-grade multitasking desktop on a 4 MHz Z80: pick your machine (CPC, MSX2, Spectrum Next, PCW), then run SymAmp chiptunes, a windowed raycaster and a file copy at once — all accounted for in 16K banks. Not a memory either: the real thing is free at symbos.de |
 | 2026 | **KolibriOS 0.7.7.0+** | KolibriOS Team | [`kolibrios.html`](kolibrios.html) | An entire operating system written in FASM assembly — kernel, drivers and most of the applications — on a 1.44 MB floppy disk, and the only exhibit here that is an argument. The blue loader counts down, the kernel brings up VESA, USB, audio and TCP/IP in lines too fast to read, and the stopwatch stops at about two seconds; it stays in the corner and keeps your session best. Then a desktop with a taskbar, a hummingbird, six loadable skins that restyle every window at once, and `@taskbar`, `@icon` and `@notify` sitting in the process list with their `@` prefixes — kill the taskbar in SysMon and the desktop is still there, because it was only a process. Three file managers (Eolite, KFM and a box-drawn Kfar), Tinypad and CEdit, KIV, FB2READ with real Cyrillic, Fplay, a chiptune tracker, a mixer, the `Board` debug console filling with cheerfully cryptic kernel messages, and a system monitor reporting six megabytes of RAM in use. **FASM runs natively**: there is a real two-pass assembler in here for a restricted x86 subset plus the `int 0x40` API, so the example programs genuinely assemble — real MENUET01 header, real byte counts, "2 passes, 293 bytes" — and genuinely run, in their own windows, in under a second, while a raycaster, a plasma and a video keep going. And WebView cannot open a single mainstream address, because KolibriOS has no TLS and the web moved to HTTPS without it: type `google.com` and get the authentic 301 into a closed door. The resource panel measures this exhibit's own file size and puts it beside the operating system it depicts — **338 370 bytes against 1 474 560** — with a fair note about everything a 1.44 MB image cannot carry. Not a memory either: the real thing is a free GPLv2 download at kolibrios.org, still being written in 2026 |
 
+### 📱 Mobile
+
+*The wing is open and its first exhibit is being hung — nothing here yet.*
+
 ## ✨ How the exhibits are built
 
 Every simulation in this museum follows the same rules:
@@ -73,31 +107,38 @@ from a small data array, so the museum grows without any structural changes.
 
 ## ➕ Adding a new exhibit
 
-New wings are always welcome. To add an OS:
+New exhibits are always welcome. To add an OS:
 
 1. **Create the simulation** as a single self-contained file, e.g. `riscos.html`, following
    the rules above (one file, no external resources, works from `file://`).
-2. **Register it in the gallery** — open [`index.html`](index.html) and append one object to the
+2. **Pick its wing** — `desktop` or `mobile`, using the
+   [decision rule](#which-wing-the-decision-rule) above. Every exhibit must be placed in
+   exactly one wing when it is added; there is no third wing and no "both".
+3. **Register it in the gallery** — open [`index.html`](index.html) and append one object to the
    `EXHIBITS` array near the top of the `<script>` block:
 
    ```js
    {
-     file:   "riscos.html",
-     name:   "RISC OS 3.11",
-     vendor: "Acorn",
-     year:   1992,
-     glyph:  "!Boot",                      // shown on the card's mini screen
-     desc:   "The icon bar, three mouse buttons and a filer that means it.",
-     accent: "#f0c000",                    // card accent colour
-     bg:     "#2a2a3a",                    // mini-screen background
-     tags:   "acorn risc os arm archimedes"  // extra search keywords
+     file:     "riscos.html",
+     name:     "RISC OS 3.11",
+     vendor:   "Acorn",
+     year:     1992,
+     category: "desktop",                  // REQUIRED: "desktop" or "mobile"
+     glyph:    "!Boot",                    // shown on the card's mini screen
+     desc:     "The icon bar, three mouse buttons and a filer that means it.",
+     accent:   "#f0c000",                  // card accent colour
+     bg:       "#2a2a3a",                  // mini-screen background
+     tags:     "acorn risc os arm archimedes"  // extra search keywords
    },
    ```
 
-   Search, sorting and the card grid pick it up automatically — no other changes needed.
+   Search, sorting and the wings pick it up automatically — no other changes needed.
+   The gallery is grouped by `category`; an entry whose category is missing or
+   unrecognised is hung in a red **Uncategorised** bin at the bottom of the page (and
+   logs a console error), so forgetting it is loud rather than quiet.
    If one exhibit ships several builds, add an optional `variants: [{file, label}, …]`
    array to the entry — the card then shows one launch link per build (see NetWare).
-3. **Add a row** to the exhibits table in this README.
+4. **Add a row** to the exhibits table of **that wing** in this README.
 
 ## 📄 Notes
 
