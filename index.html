@@ -128,12 +128,62 @@
     border-color: var(--accent);
   }
 
-  /* ---------- grid & cards ---------- */
-  #grid {
+  /* ---------- wings (categories) & their grids ---------- */
+  #wings { padding-bottom: 30px; }
+  .wing { margin-top: 30px; }
+  .wingbar {
+    display: flex;
+    align-items: baseline;
+    gap: 6px 12px;
+    flex-wrap: wrap;
+    padding: 0 0 10px;          /* overrides the hero header rule */
+    text-align: left;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  .wingbar h2 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--wing-accent, var(--accent));
+  }
+  .wingbar h2::before { content: "▍"; margin-right: 4px; }
+  .wingbar .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    border: 1px solid var(--panel-edge);
+    border-radius: 999px;
+    padding: 2px 10px;
+    white-space: nowrap;
+  }
+  .wingbar .wingdesc {
+    flex: 1 1 100%;
+    color: var(--text-faint);
+    font-size: 0.9rem;
+    max-width: 760px;
+  }
+  .wing.uncat .wingbar { border-bottom-color: #5c2530; }
+  .wing.uncat .wingdesc { color: #d98a97; }
+  .wing .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
     gap: 20px;
-    padding: 26px 0 30px;
+    padding: 20px 0 4px;
+  }
+  /* a wing that is open but has no exhibits hung yet */
+  .wing-vacant {
+    margin: 20px 0 4px;
+    padding: 30px 24px;
+    border: 1px dashed var(--panel-edge);
+    border-radius: var(--radius);
+    background: var(--bg-soft);
+    text-align: center;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
   }
   .card {
     display: flex;
@@ -276,24 +326,57 @@
     </div>
   </div>
 
-  <main id="grid" aria-live="polite"></main>
+  <main id="wings" aria-live="polite"></main>
   <p id="empty">no exhibits match — try another search ▌</p>
 
   <footer>
     <p>Want to add an exhibit? Drop a self-contained <code>.html</code> file in the repo
-       and add one entry to the <code>EXHIBITS</code> array in this page's source.</p>
+       and add one entry — with its <code>category</code>, <code>desktop</code> or
+       <code>mobile</code> — to the <code>EXHIBITS</code> array in this page's source.</p>
   </footer>
 </div>
 
 <script>
 /* ============================================================
+   THE WINGS
+   The museum has exactly two categories, and every exhibit hangs
+   in exactly one of them. Categorise by the device class the OS
+   was DESIGNED for, not the hardware it happens to be demoed on
+   (the README's "Which wing?" section has the full decision rule).
+   An exhibit whose `category` is missing or unrecognised is hung
+   in a red UNCATEGORISED bin so the mistake cannot be shipped
+   quietly.
+   ============================================================ */
+const CATEGORIES = [
+  {
+    id: "desktop",
+    name: "Desktop",
+    accent: "#5eead4",
+    blurb: "Operating systems designed for a desk — workstations, home computers, " +
+           "servers, luggables and terminals. Keyboard-and-mouse or command-line first."
+  },
+  {
+    id: "mobile",
+    name: "Mobile",
+    accent: "#818cf8",
+    blurb: "Operating systems designed for the hand — palmtops, PDAs, phones and " +
+           "tablets. Stylus, keypad or touch first; battery-powered; instant-on.",
+    vacant: "This wing has just opened — its first exhibit is being hung. " +
+            "Handheld, palmtop, PDA and phone operating systems belong here."
+  },
+];
+
+/* ============================================================
    EXHIBIT REGISTRY
    To add a new simulation to the museum, append one object here.
-   That's it — the grid, search and sorting pick it up automatically.
+   That's it — the wings, search and sorting pick it up automatically.
      file:    the .html file next to this index
      name:    display title
      vendor:  company / origin
      year:    release year of the simulated version (used for sorting)
+     category: REQUIRED — "desktop" or "mobile" (see CATEGORIES above).
+               Which wing the exhibit hangs in; every exhibit is in
+               exactly one. Judge by what the OS was designed for.
      glyph:   short text shown on the mini "screen" preview
      desc:    one-liner shown on the card
      accent:  card accent colour  |  bg: mini-screen background colour
@@ -308,6 +391,7 @@ const EXHIBITS = [
     name: "Xerox 8010 Information System (Star)",
     vendor: "Xerox",
     year: 1981,
+    category: "desktop",
     glyph: "Star",
     desc: "1024 \u00d7 808, one bit deep, two mouse buttons named SELECT and ADJUST, and nine command keys that do the same nine things to a letter, a printer, a window and the Desktop. Print by moving a document onto a printer; mail it by moving it onto the out-basket. Then press UNDO \u2014 in 1981.",
     accent: "#d8d2c0", bg: "#2f2d28",
@@ -318,6 +402,7 @@ const EXHIBITS = [
     name: "Commodore 64",
     vendor: "Commodore",
     year: 1982,
+    category: "desktop",
     glyph: "READY.",
     desc: "Blue on blue in under a second, and a Commodore BASIC V2 that genuinely works: type the maze one-liner and watch it pour down the screen, POKE the SID until it sings, then wait for the 1541.",
     accent: "#8d80e6", bg: "#352879",
@@ -328,6 +413,7 @@ const EXHIBITS = [
     name: "Apple Lisa Office System 3.1",
     vendor: "Apple",
     year: 1984,
+    category: "desktop",
     glyph: "the Lisa",
     desc: "The 7/7 suite where the desktop was born — stationery pads, Set Aside, soft power that never forgets, and the politest dialogs ever shipped.",
     accent: "#e8dcc0", bg: "#3a3a3a",
@@ -338,6 +424,7 @@ const EXHIBITS = [
     name: "Windows 1.01",
     vendor: "Microsoft",
     year: 1985,
+    category: "desktop",
     glyph: "1.01",
     desc: "The very first Windows: tiled windows that refuse to overlap, MS-DOS Executive for a shell, monochrome Paint and Reversi — flat, teal and unmistakably 1985.",
     accent: "#5ee8d0", bg: "#00806a",
@@ -348,6 +435,7 @@ const EXHIBITS = [
     name:   "GEOS 2.0",
     vendor: "Berkeley Softworks",
     year:   1988,
+    category: "desktop",
     glyph:  "deskTop",
     desc:   "A complete windows-icons-menus-pointer system with a WYSIWYG proportional word processor, desk accessories in every application and a cross-application clipboard — on a 1 MHz 8-bit machine with 64K, bundled free with the computer. It was only possible because Berkeley Softworks decided the disk drive's own firmware was not good enough and replaced it while it was running. There is a switch for that in the instrument panel. Turn it off and load something.",
     accent: "#e0d8c0",
@@ -359,6 +447,7 @@ const EXHIBITS = [
     name:   "Atari TOS 1.04 + GEM",
     vendor: "Atari",
     year:   1989,
+    category: "desktop",
     glyph:  "GEM",
     desc:   "Two desktops from one codebase, separated by a legal document \u2014 the only exhibit here that is a controlled experiment. Atari\u2019s GEM in ROM, with overlapping windows and a trash can, beside Digital Research\u2019s post-settlement GEM Desktop 2.0 for the PC, with two fixed panes and no trash. Same disk, same toolkit, same year. Try to drag a window on the PC side.",
     accent: "#e0603f",
@@ -370,6 +459,7 @@ const EXHIBITS = [
     name: "RISC OS 3.11",
     vendor: "Acorn",
     year: 1992,
+    category: "desktop",
     glyph: "!Boot",
     desc: "No menu bar anywhere \u2014 every menu comes from the middle mouse button, over whatever you are pointing at. And to save a file you drag its icon into a directory, because there is no path field and there never was.",
     accent: "#f0c000", bg: "#2a2a3a",
@@ -380,6 +470,7 @@ const EXHIBITS = [
     name: "Windows for Workgroups 3.11",
     vendor: "Microsoft",
     year: 1993,
+    category: "desktop",
     glyph: "C:\\>WIN",
     desc: "Program Manager, File Manager and friends on MS-DOS 6.22 — hourglass included.",
     accent: "#4cc2ff", bg: "#00807f",
@@ -390,6 +481,7 @@ const EXHIBITS = [
     name: "SunOS 4.1.4 / OpenWindows 3",
     vendor: "Sun Microsystems",
     year: 1994,
+    category: "desktop",
     glyph: "ok _",
     desc: "The last of the BSD Suns: PROM banner, csh on the glass console, then type openwin for OPEN LOOK — pushpinned menus, elevator scrollbars, an NFS server that hangs and comes back, and Stop-A whenever you like.",
     accent: "#e2ded0", bg: "#5b5952",
@@ -400,6 +492,7 @@ const EXHIBITS = [
     name: "Windows 95",
     vendor: "Microsoft",
     year: 1995,
+    category: "desktop",
     glyph: "Start",
     desc: "The launch-day machine: teal desktop, the brand-new Start button, spatial folders, the Recycle Bin, Device Manager and the orange it's-now-safe farewell — right-click everything.",
     accent: "#00a8a8", bg: "#008080",
@@ -410,6 +503,7 @@ const EXHIBITS = [
     name: "AmigaOS 3.1",
     vendor: "Commodore",
     year: 1994,
+    category: "desktop",
     glyph: "Amiga",
     desc: "Workbench, right-button menus, drag-down screens and the Guru Meditation — grey, Topaz-set and defiantly multitasking.",
     accent: "#ff8a3d", bg: "#1d1230",
@@ -420,6 +514,7 @@ const EXHIBITS = [
     name: "NeXTSTEP 3.3",
     vendor: "NeXT",
     year: 1995,
+    category: "desktop",
     glyph: "NeXT",
     desc: "The elegant black slab that raised a generation of app design — and the web itself.",
     accent: "#c9ccd4", bg: "#2b2b2e",
@@ -430,6 +525,7 @@ const EXHIBITS = [
     name: "Novell NetWare 4.11",
     vendor: "Novell",
     year: 1996,
+    category: "desktop",
     glyph: ":LOAD MONITOR",
     desc: "One server, two ways in: the full IntranetWare experience — DOS boot, the blue login, SYSCON, FILER and a live network map — or a quick console-only session of MONITOR, NDS and red-alert beeps.",
     accent: "#ff5555", bg: "#1a0000",
@@ -444,6 +540,7 @@ const EXHIBITS = [
     name:   "Solaris 2.6 / CDE 1.2",
     vendor: "Sun Microsystems",
     year:   1997,
+    category: "desktop",
     glyph:  "CDE",
     desc:   "The Unix industry\u2019s peace treaty, on the workstation that shipped both desktops. Four vendors built one desktop together and by 1997 it ran on every commercial Unix on Earth \u2014 and the login screen still offers OpenWindows instead. Scatter nine windows across four workspaces, log out, log back in, and find every one of them exactly where you left it.",
     accent: "#9b8cff",
@@ -455,6 +552,7 @@ const EXHIBITS = [
     name:   "Slackware Linux 3.4",
     vendor: "Patrick Volkerding",
     year:   1997,
+    category: "desktop",
     glyph:  "darkstar#",
     desc:   "Install it yourself. Choose one of fifty-seven boot floppies from a README, partition with an fdisk that has no undo, tick lettered disk sets with no dependency information of any kind, then type the sync ranges off the back of the monitor into xf86config and find out. Nothing congratulates you when it works.",
     accent: "#7fd1a0",
@@ -466,6 +564,7 @@ const EXHIBITS = [
     name:   "QNX 4 \u2014 The Incredible 1.44M Demo",
     vendor: "QNX Software Systems",
     year:   1999,
+    category: "desktop",
     glyph:  "1.44M",
     desc:   "A hard real-time microkernel of about seven kilobytes, the Photon microGUI, a TCP/IP stack, a web server AND a graphical browser \u2014 on one 1 474 560-byte floppy. Watch the processes talk, then slay the GUI and find the machine still running underneath.",
     accent: "#39c9b0",
@@ -477,6 +576,7 @@ const EXHIBITS = [
     name: "BeOS R5",
     vendor: "Be Inc.",
     year: 2000,
+    category: "desktop",
     glyph: "BeOS",
     desc: "The multimedia OS that was too good to live — Tracker, Deskbar and pervasive threads.",
     accent: "#ffd24d", bg: "#2c3038",
@@ -487,6 +587,7 @@ const EXHIBITS = [
     name: "Mac OS X 10.0 “Cheetah”",
     vendor: "Apple",
     year: 2001,
+    category: "desktop",
     glyph: "Aqua",
     desc: "Lickable Aqua buttons, the first Dock, and a brand-new Unix core underneath.",
     accent: "#7fb8ff", bg: "#20406a",
@@ -497,6 +598,7 @@ const EXHIBITS = [
     name: "Mac OS 9.2.2",
     vendor: "Apple",
     year: 2001,
+    category: "desktop",
     glyph: "⌘",
     desc: "Platinum at its peak — the Finder's last classic stand before OS X took over.",
     accent: "#b8bdd0", bg: "#4d5a86",
@@ -507,6 +609,7 @@ const EXHIBITS = [
     name: "IBM OS/2 Warp 4.52",
     vendor: "IBM",
     year: 2001,
+    category: "desktop",
     glyph: "OS/2",
     desc: "The Workplace Shell in all its object-oriented glory — Warp speed, Mr. Sulu.",
     accent: "#5ee87f", bg: "#0d2b45",
@@ -517,6 +620,7 @@ const EXHIBITS = [
     name: "Plan 9 from Bell Labs",
     vendor: "Bell Labs",
     year: 2002,
+    category: "desktop",
     glyph: "term%",
     desc: "What Unix's own authors built once they had twenty years of hindsight. cat /dev/mouse prints your mouse as text, bind rebuilds one window's world while its neighbour's stands untouched, ns prints the namespace that proves it — and acme, rc, sam, the plumber and a swinging catclock all work. Almost nobody ran it; UTF-8, /proc, containers and Go walked out of this room.",
     accent: "#55aaaa", bg: "#777777",
@@ -527,6 +631,7 @@ const EXHIBITS = [
     name: "Mac OS X 10.4 \u201cTiger\u201d",
     vendor: "Apple",
     year: 2005,
+    category: "desktop",
     glyph: "\u2318Space",
     desc: "The release that bet the filing cabinet was finished. Spotlight, Smart Folders and mdfind are all clients of one metadata index \u2014 build it, touch a file in Terminal, then watch it appear inside a Smart Folder you never put it in. Peak brushed metal, F12 for widgets with the ripple, and Rosetta quietly translating a PowerPC application while Activity Monitor tells on it.",
     accent: "#c8dcf0", bg: "#1b3a68",
@@ -537,6 +642,7 @@ const EXHIBITS = [
     name: "IBM z/OS 3.1",
     vendor: "IBM",
     year: 2023,
+    category: "desktop",
     glyph: "READY",
     desc: "IPL the system, log on through VTAM, edit JCL in ISPF, submit to JES2, watch SDSF — the green screen that still runs the world's banks. Not retro: this is next Tuesday.",
     accent: "#35e835", bg: "#020a02",
@@ -547,6 +653,7 @@ const EXHIBITS = [
     name: "SymbOS 4.0",
     vendor: "Prodatron / SymbiosiS",
     year: 2025,
+    category: "desktop",
     glyph: "SymbOS",
     desc: "Preemptive multitasking, windows, chiptunes and a raycaster on a 4 MHz Z80 — pick a CPC, MSX2, Spectrum Next or PCW and watch four colours do the impossible. Still real, still free: symbos.de.",
     accent: "#ffd24d", bg: "#20208a",
@@ -557,6 +664,7 @@ const EXHIBITS = [
     name:   "Windows 8",
     vendor: "Microsoft",
     year:   2012,
+    category: "desktop",
     glyph:  "⊞ 8",
     desc:   "Two operating systems bolted together: a Start screen of tiles that genuinely live, charms hiding off the right edge, semantic zoom that still feels good — and behind it all, a desktop whose bottom-left corner is conspicuously, historically bare. Shutdown is four levels deep; the exhibit counts your clicks.",
     accent: "#2672ec",
@@ -568,6 +676,7 @@ const EXHIBITS = [
     name:   "KolibriOS 0.7.7.0+",
     vendor: "KolibriOS Team",
     year:   2026,
+    category: "desktop",
     glyph:  "int 0x40",
     desc:   "A whole operating system written in FASM assembly — kernel, drivers and most of the applications — on a 1.44 MB floppy, booting to a desktop in two seconds flat. Watch the stopwatch stop, turn twenty lines of source into a running program before you finish reading them, then watch the browser fail to open the modern web because it has no TLS. Six megabytes of RAM, in 2026. Still real, still free: kolibrios.org.",
     accent: "#5ee8d0",
@@ -579,6 +688,7 @@ const EXHIBITS = [
     name:   "超漢字V (Chokanji V)",
     vendor: "Personal Media / TRON",
     year:   2006,
+    category: "desktop",
     glyph:  "超漢字",
     desc:   "The last living BTRON, and the only filesystem in this museum that is a web instead of a tree: no directories, no path syntax, no extensions — just 実身 (objects) and 仮身 (references living inside other documents' content), so a document can hold a reference to itself, one object can sit in many places at once, and the link map draws a picture nothing else here can. Then 180,000 characters while the rest of the industry argued about 65,536: search わたなべ and 渡辺・渡邊・渡邉 arrive, followed by deliberately empty boxes for the forms Unicode never encoded — which is why registries and libraries kept buying a \"dead\" OS for twenty years. Runs where it really runs: a VMware guest inside Windows. Last build 12 February 2025.",
     accent: "#d8b25a",
@@ -590,6 +700,7 @@ const EXHIBITS = [
     name:   "HelenOS 0.14.1 \u201cAladar\u201d",
     vendor: "HelenOS project",
     year:   2024,
+    category: "desktop",
     glyph:  "/ #",
     desc:   "The microkernel that actually arrived. The kernel does scheduling, memory and message passing; every filesystem, every driver, the whole network stack and the entire GUI are separate userspace programs talking over phones. Choose one of nine architectures at the door, watch the system assemble itself out of two dozen servers, then open the task list and kill the filesystem server \u2014 the file manager reports an error, the clock keeps ticking, and nothing else notices.",
     accent: "#80c8ff",
@@ -601,6 +712,7 @@ const EXHIBITS = [
     name:   "TempleOS 5.03",
     vendor: "Terry A. Davis",
     year:   2017,
+    category: "desktop",
     glyph:  "U0",
     desc:   "One man wrote a kernel, a compiler, a language, a filesystem, a document format and a graphics stack, alone, and put it in the public domain. 640\u00d7480 and sixteen colours are not defaults \u2014 there is no panel behind them. The prompt is the compiler, so \"Hello World\\n\"; is a whole program. Every file is a living document, which is why the sprite in the middle of a comment really is in the file: edit it, press F5, and what you drew is what runs. Nothing is protected from anything. The oracle works, as it worked.",
     accent: "#ffff55",
@@ -612,6 +724,7 @@ const EXHIBITS = [
     name:   "Windows XP Service Pack 2",
     vendor: "Microsoft",
     year:   2004,
+    category: "desktop",
     glyph:  "start",
     desc:   "The release where the default flipped from open to closed, and the only exhibit here whose whole argument takes fifteen seconds: turn the firewall off in Security Center, use Connect To \u2192 Dial-up to the Internet, and meet a sixty-second shutdown countdown that explains nothing and cannot be cancelled by its own OK button \u2014 then turn the firewall on, connect again, and watch nothing happen at all. Around that: a splash whose three blue blocks march through a trough that tells you nothing, the Welcome screen with its glowing divider, a green start button, Common Tasks, the dog, an F8 menu with the line SP2 added so you could finally read your own blue screen, and Space Cadet, playable.",
     accent: "#3ba518",
@@ -619,10 +732,23 @@ const EXHIBITS = [
     tags:   "windows xp microsoft sp2 service pack 2 2004 luna blue olive green silver metallic homestead windows classic start menu welcome screen fast user switching security center windows firewall automatic updates data execution prevention dep attachment execution service information bar pop-up blocker internet explorer 6 outlook express manage add-ons blaster sasser msblast nt authority system shutdown -a countdown ntldr boot.ini f8 advanced options menu safe mode vga mode bsod stop error minidump error reporting balloon tips notification area system tray quick launch common tasks folder templates filmstrip thumbnails search companion dog rover explorer my computer my documents recycle bin control panel category view classic view product activation wpa 5.1.2600 systeminfo ver cmd solitaire freecell minesweeper spider hearts 3d pinball space cadet bliss homage iconfactory taskbar grouping msconfig regedit device manager disk management system restore remote desktop wireless zero configuration"
   },
   {
+    file:   "newton.html",
+    name:   "Newton OS 2.1",
+    vendor: "Apple",
+    year:   1997,
+    category: "mobile",
+    glyph:  "egg freckles?",
+    desc:   "The museum's first hand-held: a StrongARM behind sixteen shades of LCD green, instant on because an OS in ROM never boots, and no files anywhere — just soups. Write on the pad and meet a recogniser that is honestly a parody (neat writing genuinely helps); tap the light bulb, write lunch tomorrow, and watch the ancestor of every assistant fill in the slip. The close box is in the bottom-right corner, where Apple put it.",
+    accent: "#8fd8b0",
+    bg:     "#3c443e",
+    tags:   "apple newton newtonos newton os 2.1 messagepad 2000 2100 emate 300 pda personal digital assistant handheld palmtop stylus pen handwriting recognition rosetta calligrapher ink text deferred recognition egg freckles eat up martha doonesbury simpsons assist intelligent assistant siri soups slips extras drawer notepad names dates date book to do list strongarm sa-110 dec arm 162 mhz sculley sakoman tchao capps tesler yaeger larry 1993 1997 1998 cancelled jobs instant on el backlight grayscale greyscale 480x320 320x480 16 grays mobile wing pcmcia pc card infrared beam newtonscript einstein unna newted 1 megabyte dram 4 mb flash close box matte border drag handle scrub gesture undo redo find magnifying glass light bulb"
+  },
+  {
     file:   "irix.html",
     name:   "SGI IRIX 4.0.5 + fsn",
     vendor: "Silicon Graphics",
     year:   1993,
+    category: "desktop",
     glyph:  "hinv",
     desc:   "The machine from cinema's most famous computer scene, and all of it was real: PROM diagnostics, 4Dwm and the Toolchest, xwsh running a genuine csh and vi, hinv, /usr/people for homes — then launch fsn, the actual 3D file browser, and fly along the wires between glowing pedestals. She was right. It was a UNIX system.",
     accent: "#7f9ad0",
@@ -632,80 +758,139 @@ const EXHIBITS = [
 ];
 
 /* ---------- rendering ---------- */
-const grid   = document.getElementById("grid");
-const empty  = document.getElementById("empty");
-const search = document.getElementById("search");
-let sortKey  = "year";
+const wingsEl = document.getElementById("wings");
+const empty   = document.getElementById("empty");
+const search  = document.getElementById("search");
+let sortKey   = "year";
+
+function makeCard(e) {
+  /* cards with variants hold several real links, so their root can't
+     be an <a> — clicking anywhere outside a link boots the primary */
+  const a = document.createElement(e.variants ? "div" : "a");
+  a.className = "card";
+  if (e.variants) {
+    a.tabIndex = 0;
+    a.setAttribute("role", "link");
+    a.setAttribute("aria-label", e.name + " — boot " + e.file);
+    a.addEventListener("click", ev => {
+      if (!ev.target.closest("a")) location.href = e.file;
+    });
+    a.addEventListener("keydown", ev => {
+      if (ev.key === "Enter" && ev.target === a) location.href = e.file;
+    });
+  } else {
+    a.href = e.file;
+  }
+  a.style.setProperty("--card-accent", e.accent);
+  a.style.setProperty("--card-bg", e.bg);
+  a.style.setProperty("--card-shadow", e.accent + "59"); /* ~35% alpha */
+
+  const screen = document.createElement("div");
+  screen.className = "screen";
+  const glyph = document.createElement("span");
+  glyph.className = "glyph";
+  glyph.textContent = e.glyph;
+  screen.appendChild(glyph);
+
+  const body = document.createElement("div");
+  body.className = "body";
+  const row = document.createElement("div");
+  row.className = "titlerow";
+  const h2 = document.createElement("h2");
+  h2.textContent = e.name;
+  const year = document.createElement("span");
+  year.className = "year";
+  year.textContent = e.year;
+  row.append(h2, year);
+
+  const vendor = document.createElement("div");
+  vendor.className = "vendor";
+  vendor.textContent = e.vendor;
+  const desc = document.createElement("p");
+  desc.className = "desc";
+  desc.textContent = e.desc;
+  const launches = (e.variants || [e]).map(v => {
+    const launch = document.createElement(e.variants ? "a" : "span");
+    launch.className = "launch";
+    if (e.variants) launch.href = v.file;
+    launch.textContent = "boot " + v.file + (v.label ? " — " + v.label : "");
+    return launch;
+  });
+
+  body.append(row, vendor, desc, ...launches);
+  a.append(screen, body);
+  return a;
+}
 
 function render() {
   const q = search.value.trim().toLowerCase();
-  const items = EXHIBITS
-    .filter(e => !q || [e.name, e.vendor, String(e.year), e.desc, e.tags || ""]
-      .join(" ").toLowerCase().includes(q))
-    .sort((a, b) => sortKey === "year"
-      ? a.year - b.year || a.name.localeCompare(b.name)
-      : a.name.localeCompare(b.name));
+  const matches = e => !q || [e.name, e.vendor, String(e.year), e.desc, e.tags || ""]
+    .join(" ").toLowerCase().includes(q);
+  const bySort = (a, b) => sortKey === "year"
+    ? a.year - b.year || a.name.localeCompare(b.name)
+    : a.name.localeCompare(b.name);
 
-  grid.replaceChildren(...items.map(e => {
-    /* cards with variants hold several real links, so their root can't
-       be an <a> — clicking anywhere outside a link boots the primary */
-    const a = document.createElement(e.variants ? "div" : "a");
-    a.className = "card";
-    if (e.variants) {
-      a.tabIndex = 0;
-      a.setAttribute("role", "link");
-      a.setAttribute("aria-label", e.name + " — boot " + e.file);
-      a.addEventListener("click", ev => {
-        if (!ev.target.closest("a")) location.href = e.file;
-      });
-      a.addEventListener("keydown", ev => {
-        if (ev.key === "Enter" && ev.target === a) location.href = e.file;
-      });
+  /* every exhibit hangs in exactly one wing; anything with a missing or
+     unknown category is hung in a red bin nobody can ship by accident */
+  const known = new Set(CATEGORIES.map(c => c.id));
+  const stray = EXHIBITS.filter(e => !known.has(e.category));
+  if (stray.length) console.error(
+    "OS Museum: exhibits without a valid category (must be one of " +
+    [...known].join(" | ") + "): " + stray.map(e => e.file).join(", "));
+
+  const wings = CATEGORIES.map(c =>
+    ({ ...c, all: EXHIBITS.filter(e => e.category === c.id) }));
+  if (stray.length) wings.push({
+    id: "uncategorised", name: "Uncategorised", accent: "#ff6b6b", uncat: true,
+    blurb: "These entries declare no valid category. Every exhibit must hang in " +
+           "exactly one wing — set category to \"desktop\" or \"mobile\" in the " +
+           "EXHIBITS array.",
+    all: stray
+  });
+
+  let shown = 0;
+  const sections = [];
+  for (const w of wings) {
+    const items = w.all.filter(matches).sort(bySort);
+    if (q && !items.length) continue;      /* searching: hide silent wings */
+    shown += items.length;
+
+    const sec = document.createElement("section");
+    sec.className = "wing" + (w.uncat ? " uncat" : "");
+    sec.id = w.id;
+    sec.style.setProperty("--wing-accent", w.accent);
+    sec.setAttribute("aria-labelledby", "wing-h-" + w.id);
+
+    const bar = document.createElement("header");
+    bar.className = "wingbar";
+    const h = document.createElement("h2");
+    h.id = "wing-h-" + w.id;
+    h.textContent = w.name;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = items.length + (items.length === 1 ? " exhibit" : " exhibits");
+    const blurb = document.createElement("p");
+    blurb.className = "wingdesc";
+    blurb.textContent = w.blurb;
+    bar.append(h, count, blurb);
+    sec.appendChild(bar);
+
+    if (items.length) {
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      grid.append(...items.map(makeCard));
+      sec.appendChild(grid);
     } else {
-      a.href = e.file;
+      const vacant = document.createElement("p");
+      vacant.className = "wing-vacant";
+      vacant.textContent = w.vacant || "This wing is open, but nothing hangs in it yet.";
+      sec.appendChild(vacant);
     }
-    a.style.setProperty("--card-accent", e.accent);
-    a.style.setProperty("--card-bg", e.bg);
-    a.style.setProperty("--card-shadow", e.accent + "59"); /* ~35% alpha */
+    sections.push(sec);
+  }
 
-    const screen = document.createElement("div");
-    screen.className = "screen";
-    const glyph = document.createElement("span");
-    glyph.className = "glyph";
-    glyph.textContent = e.glyph;
-    screen.appendChild(glyph);
-
-    const body = document.createElement("div");
-    body.className = "body";
-    const row = document.createElement("div");
-    row.className = "titlerow";
-    const h2 = document.createElement("h2");
-    h2.textContent = e.name;
-    const year = document.createElement("span");
-    year.className = "year";
-    year.textContent = e.year;
-    row.append(h2, year);
-
-    const vendor = document.createElement("div");
-    vendor.className = "vendor";
-    vendor.textContent = e.vendor;
-    const desc = document.createElement("p");
-    desc.className = "desc";
-    desc.textContent = e.desc;
-    const launches = (e.variants || [e]).map(v => {
-      const launch = document.createElement(e.variants ? "a" : "span");
-      launch.className = "launch";
-      if (e.variants) launch.href = v.file;
-      launch.textContent = "boot " + v.file + (v.label ? " — " + v.label : "");
-      return launch;
-    });
-
-    body.append(row, vendor, desc, ...launches);
-    a.append(screen, body);
-    return a;
-  }));
-
-  empty.style.display = items.length ? "none" : "block";
+  wingsEl.replaceChildren(...sections);
+  empty.style.display = (q && !shown) ? "block" : "none";
 }
 
 search.addEventListener("input", render);
