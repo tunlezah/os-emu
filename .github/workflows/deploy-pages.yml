@@ -5,13 +5,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Publish through the Pages Actions pipeline: main is uploaded as an
-# artifact and deployed directly, so no gh-pages branch exists to be
-# deleted by accident — which is how the site went down on 30 Aug 2026.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -20,26 +15,16 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          # if Pages is off (or still pointed at a branch), switch it to
-          # the "GitHub Actions" source rather than failing
-          enablement: true
-
-      - name: Upload the site as a Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # the museum is the repository root; .git and .github are excluded
-          path: .
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Sync main to gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B gh-pages
+          touch .nojekyll
+          git add .nojekyll
+          git commit --allow-empty -m "Publish ${GITHUB_SHA} to gh-pages"
+          git push --force origin gh-pages
