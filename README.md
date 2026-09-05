@@ -92,6 +92,7 @@ reproduces, why the system mattered, what to try first — lives in
 | 1997 | **[Newton OS 2.1 — MessagePad 2000](docs/placards.md#newton-os-21--messagepad-2000)** | Apple | [`newton.html`](newton.html) | The museum's first hand-held: instant on because an OS in ROM never boots, no files anywhere — just soups — and a handwriting recogniser that is honestly a parody |
 | 2000 | **[Palm OS 3.5](docs/placards.md#palm-os-35)** | Palm, Inc. | [`palmos.html`](palmos.html) | The machine that won by subtraction: 160 × 160 pixels, four buttons, no filesystem, no boot and no Save command — HotSync, beam, then flatten the battery |
 | 2007 | **[iPhone OS 1.0 — original iPhone](docs/placards.md#iphone-os-10--original-iphone)** | Apple | [`iphoneos.html`](iphoneos.html) | The device that deleted the intermediary: touch the thing itself, on a physics engine built first — and no App Store, no copy and paste, no MMS, no notifications |
+| 2008 | **[Android 1.0 — T-Mobile G1](docs/placards.md#android-10--t-mobile-g1)** | Google / HTC | [`android.html`](android.html) | The phone that lost the demo and won the market: no on-screen keyboard at all, so the screen slides sideways to a real one — and a notification shade, intents, a Back key that walks out through four applications, and sync with no cable |
 
 ## ✨ How the exhibits are built
 
