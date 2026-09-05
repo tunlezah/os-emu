@@ -40,7 +40,9 @@ be demoed on (everything here runs in a browser anyway). Windows, Mac OS, Amiga,
 UNIX desktops and the mainframes are Desktop; Newton, Palm, Windows CE, Symbian, EPOC, BlackBerry
 and early iPhone OS or Android are Mobile. Edge cases, settled in advance: **tablets are Mobile**
 (touch and battery decide it); **a luggable or sub-notebook running a desktop OS is Desktop**; **an
-OS with both editions is placed per edition** — Windows 95 is Desktop, Windows CE is Mobile.
+OS with both editions is placed per edition** — Windows 95 is Desktop, Windows CE is Mobile; **a fixed
+touch console is Desktop** — a kiosk, an instrument panel, a wall station — because the device class is
+the installation, not the fingertip, which is where LCARS hangs.
 
 Each row below is a one-line summary. The full placard for every exhibit — what the simulation
 reproduces, why the system mattered, what to try first — lives in
@@ -54,6 +56,7 @@ reproduces, why the system mattered, what to try first — lives in
 | 1982 | **[Commodore 64](docs/placards.md#commodore-64)** | Commodore | [`c64.html`](c64.html) | The best-selling computer ever made, where the BASIC prompt *is* the operating system: a real Commodore BASIC V2, POKE the SID, wait for the 1541 |
 | 1984 | **[Apple Lisa Office System 3.1 (7/7)](docs/placards.md#apple-lisa-office-system-31-77)** | Apple | [`lisa.html`](lisa.html) | The birthplace of the desktop: stationery pads, Set Aside vs. Save & Put Away, seven integrated tools and soft power that restores everything — cursor and all |
 | 1985 | **[Windows 1.01](docs/placards.md#windows-101)** | Microsoft | [`win101.html`](win101.html) | Boot MS-DOS, type `WIN`: tiled windows that never overlap, MS-DOS Executive for a shell, monochrome Paint, Reversi and a hidden credits screen |
+| 1987 | **[LCARS — Library Computer Access/Retrieval System](docs/placards.md#lcars--library-computer-accessretrieval-system)** | Michael Okuda | [`lcars.html`](lcars.html) | The exhibit that recreates nothing, because there was nothing to recreate: a working system built behind a 1987 television design language of backlit acrylic — reallocate power and watch the sensors degrade, ask the library a real question, trigger an alert and watch the whole console reorganise |
 | 1988 | **[GEOS 2.0](docs/placards.md#geos-20)** | Berkeley Softworks | [`geos.html`](geos.html) | A complete WIMP desktop with a WYSIWYG word processor on a 1 MHz 6510 with 64K — possible only because it replaced the disk drive's firmware while it was running |
 | 1989 | **[Atari TOS 1.04 + GEM](docs/placards.md#atari-tos-104--gem)** | Atari | [`ataritos.html`](ataritos.html) | A controlled experiment: Atari's GEM in ROM, with overlapping windows and a trash can, beside Digital Research's post-lawsuit GEM Desktop 2.0 without them |
 | 1992 | **[RISC OS 3.11](docs/placards.md#risc-os-311)** | Acorn | [`riscos.html`](riscos.html) | No menu bar anywhere — every menu comes from the middle mouse button — and files are saved by dragging their icon, because there has never been a path field |
