@@ -10,37 +10,221 @@
      THE OS MUSEUM — fully self-contained launcher
      No external fonts, scripts, images or stylesheets required.
      Works from file:// with no server.
+
+     THEMES
+     <html data-theme> is the visitor's choice — dark | light |
+     system | themed — remembered in localStorage by the small
+     script under this stylesheet, which runs before first paint.
+     <html data-mode> is what actually renders: dark | light | skin.
+     <html data-skin> names the OS skin while data-mode="skin".
+     Everything that gives the page its look is a token on :root,
+     so a mode or a skin is one block that overrides tokens (and,
+     for the skins, a strip of window chrome on every card).
      ============================================================ */
   :root {
+    color-scheme: dark;
     --bg: #0b0d12;
+    /* subtle starfield-ish texture, pure CSS */
+    --bg-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(129, 140, 248, 0.15), transparent),
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.10) 1px, transparent 0),
+      radial-gradient(1px 1px at 70% 15%, rgba(255,255,255,0.08) 1px, transparent 0),
+      radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.06) 1px, transparent 0),
+      radial-gradient(1px 1px at 90% 45%, rgba(255,255,255,0.08) 1px, transparent 0);
+    --bg-attach: scroll;
     --bg-soft: #10131b;
     --panel: #151926;
     --panel-edge: #232a3d;
     --text: #e8ecf5;
     --text-dim: #9aa4bb;
     --text-faint: #5d6780;
+    --desk-text: var(--text-faint);      /* text sitting directly on the page background */
+    --hero-color: var(--text-dim);
+    --hero-strong: var(--text);
     --accent: #5eead4;
     --accent-2: #818cf8;
+    --accent-ink: #06251f;               /* text on an accent-filled button */
+    --kicker-color: var(--accent);
+    --cursor-color: var(--accent);
     --glow: rgba(94, 234, 212, 0.35);
-    --radius: 14px;
+    --rule: var(--panel-edge);           /* wing bars, footer rule, count chips */
+    --field-bg: var(--panel);
+    --field-text: var(--text);
+    --field-placeholder: var(--text-faint);
+    --btn-edge: var(--panel-edge);
+    --pill: 999px;                       /* kicker and count chips; square skins set 0 */
+    --radius: 14px;                      /* cards */
+    --radius-sm: 10px;                   /* buttons, the search field */
+    --radius-xs: 6px;                    /* chips */
+    --bevel: 0 0 0 0 transparent;        /* skins put a 3-D bevel recipe here */
+    --field-bevel: 0 0 0 0 transparent;
+    --card-shadow-hover: 0 12px 34px -12px var(--card-shadow, var(--glow));
+    --ink: #1a1d2b;                      /* what pale exhibit accents are darkened towards… */
+    --ink-mix: 0%;                       /* …and by how much (light surfaces need it, dark ones don't) */
+    --h1-fill: linear-gradient(120deg, #ffffff 20%, var(--accent) 55%, var(--accent-2) 90%);
+    --h1-color: transparent;
+    --h1-shadow: none;
     --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --title-font: var(--sans);
   }
+
+  /* ---------- light: the same page with the lights on ---------- */
+  :root[data-mode="light"] {
+    color-scheme: light;
+    --bg: #f3f5f9;
+    --bg-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(79, 70, 229, 0.10), transparent);
+    --bg-soft: #ffffff;
+    --panel: #ffffff;
+    --panel-edge: #d9deea;
+    --text: #12141a;
+    --text-dim: #4b5568;
+    --text-faint: #7b8499;
+    --accent: #0d9488;
+    --accent-2: #4f46e5;
+    --accent-ink: #ffffff;
+    --glow: rgba(13, 148, 136, 0.28);
+    --ink-mix: 55%;
+    --h1-fill: linear-gradient(120deg, #12141a 20%, var(--accent) 55%, var(--accent-2) 90%);
+  }
+
+  /* ---------- the OS skins (data-mode="skin") ----------
+     Each skin is one token block plus a few structural touches.
+     Add a skin: one block like these, and one entry in OSM.SKINS
+     in the bootstrap script below the stylesheet. */
+
+  /* Windows 95 — teal desktop, grey bevels, navy title bars */
+  :root[data-skin="win95"] {
+    color-scheme: light;
+    --sans: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Arial, sans-serif;
+    --mono: Fixedsys, "Lucida Console", Consolas, monospace;
+    --title-font: Arial, "MS Sans Serif", sans-serif;
+    --bg: #008080; --bg-image: none;
+    --bg-soft: #c0c0c0;
+    --panel: #c0c0c0; --panel-edge: #808080;
+    --text: #000000; --text-dim: #1a1a1a; --text-faint: #3c3c3c;
+    --desk-text: #ffffff; --hero-color: #ffffff; --hero-strong: #ffffff;
+    --accent: #000080; --accent-2: #000080; --accent-ink: #ffffff;
+    --kicker-color: #000080; --cursor-color: #ffffff;
+    --glow: rgba(0, 0, 128, 0.25);
+    --rule: #ffffff;
+    --field-bg: #ffffff; --field-text: #000000; --btn-edge: transparent;
+    --radius: 0; --radius-sm: 0; --radius-xs: 0; --pill: 0;
+    --bevel: inset -1px -1px #0a0a0a, inset 1px 1px #ffffff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+    --field-bevel: inset 1px 1px #808080, inset -1px -1px #ffffff, inset 2px 2px #0a0a0a, inset -2px -2px #dfdfdf;
+    --card-shadow-hover: 0 0 0 0 transparent;
+    --ink-mix: 55%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 1px 1px 0 #000000;
+  }
+
+  /* Windows XP — Bliss sky, tan Luna panels, blue gloss, green start */
+  :root[data-skin="winxp"] {
+    color-scheme: light;
+    --sans: Tahoma, Verdana, "Segoe UI", sans-serif;
+    --mono: "Lucida Console", Consolas, monospace;
+    --title-font: "Trebuchet MS", Tahoma, sans-serif;
+    --bg: #3a6ea5;
+    --bg-image: linear-gradient(180deg, #1d4f9c 0%, #4d8fd6 30%, #a9d3f5 50%, #7fb04a 58%, #3f7e2b 100%);
+    --bg-attach: fixed;
+    --bg-soft: #ece9d8;
+    --panel: #ece9d8; --panel-edge: #0455d4;
+    --text: #000000; --text-dim: #2b2b2b; --text-faint: #5a5a5a;
+    --desk-text: #eaf2ff; --hero-color: #eaf2ff; --hero-strong: #ffffff;
+    --accent: #3ba518; --accent-2: #0a5fd6; --accent-ink: #ffffff;
+    --kicker-color: #1c6b04; --cursor-color: #ffffff;
+    --glow: rgba(59, 165, 24, 0.35);
+    --rule: rgba(255, 255, 255, 0.55);
+    --field-bg: #ffffff; --field-text: #000000; --btn-edge: #003c74;
+    --radius: 8px; --radius-sm: 3px; --radius-xs: 3px;
+    --card-shadow-hover: 0 10px 24px -10px rgba(0, 0, 0, 0.5);
+    --ink-mix: 55%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Mac OS 9 — Platinum grey, pinstriped title bars, lavender highlight */
+  :root[data-skin="macos9"] {
+    color-scheme: light;
+    --sans: Geneva, Verdana, "Lucida Grande", Tahoma, sans-serif;
+    --mono: Monaco, "Courier New", monospace;
+    --title-font: Charcoal, Chicago, "Lucida Grande", Geneva, Verdana, sans-serif;
+    --bg: #4d5a86;
+    --bg-image: linear-gradient(160deg, #6a78b3 0%, #4d5a86 45%, #35406a 100%);
+    --bg-attach: fixed;
+    --bg-soft: #dddddd;
+    --panel: #dddddd; --panel-edge: #000000;
+    --text: #000000; --text-dim: #222222; --text-faint: #555555;
+    --desk-text: #e6e9f5; --hero-color: #e6e9f5; --hero-strong: #ffffff;
+    --accent: #9999cc; --accent-2: #3366cc; --accent-ink: #000000;
+    --kicker-color: #333399; --cursor-color: #ffffff;
+    --glow: rgba(153, 153, 204, 0.45);
+    --rule: rgba(255, 255, 255, 0.45);
+    --field-bg: #ffffff; --field-text: #000000; --btn-edge: #000000;
+    --radius: 0; --radius-sm: 6px; --radius-xs: 4px; --pill: 4px;
+    --bevel: inset 1px 1px #ffffff, inset -1px -1px #888888;
+    --field-bevel: inset 1px 1px #888888, inset -1px -1px #ffffff;
+    --card-shadow-hover: 2px 2px 0 0 rgba(0, 0, 0, 0.35);
+    --ink-mix: 55%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 1px 1px 0 #222222;
+  }
+
+  /* Mac OS X Tiger — Aqua blue desktop, brushed metal, traffic lights */
+  :root[data-skin="tiger"] {
+    color-scheme: light;
+    --sans: "Lucida Grande", "Lucida Sans Unicode", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: Monaco, Menlo, "Courier New", monospace;
+    --bg: #1b3a68;
+    --bg-image:
+      radial-gradient(ellipse 70% 60% at 25% 15%, rgba(120, 175, 240, 0.75), transparent 65%),
+      radial-gradient(ellipse 60% 50% at 80% 90%, rgba(60, 120, 200, 0.5), transparent 70%),
+      linear-gradient(180deg, #1e4a86, #0f2749);
+    --bg-attach: fixed;
+    --bg-soft: #e8e8e8;
+    --panel: #e2e2e2; --panel-edge: #8a8a8a;
+    --text: #000000; --text-dim: #333333; --text-faint: #666666;
+    --desk-text: #dfe9f7; --hero-color: #dfe9f7; --hero-strong: #ffffff;
+    --accent: #4d92e0; --accent-2: #1f5faf; --accent-ink: #ffffff;
+    --kicker-color: #1f5faf; --cursor-color: #ffffff;
+    --glow: rgba(77, 146, 224, 0.5);
+    --rule: rgba(255, 255, 255, 0.4);
+    --field-bg: #ffffff; --field-text: #000000; --btn-edge: #8a8a8a;
+    --radius: 8px; --radius-sm: 999px; --radius-xs: 6px;
+    --card-shadow-hover: 0 14px 30px -12px rgba(0, 0, 0, 0.6);
+    --ink-mix: 55%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Windows 8 — flat Metro tiles in each exhibit's own colour */
+  :root[data-skin="win8"] {
+    color-scheme: dark;
+    --sans: "Segoe UI", "Segoe UI Web", Ubuntu, "Helvetica Neue", Arial, sans-serif;
+    --mono: Consolas, "Segoe UI Mono", Menlo, monospace;
+    --bg: #1c1c55;
+    --bg-image: linear-gradient(115deg, #2b2b78 0%, #1c1c55 60%, #171744 100%);
+    --bg-attach: fixed;
+    --bg-soft: transparent;
+    --panel: #2672ec; --panel-edge: transparent;
+    --text: #ffffff; --text-dim: rgba(255, 255, 255, 0.88); --text-faint: rgba(255, 255, 255, 0.7);
+    --desk-text: rgba(255, 255, 255, 0.75); --hero-color: rgba(255, 255, 255, 0.85); --hero-strong: #ffffff;
+    --accent: #ffffff; --accent-2: #ffffff; --accent-ink: #1c1c55;
+    --kicker-color: #ffffff; --cursor-color: #ffffff;
+    --glow: rgba(255, 255, 255, 0.25);
+    --rule: transparent;
+    --field-bg: #ffffff; --field-text: #000000; --field-placeholder: #6b6b6b; --btn-edge: rgba(255, 255, 255, 0.7);
+    --radius: 0; --radius-sm: 0; --radius-xs: 0; --pill: 0;
+    --card-shadow-hover: inset 0 0 0 3px rgba(255, 255, 255, 0.75);
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: none;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    background: var(--bg);
+    background-color: var(--bg);
+    background-image: var(--bg-image);
+    background-attachment: var(--bg-attach);
     color: var(--text);
     font-family: var(--sans);
     line-height: 1.6;
     min-height: 100vh;
-    /* subtle starfield-ish texture, pure CSS */
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(129, 140, 248, 0.15), transparent),
-      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.10) 1px, transparent 0),
-      radial-gradient(1px 1px at 70% 15%, rgba(255,255,255,0.08) 1px, transparent 0),
-      radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.06) 1px, transparent 0),
-      radial-gradient(1px 1px at 90% 45%, rgba(255,255,255,0.08) 1px, transparent 0);
   }
 
   .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
@@ -52,36 +236,39 @@
     font-size: 13px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--kicker-color);
     display: inline-block;
     padding: 6px 14px;
-    border: 1px solid var(--panel-edge);
-    border-radius: 999px;
+    border: 1px solid var(--btn-edge);
+    border-radius: var(--pill);
     background: var(--bg-soft);
+    box-shadow: var(--bevel);
     margin-bottom: 22px;
   }
   h1 {
+    font-family: var(--title-font);
     font-size: clamp(2.2rem, 6vw, 3.6rem);
     font-weight: 800;
     letter-spacing: -0.02em;
-    background: linear-gradient(120deg, #ffffff 20%, var(--accent) 55%, var(--accent-2) 90%);
+    background: var(--h1-fill);
     -webkit-background-clip: text;
     background-clip: text;
-    color: transparent;
+    color: var(--h1-color);
+    text-shadow: var(--h1-shadow);
     margin-bottom: 14px;
   }
   .sub {
-    color: var(--text-dim);
+    color: var(--hero-color);
     max-width: 620px;
     margin: 0 auto;
     font-size: 1.05rem;
   }
-  .sub strong { color: var(--text); font-weight: 600; }
+  .sub strong { color: var(--hero-strong); font-weight: 600; }
 
   /* blinking cursor for flavour */
   .cursor::after {
     content: "▌";
-    color: var(--accent);
+    color: var(--cursor-color);
     animation: blink 1.1s steps(1) infinite;
   }
   @keyframes blink { 50% { opacity: 0; } }
@@ -98,35 +285,57 @@
   #search {
     flex: 1 1 260px;
     max-width: 360px;
-    background: var(--panel);
-    border: 1px solid var(--panel-edge);
-    border-radius: 10px;
-    color: var(--text);
+    background: var(--field-bg);
+    border: 1px solid var(--btn-edge);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--field-bevel);
+    color: var(--field-text);
     font: 15px var(--sans);
     padding: 11px 16px;
     outline: none;
     transition: border-color .2s, box-shadow .2s;
   }
-  #search::placeholder { color: var(--text-faint); }
-  #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
+  #search::placeholder { color: var(--field-placeholder); }
+  #search:focus { border-color: var(--accent); box-shadow: var(--field-bevel), 0 0 0 3px var(--glow); }
 
-  .sortbtns { display: flex; gap: 8px; }
-  .sortbtns button {
+  .sortbtns, .themectl { display: flex; gap: 8px; }
+  .tb {
     background: var(--panel);
-    border: 1px solid var(--panel-edge);
-    border-radius: 10px;
+    border: 1px solid var(--btn-edge);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--bevel);
     color: var(--text-dim);
     font: 600 13px var(--sans);
     padding: 10px 16px;
     cursor: pointer;
-    transition: all .2s;
+    transition: color .2s, border-color .2s, background-color .2s;
   }
-  .sortbtns button:hover { color: var(--text); border-color: var(--accent); }
-  .sortbtns button.active {
-    color: #06251f;
+  .tb:hover { color: var(--text); border-color: var(--accent); }
+  .tb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tb.active, .tb[aria-pressed="true"] {
+    color: var(--accent-ink);
     background: var(--accent);
     border-color: var(--accent);
   }
+  .themectl button { padding: 10px 12px; }
+  .themectl .ico { font-family: "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", "Noto Sans Symbols2", Symbola, sans-serif; }
+  .themectl .lbl { margin-left: 5px; }
+  @media (max-width: 560px) { .themectl .lbl { display: none; } .themectl button { padding: 10px 13px; } }
+  .skinnote {
+    text-align: center;
+    font: 12px var(--mono);
+    letter-spacing: 0.04em;
+    color: var(--desk-text);
+    margin: 8px 0 0;
+  }
+  .skinnote strong { font-weight: 700; color: var(--hero-strong); }
+  .skinnote button {
+    background: none; border: 0; padding: 0;
+    font: inherit; color: inherit;
+    text-decoration: underline; cursor: pointer;
+  }
+  .skinnote button:hover { color: var(--hero-strong); }
+  .skinnote[hidden] { display: none; }
 
   /* ---------- wings (categories) & their grids ---------- */
   #wings { padding-bottom: 30px; }
@@ -138,7 +347,7 @@
     flex-wrap: wrap;
     padding: 0 0 10px;          /* overrides the hero header rule */
     text-align: left;
-    border-bottom: 1px solid var(--panel-edge);
+    border-bottom: 1px solid var(--rule);
   }
   .wingbar h2 {
     font-family: var(--mono);
@@ -147,20 +356,23 @@
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: var(--wing-accent, var(--accent));
+    color: color-mix(in srgb, var(--wing-accent, var(--accent)) calc(100% - var(--ink-mix)), var(--ink));
   }
+  :root[data-mode="skin"] .wingbar h2 { color: var(--desk-text); }
+  :root[data-mode="skin"] .wing:not(.uncat) .wingbar h2 { color: var(--hero-strong); }
   .wingbar h2::before { content: "▍"; margin-right: 4px; }
   .wingbar .count {
     font-family: var(--mono);
     font-size: 11px;
-    color: var(--text-faint);
-    border: 1px solid var(--panel-edge);
-    border-radius: 999px;
+    color: var(--desk-text);
+    border: 1px solid var(--rule);
+    border-radius: var(--pill);
     padding: 2px 10px;
     white-space: nowrap;
   }
   .wingbar .wingdesc {
     flex: 1 1 100%;
-    color: var(--text-faint);
+    color: var(--desk-text);
     font-size: 0.9rem;
     max-width: 760px;
   }
@@ -171,37 +383,64 @@
     grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
     gap: 20px;
     padding: 20px 0 4px;
+    align-items: start;   /* an expanded card grows on its own; its neighbours keep their size */
   }
   /* a wing that is open but has no exhibits hung yet */
   .wing-vacant {
     margin: 20px 0 4px;
     padding: 30px 24px;
-    border: 1px dashed var(--panel-edge);
+    border: 1px dashed var(--rule);
     border-radius: var(--radius);
     background: var(--bg-soft);
     text-align: center;
-    color: var(--text-faint);
+    color: var(--desk-text);
     font-family: var(--mono);
     font-size: 13px;
     line-height: 1.7;
   }
+
+  /* ---------- cards ----------
+     Every card is the same height whatever its blurb says: the title
+     gets two lines, the blurb five (clamped, with an ellipsis), the
+     boot line one. "more…" opens a clamped blurb in place. */
   .card {
     display: flex;
     flex-direction: column;
-    text-decoration: none;
     color: inherit;
     background: var(--panel);
     border: 1px solid var(--panel-edge);
     border-radius: var(--radius);
+    box-shadow: var(--bevel);
     overflow: hidden;
+    cursor: pointer;
     transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
     position: relative;
   }
-  .card:hover, .card:focus-visible {
+  .card:hover, .card:focus-within {
     transform: translateY(-4px);
     border-color: var(--card-accent, var(--accent));
-    box-shadow: 0 12px 34px -12px var(--card-shadow, var(--glow));
-    outline: none;
+    border-color: color-mix(in srgb, var(--card-accent, var(--accent)) calc(100% - var(--ink-mix)), var(--ink));
+    box-shadow: var(--bevel), var(--card-shadow-hover);
+  }
+  /* window chrome, shown by the OS skins only */
+  .chrome {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 4px;
+    user-select: none;
+    font: 700 12px/1 var(--title-font);
+  }
+  :root[data-mode="skin"] .chrome { display: flex; }
+  .chrome .wl, .chrome .wr { display: flex; gap: 2px; align-items: center; }
+  .chrome .wtitle { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .chrome i {
+    display: none;
+    width: 16px; height: 14px;
+    font: 700 10px/12px var(--sans);
+    font-style: normal;
+    text-align: center;
   }
   /* mini "screen" preview strip */
   .screen {
@@ -237,15 +476,26 @@
     0%, 100% { opacity: 1; } 92% { opacity: 1; }
     93% { opacity: .55; } 95% { opacity: 1; } 97% { opacity: .8; }
   }
-  .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-  .titlerow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .card h2 { font-size: 1.08rem; font-weight: 700; letter-spacing: -0.01em; }
+  .body { padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .titlerow {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+    min-height: calc(2 * 1.3 * 1.08rem);   /* room for a two-line title, so every card lines up */
+  }
+  .card h2 {
+    font-size: 1.08rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card h2 a { color: inherit; text-decoration: none; }
+  .card h2 a:hover { text-decoration: underline; }
+  .card h2 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
   .year {
     font-family: var(--mono);
     font-size: 12px;
+    line-height: 1.6;
     color: var(--card-accent, var(--accent));
+    color: color-mix(in srgb, var(--card-accent, var(--accent)) calc(100% - var(--ink-mix)), var(--ink));
     border: 1px solid var(--panel-edge);
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     padding: 2px 8px;
     white-space: nowrap;
   }
@@ -255,54 +505,256 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--text-faint);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .desc { font-size: 0.92rem; color: var(--text-dim); flex: 1; }
-  .launch {
-    display: block;
-    margin-top: 10px;
+  .desc {
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: calc(5 * 1.6em);     /* exactly five lines, full or not */
+  }
+  .card.open .desc { display: block; -webkit-line-clamp: none; height: auto; }
+  .morerow { height: 18px; display: flex; align-items: center; }
+  .more {
+    visibility: hidden;          /* the row is always reserved; the button shows only when there is more to read */
+    background: none; border: 0; padding: 0;
+    font: 600 12px var(--mono);
+    color: var(--text-faint);
+    cursor: pointer;
+  }
+  .card.clamped .more, .card.open .more { visibility: visible; }
+  .more:hover { color: var(--text); text-decoration: underline; }
+  .more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .launchrow {
+    margin-top: auto;
     font: 600 13px var(--mono);
     color: var(--card-accent, var(--accent));
+    color: color-mix(in srgb, var(--card-accent, var(--accent)) calc(100% - var(--ink-mix)), var(--ink));
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .launch::before { content: "▶ "; font-size: 10px; }
-  a.card:hover .launch { text-decoration: underline; }
+  .launchrow::before { content: "▶ "; font-size: 10px; }
+  .card:hover .launchrow .launch { text-decoration: underline; }
   /* variant cards carry several real launch links — underline per link */
-  div.card { cursor: pointer; }
-  a.launch { text-decoration: none; }
-  a.launch:hover, a.launch:focus-visible { text-decoration: underline; outline: none; }
-  .launch + .launch { margin-top: 4px; }
+  .launchrow a.launch { color: inherit; text-decoration: none; }
+  .card:hover .launchrow a.launch { text-decoration: none; }
+  .launchrow a.launch:hover, .launchrow a.launch:focus-visible { text-decoration: underline; outline: none; }
+
+  /* ---------- skin details: card chrome, buttons, flourishes ---------- */
+  /* Windows 95 */
+  :root[data-skin="win95"] .chrome { background: #000080; color: #ffffff; height: 20px; padding: 0 2px 0 6px; }
+  :root[data-skin="win95"] .chrome .wr i { display: block; background: #c0c0c0; color: #000000; box-shadow: var(--bevel); }
+  :root[data-skin="win95"] .chrome .wr i:nth-child(1)::before { content: "_"; }
+  :root[data-skin="win95"] .chrome .wr i:nth-child(2)::before { content: "□"; }
+  :root[data-skin="win95"] .chrome .wr i:nth-child(3) { margin-left: 3px; }
+  :root[data-skin="win95"] .chrome .wr i:nth-child(3)::before { content: "×"; }
+  :root[data-skin="win95"] .card { border: 0; padding: 3px; }
+  :root[data-skin="win95"] .card:hover, :root[data-skin="win95"] .card:focus-within { transform: none; }
+  :root[data-skin="win95"] .screen { box-shadow: inset 1px 1px #0a0a0a, inset -1px -1px #ffffff; border-bottom: 0; }
+  :root[data-skin="win95"] .tb.active, :root[data-skin="win95"] .tb[aria-pressed="true"] {
+    box-shadow: inset 1px 1px #0a0a0a, inset -1px -1px #ffffff, inset 2px 2px #808080, inset -2px -2px #dfdfdf;
+  }
+  :root[data-skin="win95"] .wing-vacant { color: #000000; }
+
+  /* Windows XP */
+  :root[data-skin="winxp"] .chrome {
+    height: 28px; padding: 0 5px 0 8px; font-size: 13px;
+    color: #ffffff; text-shadow: 1px 1px 0 #0a246a;
+    background: linear-gradient(180deg, #0e8ce8 0, #0257dd 8%, #0054e2 40%, #0161ea 88%, #0f7bf0 93%, #2f81d4 96%, #4d8ccd 100%);
+  }
+  :root[data-skin="winxp"] .chrome .wr i {
+    display: block; width: 21px; height: 21px;
+    border: 1px solid #ffffff; border-radius: 3px;
+    color: #ffffff; font-size: 13px; line-height: 19px;
+    background: linear-gradient(180deg, #3d8cf3, #1d5ed6);
+  }
+  :root[data-skin="winxp"] .chrome .wr i:nth-child(1)::before { content: "_"; }
+  :root[data-skin="winxp"] .chrome .wr i:nth-child(2)::before { content: "□"; }
+  :root[data-skin="winxp"] .chrome .wr i:nth-child(3) { margin-left: 2px; background: linear-gradient(180deg, #e9855f, #c8412a); }
+  :root[data-skin="winxp"] .chrome .wr i:nth-child(3)::before { content: "✕"; }
+  :root[data-skin="winxp"] .card { border: 3px solid #0455d4; border-top: 0; border-radius: 8px 8px 0 0; }
+  :root[data-skin="winxp"] .screen { border-bottom-color: #aca899; }
+  :root[data-skin="winxp"] .tb { background: linear-gradient(180deg, #fdfdfd 0, #f3f2ec 45%, #e3e1d3 90%, #d6d3c4 100%); color: #000000; }
+  :root[data-skin="winxp"] .tb.active, :root[data-skin="winxp"] .tb[aria-pressed="true"] {
+    background: linear-gradient(180deg, #3ba518, #278a08 60%, #1c6b04); color: #ffffff; border-color: #1c6b04;
+  }
+  :root[data-skin="winxp"] #search { border-color: #7f9db9; }
+  :root[data-skin="winxp"] .year { border-color: #aca899; }
+  :root[data-skin="winxp"] .wing-vacant { color: #000000; }
+
+  /* Mac OS 9 */
+  :root[data-skin="macos9"] .chrome {
+    height: 22px; padding: 0 6px;
+    background: repeating-linear-gradient(180deg, #dcdcdc 0 2px, #9a9a9a 2px 3px);
+    border-bottom: 1px solid #000000;
+    color: #000000;
+  }
+  :root[data-skin="macos9"] .chrome .wl, :root[data-skin="macos9"] .chrome .wr { min-width: 30px; }
+  :root[data-skin="macos9"] .chrome .wr { justify-content: flex-end; }
+  :root[data-skin="macos9"] .chrome .wtitle { flex: 0 1 auto; margin: 0 auto; background: #dddddd; padding: 0 8px; font: 700 12px/22px var(--title-font); }
+  :root[data-skin="macos9"] .chrome i {
+    display: block; width: 12px; height: 12px;
+    background: #dddddd; border: 1px solid #000000;
+    box-shadow: inset 1px 1px #ffffff, inset -1px -1px #777777;
+  }
+  :root[data-skin="macos9"] .chrome .wl i:nth-child(n+2), :root[data-skin="macos9"] .chrome .wr i:nth-child(3) { display: none; }
+  :root[data-skin="macos9"] .card { border: 1px solid #000000; }
+  :root[data-skin="macos9"] .card:hover, :root[data-skin="macos9"] .card:focus-within { transform: none; border-color: #000000; }
+  :root[data-skin="macos9"] .screen { border-bottom-color: #000000; }
+  :root[data-skin="macos9"] .year { border-color: #888888; }
+  :root[data-skin="macos9"] .wing-vacant { color: #000000; }
+
+  /* Mac OS X Tiger */
+  :root[data-skin="tiger"] .chrome {
+    height: 22px; padding: 0 8px;
+    background: linear-gradient(180deg, #ececec, #c8c8c8);
+    border-bottom: 1px solid #7a7a7a;
+    color: #222222; font: 700 12px/1 var(--sans);
+  }
+  :root[data-skin="tiger"] .chrome .wl { gap: 6px; }
+  :root[data-skin="tiger"] .chrome .wr { min-width: 48px; }
+  :root[data-skin="tiger"] .chrome .wtitle { flex: 0 1 auto; margin: 0 auto; text-align: center; }
+  :root[data-skin="tiger"] .chrome .wl i {
+    display: block; width: 12px; height: 12px; border-radius: 50%;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.6), 0 0 0 1px rgba(0,0,0,0.25);
+  }
+  :root[data-skin="tiger"] .chrome .wl i:nth-child(1) { background: radial-gradient(circle at 50% 35%, #ff8a80, #e0443e); }
+  :root[data-skin="tiger"] .chrome .wl i:nth-child(2) { background: radial-gradient(circle at 50% 35%, #ffd66b, #dea123); }
+  :root[data-skin="tiger"] .chrome .wl i:nth-child(3) { background: radial-gradient(circle at 50% 35%, #7ee68b, #1aab29); }
+  :root[data-skin="tiger"] .card { background: linear-gradient(180deg, #e9e9e9, #cfcfcf); }
+  :root[data-skin="tiger"] .body { background: repeating-linear-gradient(180deg, rgba(255,255,255,0.14) 0 1px, rgba(0,0,0,0.035) 1px 2px); }
+  :root[data-skin="tiger"] .tb { background: linear-gradient(180deg, #fdfdfd, #e2e2e2); color: #000000; }
+  :root[data-skin="tiger"] .tb.active, :root[data-skin="tiger"] .tb[aria-pressed="true"] {
+    background: linear-gradient(180deg, #8ab6e8, #4a86c8); color: #ffffff; border-color: #3a6ea5;
+  }
+  :root[data-skin="tiger"] .year { border-color: #9a9a9a; }
+  :root[data-skin="tiger"] .wing-vacant { color: #000000; }
+
+  /* Windows 8 */
+  :root[data-skin="win8"] header { text-align: left; }
+  :root[data-skin="win8"] .sub { margin: 0; }
+  :root[data-skin="win8"] h1 { font-weight: 300; letter-spacing: 0; font-size: clamp(2.6rem, 7vw, 4.2rem); }
+  :root[data-skin="win8"] .kicker { border: 0; background: none; padding: 0; letter-spacing: 0.12em; }
+  :root[data-skin="win8"] .toolbar { justify-content: flex-start; }
+  :root[data-skin="win8"] .skinnote { text-align: left; }
+  :root[data-skin="win8"] .wingbar h2 { font: 300 26px/1.2 var(--sans); text-transform: none; letter-spacing: 0; }
+  :root[data-skin="win8"] .wingbar h2::before { content: none; }
+  :root[data-skin="win8"] .card { background: var(--card-bg); border: 0; }
+  :root[data-skin="win8"] .card:hover, :root[data-skin="win8"] .card:focus-within { transform: scale(1.02); }
+  :root[data-skin="win8"] .screen { border-bottom: 0; background: linear-gradient(rgba(0,0,0,0.12), rgba(0,0,0,0.22)), var(--card-bg); }
+  :root[data-skin="win8"] .screen::after { display: none; }
+  :root[data-skin="win8"] .glyph { color: #ffffff; text-shadow: none; }
+  :root[data-skin="win8"] .year { color: #ffffff; border-color: rgba(255,255,255,0.55); }
+  :root[data-skin="win8"] .launchrow, :root[data-skin="win8"] .more { color: #ffffff; }
+  :root[data-skin="win8"] .tb { background: transparent; border: 2px solid var(--btn-edge); color: #ffffff; }
+  :root[data-skin="win8"] .tb:hover { border-color: #ffffff; }
+  :root[data-skin="win8"] .tb.active, :root[data-skin="win8"] .tb[aria-pressed="true"] { background: #ffffff; color: #1c1c55; border-color: #ffffff; }
+  :root[data-skin="win8"] #search { border: 2px solid transparent; }
+  :root[data-skin="win8"] .wing-vacant { border-color: rgba(255,255,255,0.4); }
 
   /* empty search state */
   #empty {
     display: none;
     text-align: center;
-    color: var(--text-faint);
+    color: var(--desk-text);
     font-family: var(--mono);
     padding: 60px 0;
   }
 
   /* ---------- footer ---------- */
   footer {
-    border-top: 1px solid var(--panel-edge);
+    border-top: 1px solid var(--rule);
     margin-top: 20px;
     padding: 34px 0 46px;
     text-align: center;
-    color: var(--text-faint);
+    color: var(--desk-text);
     font-size: 0.88rem;
   }
   footer code {
     font-family: var(--mono);
     background: var(--panel);
-    border: 1px solid var(--panel-edge);
-    border-radius: 6px;
+    border: 1px solid var(--btn-edge);
+    border-radius: var(--radius-xs);
     padding: 2px 7px;
     color: var(--text-dim);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .card, .card:hover { transition: none; transform: none; }
+    html { scroll-behavior: auto; }
+    .card, .card:hover, .card:focus-within { transition: none; transform: none; }
     .cursor::after, .card:hover .glyph { animation: none; }
   }
 </style>
+<script>
+/* ============================================================
+   THEME BOOTSTRAP — runs before first paint so the page never
+   flashes the wrong colours. The toolbar control (in the main
+   script at the bottom) calls the same OSM.apply().
+     data-theme  the visitor's choice: dark | light | system | themed
+     data-mode   what renders: dark | light | skin
+     data-skin   the OS skin while themed
+   "Themed" dresses the whole page as one of the exhibits' operating
+   systems, picked at random on every visit and never the same one
+   twice running. To add a skin: one CSS block in the stylesheet
+   above, one entry in SKINS here.
+   ============================================================ */
+window.OSM = (function () {
+  var SKINS = [
+    { id: "win95",  name: "Windows 95" },
+    { id: "winxp",  name: "Windows XP" },
+    { id: "macos9", name: "Mac OS 9" },
+    { id: "tiger",  name: "Mac OS X Tiger" },
+    { id: "win8",   name: "Windows 8" }
+  ];
+  var THEMES = ["dark", "light", "system", "themed"];
+  var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
+  var root = document.documentElement;
+  var mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+
+  function read(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function write(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* private mode, quota: the choice just isn't remembered */ } }
+
+  function pickSkin(avoid) {
+    var pool = SKINS.filter(function (s) { return s.id !== avoid; });
+    return pool[Math.floor(Math.random() * pool.length)].id;
+  }
+
+  /* apply(theme, fresh): fresh=true draws a new skin for "themed"
+     (page load, or the visitor clicking Themed); fresh=false keeps the
+     one on screen (a system-scheme change, another tab's choice). */
+  function apply(theme, fresh) {
+    if (THEMES.indexOf(theme) < 0) theme = "system";
+    var mode = theme, skin = null;
+    if (theme === "themed") {
+      mode = "skin";
+      skin = (!fresh && root.dataset.skin) ? root.dataset.skin : pickSkin(read(SKIN_KEY) || root.dataset.skin);
+      write(SKIN_KEY, skin);
+    } else if (theme === "system") {
+      mode = (mq && mq.matches) ? "light" : "dark";
+    }
+    root.dataset.theme = theme;
+    root.dataset.mode = mode;
+    if (skin) root.dataset.skin = skin; else delete root.dataset.skin;
+    write(THEME_KEY, theme);
+    return current();
+  }
+  function current() {
+    return { theme: root.dataset.theme, mode: root.dataset.mode, skin: root.dataset.skin || null };
+  }
+  function skinName(id) {
+    for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i].name;
+    return id;
+  }
+
+  apply(read(THEME_KEY) || "system", true);
+  if (mq) {
+    var onScheme = function () { if (root.dataset.theme === "system") apply("system", false); };
+    if (mq.addEventListener) mq.addEventListener("change", onScheme); else if (mq.addListener) mq.addListener(onScheme);
+  }
+  return { SKINS: SKINS, THEMES: THEMES, THEME_KEY: THEME_KEY, apply: apply, current: current, skinName: skinName };
+})();
+</script>
 </head>
 <body>
 
@@ -321,18 +773,32 @@
     <input id="search" type="search" placeholder="Search exhibits… (e.g. mac, 1995, IBM)"
            aria-label="Search exhibits">
     <div class="sortbtns" role="group" aria-label="Sort exhibits">
-      <button data-sort="year" class="active">By year</button>
-      <button data-sort="name">By name</button>
+      <button class="tb active" data-sort="year">By year</button>
+      <button class="tb" data-sort="name">By name</button>
+    </div>
+    <div class="themectl" role="group" aria-label="Colour theme">
+      <button class="tb" type="button" data-theme="dark" aria-pressed="false" title="Dark">
+        <span class="ico" aria-hidden="true">☾</span><span class="lbl">Dark</span></button>
+      <button class="tb" type="button" data-theme="light" aria-pressed="false" title="Light">
+        <span class="ico" aria-hidden="true">☀</span><span class="lbl">Light</span></button>
+      <button class="tb" type="button" data-theme="system" aria-pressed="false" title="Follow the system setting">
+        <span class="ico" aria-hidden="true">◐</span><span class="lbl">System</span></button>
+      <button class="tb" type="button" data-theme="themed" aria-pressed="false"
+              title="Dress the page as one of the exhibits' operating systems, chosen at random. Click again for another.">
+        <span class="ico" aria-hidden="true">✦</span><span class="lbl">Themed</span></button>
     </div>
   </div>
+  <p class="skinnote" id="skinnote" hidden>now dressed as <strong id="skinname"></strong> ·
+    <button type="button" id="reroll">try another</button></p>
 
   <main id="wings" aria-live="polite"></main>
   <p id="empty">no exhibits match — try another search ▌</p>
 
   <footer>
-    <p>Want to add an exhibit? Drop a self-contained <code>.html</code> file in the repo
-       and add one entry — with its <code>category</code>, <code>desktop</code> or
-       <code>mobile</code> — to the <code>EXHIBITS</code> array in this page's source.</p>
+    <p>Want to add an exhibit? Drop a self-contained <code>.html</code> file in the repo,
+       add one entry — with its <code>category</code>, <code>desktop</code> or
+       <code>mobile</code> — to the <code>EXHIBITS</code> array in this page's source,
+       and give it a row in the README. Its <em>Adding a new exhibit</em> section has the details.</p>
   </footer>
 </div>
 
@@ -787,63 +1253,112 @@ const empty   = document.getElementById("empty");
 const search  = document.getElementById("search");
 let sortKey   = "year";
 
+/* cards whose blurb the visitor has opened with "more…" — kept by file
+   name so the state survives the re-render that search and sort do */
+const expanded = new Set();
+
+function el(tag, className, text) {
+  const n = document.createElement(tag);
+  if (className) n.className = className;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
 function makeCard(e) {
-  /* cards with variants hold several real links, so their root can't
-     be an <a> — clicking anywhere outside a link boots the primary */
-  const a = document.createElement(e.variants ? "div" : "a");
-  a.className = "card";
+  const card = el("article", "card" + (expanded.has(e.file) ? " open" : ""));
+  card.dataset.file = e.file;
+  card.style.setProperty("--card-accent", e.accent);
+  card.style.setProperty("--card-bg", e.bg);
+  card.style.setProperty("--card-shadow", e.accent + "59"); /* ~35% alpha */
+
+  /* clicking anywhere on the card boots the exhibit; the title is also a
+     real link, so middle-click, ctrl-click and "open in new tab" work */
+  const boot = ev => {
+    if (ev.target.closest("a, button")) return;
+    if (ev.ctrlKey || ev.metaKey || ev.button === 1) window.open(e.file, "_blank");
+    else location.href = e.file;
+  };
+  card.addEventListener("click", boot);
+  card.addEventListener("auxclick", ev => { if (ev.button === 1) boot(ev); });
+
+  /* window chrome — title bar and buttons — drawn only by the OS skins */
+  const chrome = el("div", "chrome");
+  chrome.setAttribute("aria-hidden", "true");
+  const wl = el("span", "wl"), wr = el("span", "wr");
+  for (let i = 0; i < 3; i++) { wl.appendChild(el("i")); wr.appendChild(el("i")); }
+  chrome.append(wl, el("span", "wtitle", e.file), wr);
+
+  const screen = el("div", "screen");
+  screen.appendChild(el("span", "glyph", e.glyph));
+
+  const slug = e.file.replace(/\W+/g, "-");
+  const body = el("div", "body");
+  const row = el("div", "titlerow");
+  const h2 = el("h2");
+  h2.id = "title-" + slug;
+  const link = el("a", null, e.name);
+  link.href = e.file;
+  h2.appendChild(link);
+  row.append(h2, el("span", "year", e.year));
+  card.setAttribute("aria-labelledby", h2.id);
+
+  const desc = el("p", "desc", e.desc);
+  desc.id = "desc-" + slug;
+  const morerow = el("div", "morerow");
+  const more = el("button", "more");
+  more.type = "button";
+  more.setAttribute("aria-controls", desc.id);
+  more.addEventListener("click", () => toggleCard(card, e));
+  morerow.appendChild(more);
+
+  const launch = el("div", "launchrow");
   if (e.variants) {
-    a.tabIndex = 0;
-    a.setAttribute("role", "link");
-    a.setAttribute("aria-label", e.name + " — boot " + e.file);
-    a.addEventListener("click", ev => {
-      if (!ev.target.closest("a")) location.href = e.file;
-    });
-    a.addEventListener("keydown", ev => {
-      if (ev.key === "Enter" && ev.target === a) location.href = e.file;
+    /* several real builds: one link per build, on a single line */
+    launch.append("boot: ");
+    e.variants.forEach((v, i) => {
+      if (i) launch.append(" · ");
+      const a = el("a", "launch", v.label || v.file);
+      a.href = v.file;
+      launch.appendChild(a);
     });
   } else {
-    a.href = e.file;
+    launch.appendChild(el("span", "launch", "boot " + e.file));
   }
-  a.style.setProperty("--card-accent", e.accent);
-  a.style.setProperty("--card-bg", e.bg);
-  a.style.setProperty("--card-shadow", e.accent + "59"); /* ~35% alpha */
 
-  const screen = document.createElement("div");
-  screen.className = "screen";
-  const glyph = document.createElement("span");
-  glyph.className = "glyph";
-  glyph.textContent = e.glyph;
-  screen.appendChild(glyph);
+  body.append(row, el("div", "vendor", e.vendor), desc, morerow, launch);
+  card.append(chrome, screen, body);
+  labelMore(card, e);
+  return card;
+}
 
-  const body = document.createElement("div");
-  body.className = "body";
-  const row = document.createElement("div");
-  row.className = "titlerow";
-  const h2 = document.createElement("h2");
-  h2.textContent = e.name;
-  const year = document.createElement("span");
-  year.className = "year";
-  year.textContent = e.year;
-  row.append(h2, year);
+function labelMore(card, e) {
+  const more = card.querySelector(".more");
+  const open = card.classList.contains("open");
+  more.textContent = open ? "less" : "more…";
+  more.setAttribute("aria-expanded", String(open));
+  more.setAttribute("aria-label", (open ? "Show less about " : "Read the full description of ") + e.name);
+}
 
-  const vendor = document.createElement("div");
-  vendor.className = "vendor";
-  vendor.textContent = e.vendor;
-  const desc = document.createElement("p");
-  desc.className = "desc";
-  desc.textContent = e.desc;
-  const launches = (e.variants || [e]).map(v => {
-    const launch = document.createElement(e.variants ? "a" : "span");
-    launch.className = "launch";
-    if (e.variants) launch.href = v.file;
-    launch.textContent = "boot " + v.file + (v.label ? " — " + v.label : "");
-    return launch;
-  });
+function toggleCard(card, e) {
+  const open = !card.classList.contains("open");
+  card.classList.toggle("open", open);
+  if (open) expanded.add(e.file); else expanded.delete(e.file);
+  labelMore(card, e);
+  if (!open) {
+    syncMore(card);
+    card.scrollIntoView({ block: "nearest" });  /* closing a tall blurb from its foot shouldn't strand the reader */
+  }
+}
 
-  body.append(row, vendor, desc, ...launches);
-  a.append(screen, body);
-  return a;
+/* a card gets the "more…" button only while its blurb is actually cut;
+   measured after every render and again when the columns change width */
+function syncMore(scope) {
+  const cards = scope ? [scope] : wingsEl.querySelectorAll(".card");
+  for (const card of cards) {
+    if (card.classList.contains("open")) continue;
+    const d = card.querySelector(".desc");
+    card.classList.toggle("clamped", d.scrollHeight > d.clientHeight + 1);
+  }
 }
 
 function render() {
@@ -915,6 +1430,7 @@ function render() {
 
   wingsEl.replaceChildren(...sections);
   empty.style.display = (q && !shown) ? "block" : "none";
+  syncMore();
 }
 
 search.addEventListener("input", render);
@@ -926,6 +1442,38 @@ document.querySelectorAll(".sortbtns button").forEach(btn => {
     render();
   });
 });
+
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => syncMore(), 120);
+});
+
+/* ---------- theme control ----------
+   The theme itself is applied by OSM (see the bootstrap script in <head>);
+   this only keeps the buttons and the "now dressed as" note in step. */
+const themeBtns = [...document.querySelectorAll(".themectl button")];
+const skinnote  = document.getElementById("skinnote");
+const skinname  = document.getElementById("skinname");
+
+function syncThemeUI() {
+  const { theme, skin } = OSM.current();
+  themeBtns.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.theme === theme)));
+  skinnote.hidden = theme !== "themed";
+  if (skin) skinname.textContent = OSM.skinName(skin);
+}
+themeBtns.forEach(b => b.addEventListener("click", () => {
+  OSM.apply(b.dataset.theme, true);   /* Themed while already themed = another skin */
+  syncThemeUI();
+}));
+document.getElementById("reroll").addEventListener("click", () => {
+  OSM.apply("themed", true);
+  syncThemeUI();
+});
+window.addEventListener("storage", ev => {   /* a choice made in another tab */
+  if (ev.key === OSM.THEME_KEY) { OSM.apply(ev.newValue || "system", false); syncThemeUI(); }
+});
+syncThemeUI();
 
 render();
 </script>
