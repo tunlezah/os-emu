@@ -1621,14 +1621,25 @@ function iconHTML(ic,size){
 const Motion={
   tilt:{x:0,y:0}, subs:new Set(),
   init(){
-    const slab=$id('slab'); let drag=false,sx=0,sy=0,bx=0,by=0;
+    const slab=$id('slab'); let drag=false,held=false,pid=null,sx=0,sy=0,bx=0,by=0;
     slab.addEventListener('pointerdown',e=>{
+      /* the glass belongs to the OS, and the buttons on the frame are buttons:
+         Home, sleep/wake, the ringer switch and the volume rocker all sit on
+         the shell, and tilting must never swallow a press on one of them */
       if($id('screen').contains(e.target)) return;
-      drag=true; sx=e.clientX; sy=e.clientY; bx=this.tilt.x; by=this.tilt.y; slab.setPointerCapture?.(e.pointerId);
+      if(e.target.closest && e.target.closest('#homebtn,.hw')) return;
+      drag=true; held=false; pid=e.pointerId;
+      sx=e.clientX; sy=e.clientY; bx=this.tilt.x; by=this.tilt.y;
     });
-    slab.addEventListener('pointermove',e=>{ if(!drag) return;
+    slab.addEventListener('pointermove',e=>{ if(!drag || e.pointerId!==pid) return;
+      /* capture only once this is genuinely a drag; capturing on pointerdown
+         retargets the pointerup to the shell and the browser then fires the
+         click there instead of on whatever was pressed */
+      if(!held){ if(Math.hypot(e.clientX-sx,e.clientY-sy)<4) return; held=true; slab.setPointerCapture?.(e.pointerId); }
       this.set(clamp(bx+(e.clientX-sx)/120,-1,1), clamp(by+(e.clientY-sy)/120,-1,1)); });
-    const end=()=>{ if(!drag) return; drag=false; this.ease(); };
+    const end=e=>{ if(!drag) return;
+      if(held && e && slab.hasPointerCapture?.(e.pointerId)) slab.releasePointerCapture?.(e.pointerId);
+      drag=false; held=false; pid=null; this.ease(); };
     slab.addEventListener('pointerup',end); slab.addEventListener('pointercancel',end);
     document.addEventListener('keydown',e=>{
       if($id('guide').classList.contains('open')) return;
