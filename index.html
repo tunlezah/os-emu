@@ -313,6 +313,31 @@
     --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 2px 2px 0 #3f4a63;
   }
 
+  /* LCARS — flat colour on black, elbows, pills and condensed capitals */
+  :root[data-skin="lcars"] {
+    color-scheme: dark;
+    --lc-font: "Helvetica Neue Condensed", "HelveticaNeue-CondensedBold", "Helvetica Neue", "Arial Narrow", "Roboto Condensed", "Liberation Sans Narrow", "Nimbus Sans Narrow", "DejaVu Sans Condensed", Arial, Helvetica, sans-serif;
+    --u: 5px; --T: 30px; --ri: 24px; --leg: 20px;
+    --sans: var(--lc-font);
+    --mono: var(--lc-font);
+    --title-font: var(--lc-font);
+    --bg: #000000; --bg-image: none; --bg-attach: scroll;
+    --bg-soft: #000000;
+    --panel: #000000; --panel-edge: #000000;
+    --text: #f5f1e8; --text-dim: #f5f1e8; --text-faint: #9999cc;
+    --desk-text: #f5f1e8; --hero-color: #f5f1e8; --hero-strong: #ffcc99;
+    --accent: #ffcc99; --accent-2: #ff9966; --accent-ink: #000000;
+    --kicker-color: #000000; --cursor-color: #ff9966;
+    --glow: transparent;
+    --rule: #9999cc;
+    --field-bg: #000000; --field-text: #f5f1e8; --field-placeholder: #9999cc; --btn-edge: #ffcc99;
+    --pill: 9999px; --radius: 0; --radius-sm: 9999px; --radius-xs: 9999px;
+    --bevel: 0 0 0 0 transparent; --field-bevel: 0 0 0 0 transparent;
+    --card-shadow-hover: 0 0 0 0 transparent;
+    --ink: #000000; --ink-mix: 0%;
+    --h1-fill: none; --h1-color: #ff9966; --h1-shadow: none;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -939,6 +964,80 @@
   :root[data-skin="solaris"] .wing-vacant { color: #000000; border: 0; box-shadow: var(--bevel); background: #aeb2c3; }
   :root[data-skin="solaris"] .card h2 a:focus-visible { outline: none; background: #3f4a63; color: #ffffff; }
 
+  /* LCARS */
+  :root[data-skin="lcars"] .kicker {
+    background: #9999cc; border: 0; font-weight: 700; letter-spacing: 0.12em;
+    padding: var(--u) calc(4 * var(--u));
+  }
+  :root[data-skin="lcars"] h1 { text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+  :root[data-skin="lcars"] .tb {
+    border: 0; color: #000000; background: #ffcc66;
+    font: 700 14px var(--lc-font); text-transform: uppercase; letter-spacing: 0.06em;
+    padding: calc(2 * var(--u)) calc(4 * var(--u));
+  }
+  :root[data-skin="lcars"] .themectl .tb { background: #ffcc99; padding: calc(2 * var(--u)) calc(3 * var(--u)); }
+  :root[data-skin="lcars"] .sortbtns, :root[data-skin="lcars"] .themectl { gap: var(--u); }
+  :root[data-skin="lcars"] .toolbar { gap: calc(2 * var(--u)); }
+  :root[data-skin="lcars"] .tb:hover, :root[data-skin="lcars"] .themectl .tb:hover { background: #f5f1e8; color: #000000; }
+  :root[data-skin="lcars"] .tb.active, :root[data-skin="lcars"] .tb[aria-pressed="true"],
+  :root[data-skin="lcars"] .themectl .tb[aria-pressed="true"] { background: #ff9966; color: #000000; }
+  :root[data-skin="lcars"] .tb:focus-visible { outline: 3px solid #f5f1e8; outline-offset: 3px; }
+  :root[data-skin="lcars"] #search { border: 2px solid #ffcc99; padding: 9px 20px; font: 15px var(--lc-font); }
+  :root[data-skin="lcars"] #search:focus { border-color: #ff9966; outline: 3px solid #f5f1e8; outline-offset: 3px; box-shadow: none; }
+  :root[data-skin="lcars"] .skinnote { letter-spacing: 0.1em; text-transform: uppercase; }
+  :root[data-skin="lcars"] .skinnote strong { color: #ffcc99; }
+  :root[data-skin="lcars"] .wingbar { border-bottom: 0; gap: var(--u); padding: 0; align-items: stretch; }
+  :root[data-skin="lcars"] .wingbar h2, :root[data-skin="lcars"] .wingbar .count { height: var(--T); }
+  :root[data-skin="lcars"] .wingbar h2::before { content: none; }
+  :root[data-skin="lcars"] .wing .wingbar h2 {
+    background: #ffcc99; color: #000000; font: 700 15px/30px var(--lc-font); letter-spacing: 0.14em;
+    padding: 0 calc(3 * var(--u)) 0 calc(6 * var(--u)); border-radius: 9999px 0 0 9999px;
+  }
+  :root[data-skin="lcars"] .wing:not(.uncat) .wingbar h2 { color: #000000; }
+  :root[data-skin="lcars"] .wing:nth-child(2):not(.uncat) .wingbar h2 { background: #9999cc; }
+  :root[data-skin="lcars"] .wing.uncat .wingbar h2 { background: #ee5533; }
+  :root[data-skin="lcars"] .wingbar .count {
+    flex: 1 1 auto; display: flex; align-items: center; justify-content: flex-end;
+    background: #cc9966; color: #000000; border: 0; border-radius: 0 9999px 9999px 0;
+    font: 700 13px var(--lc-font); letter-spacing: 0.1em; text-transform: uppercase; padding: 0 calc(5 * var(--u)) 0 var(--u);
+  }
+  :root[data-skin="lcars"] .wing.uncat .wingbar .count { background: #ee5533; }
+  :root[data-skin="lcars"] .wingbar .wingdesc { max-width: none; margin-top: var(--u); padding-left: calc(6 * var(--u)); }
+  :root[data-skin="lcars"] .wing.uncat .wingdesc { color: #f5f1e8; }
+  :root[data-skin="lcars"] .wing .grid { gap: calc(4 * var(--u)); }
+  :root[data-skin="lcars"] .card {
+    --fr: #ffcc99; --cap: #9999cc;
+    border: 0; box-shadow: none; border-radius: calc(var(--T) + var(--ri)) 15px 0 0;
+    background: linear-gradient(0deg, var(--cap) 0 40px, #000000 40px calc(40px + var(--u)), var(--fr) calc(40px + var(--u)));
+  }
+  :root[data-skin="lcars"] .grid .card:nth-child(6n+2) { --fr: #9999cc; --cap: #ffcc66; }
+  :root[data-skin="lcars"] .grid .card:nth-child(6n+3) { --fr: #ffcc66; --cap: #99ccff; }
+  :root[data-skin="lcars"] .grid .card:nth-child(6n+4) { --fr: #99ccff; --cap: #cc9966; }
+  :root[data-skin="lcars"] .grid .card:nth-child(6n+5) { --fr: #cc99cc; --cap: #ffcc99; }
+  :root[data-skin="lcars"] .grid .card:nth-child(6n+6) { --fr: #cc9966; --cap: #cc99cc; }
+  :root[data-skin="lcars"] .grid .card:hover, :root[data-skin="lcars"] .grid .card:focus-within { --fr: #ff9966; --cap: #ff9966; transform: none; box-shadow: none; }
+  :root[data-skin="lcars"] .chrome {
+    height: var(--T); padding: 0 calc(24px + 3 * var(--u)) 0 calc(var(--T) + var(--ri));
+    color: #000000; font: 700 15px/1 var(--lc-font); text-transform: uppercase; letter-spacing: 0.1em;
+    background: linear-gradient(90deg, transparent calc(100% - 24px - var(--u)), #000000 calc(100% - 24px - var(--u)) calc(100% - 24px), var(--cap) calc(100% - 24px));
+  }
+  :root[data-skin="lcars"] .chrome .wtitle { text-align: right; }
+  :root[data-skin="lcars"] .screen, :root[data-skin="lcars"] .body { margin-left: var(--leg); background: #000000; }
+  :root[data-skin="lcars"] .screen { border: 0; border-top-left-radius: var(--ri); }
+  :root[data-skin="lcars"] .screen::after { display: none; }
+  :root[data-skin="lcars"] .glyph { color: var(--fr); text-shadow: none; font-family: var(--lc-font); letter-spacing: 0.08em; }
+  :root[data-skin="lcars"] .card h2 { text-transform: uppercase; letter-spacing: 0; }
+  :root[data-skin="lcars"] .year { color: #ffcc66; border: 2px solid #ffcc66; font-weight: 700; }
+  :root[data-skin="lcars"] .vendor { letter-spacing: 0.16em; }
+  :root[data-skin="lcars"] .more { color: #99ccff; text-transform: uppercase; letter-spacing: 0.1em; }
+  :root[data-skin="lcars"] .more:hover { color: #f5f1e8; }
+  :root[data-skin="lcars"] .launchrow { color: #ffcc99; text-transform: uppercase; letter-spacing: 0.08em; }
+  :root[data-skin="lcars"] .wing-vacant { border: 0; border-left: calc(4 * var(--u)) solid #9999cc; text-align: left; text-transform: uppercase; letter-spacing: 0.08em; }
+  :root[data-skin="lcars"] footer { border-top: var(--u) solid #9999cc; }
+  :root[data-skin="lcars"] footer code { border-width: 2px; padding: 1px 10px; }
+  :root[data-skin="lcars"] #empty { text-transform: uppercase; letter-spacing: 0.1em; }
+  :root[data-skin="lcars"] .card h2 a:focus-visible { outline: none; background: #ff9966; color: #000000; }
+
   /* empty search state */
   #empty {
     display: none;
@@ -995,7 +1094,8 @@ window.OSM = (function () {
     { id: "nextstep", name: "NeXTSTEP" },
     { id: "beos",     name: "BeOS" },
     { id: "amiga",    name: "AmigaOS 3.1" },
-    { id: "solaris",  name: "Solaris CDE" }
+    { id: "solaris",  name: "Solaris CDE" },
+    { id: "lcars",    name: "LCARS" }
   ];
   var THEMES = ["dark", "light", "system", "themed"];
   var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
