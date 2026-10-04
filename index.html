@@ -384,6 +384,29 @@
     --h1-fill: none; --h1-color: #000000; --h1-shadow: none;
   }
 
+  /* Atari TOS / GEM — green desktop, white windows outlined in black, dithered title bars */
+  :root[data-skin="ataritos"] {
+    color-scheme: light;
+    --sans: Helvetica, Arial, "Liberation Sans", "DejaVu Sans", sans-serif;
+    --mono: "Atari ST 8x16 System Font", "PxPlus IBM VGA8", "Px437 IBM VGA8", "Lucida Console", Monaco, "DejaVu Sans Mono", monospace;
+    --title-font: "Atari ST 8x16 System Font", "PxPlus IBM VGA8", "Px437 IBM VGA8", "Lucida Console", Monaco, "DejaVu Sans Mono", monospace;
+    --bg: #00a000; --bg-image: none; --bg-attach: scroll;
+    --bg-soft: #ffffff;
+    --panel: #ffffff; --panel-edge: #000000;
+    --text: #000000; --text-dim: #000000; --text-faint: #000000;
+    --desk-text: #000000; --hero-color: #000000; --hero-strong: #000000;
+    --accent: #000000; --accent-2: #a00000; --accent-ink: #ffffff;
+    --kicker-color: #000000; --cursor-color: #000000;
+    --glow: #ffffff;
+    --rule: #000000;
+    --field-bg: #ffffff; --field-text: #000000; --field-placeholder: #555555; --btn-edge: #000000;
+    --pill: 0; --radius: 0; --radius-sm: 0; --radius-xs: 0;
+    --bevel: 0 0 0 0 transparent; --field-bevel: 0 0 0 0 transparent;
+    --card-shadow-hover: 0 0 0 1px #000000;
+    --ink: #000000; --ink-mix: 55%;
+    --h1-fill: none; --h1-color: #000000; --h1-shadow: none;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -1169,6 +1192,43 @@
   :root[data-skin="plan9"] footer code { border-color: #9eeeee; }
   :root[data-skin="plan9"] .card h2 a:focus-visible { outline: none; background: #9eeeee; color: #000000; text-decoration: underline 2px; }
 
+  /* Atari TOS / GEM */
+  :root[data-skin="ataritos"] .kicker { border: 0; border-bottom: 1px solid #000000; letter-spacing: 0.06em; padding: 3px 14px 2px; }
+  :root[data-skin="ataritos"] h1 { font-weight: 700; letter-spacing: 0; }
+  :root[data-skin="ataritos"] .card { border: 1px solid #000000; }
+  :root[data-skin="ataritos"] .card:hover, :root[data-skin="ataritos"] .card:focus-within { transform: none; border-color: #000000; }
+  :root[data-skin="ataritos"] .chrome {
+    height: 21px; padding: 0; gap: 0; align-items: stretch;
+    color: #000000; border-bottom: 1px solid #000000; font: 400 13px/19px var(--title-font);
+    background-color: #ffffff;
+    background-image:
+      conic-gradient(from 270deg at 1px 1px, #000000 25%, transparent 0),
+      conic-gradient(from 270deg at 1px 1px, #000000 25%, transparent 0);
+    background-size: 4px 2px; background-position: 0 0, 2px 1px;
+  }
+  :root[data-skin="ataritos"] .chrome .wl, :root[data-skin="ataritos"] .chrome .wr { gap: 0; align-items: stretch; }
+  :root[data-skin="ataritos"] .chrome .wtitle { flex: 0 1 auto; margin: 1px auto; padding: 0 5px; background: #ffffff; }
+  :root[data-skin="ataritos"] .card:hover .wtitle, :root[data-skin="ataritos"] .card:focus-within .wtitle { background: #000000; color: #ffffff; }
+  :root[data-skin="ataritos"] .chrome .wl i:nth-child(1), :root[data-skin="ataritos"] .chrome .wr i:nth-child(3) {
+    display: flex; align-items: center; justify-content: center; width: 20px; height: auto; background: #ffffff;
+  }
+  :root[data-skin="ataritos"] .chrome .wl i:nth-child(1) { border-right: 1px solid #000000; }
+  :root[data-skin="ataritos"] .chrome .wr i:nth-child(3) { border-left: 1px solid #000000; }
+  :root[data-skin="ataritos"] .chrome .wl i:nth-child(1)::before { content: ""; width: 6px; height: 6px; background: #000000; }
+  :root[data-skin="ataritos"] .chrome .wr i:nth-child(3)::before {
+    content: ""; width: 8px; height: 8px; border: 1px solid #000000;
+    box-shadow: inset 0 0 0 1px #ffffff, inset 0 0 0 2px #000000;
+  }
+  :root[data-skin="ataritos"] .screen { border-bottom-color: #000000; }
+  :root[data-skin="ataritos"] .tb { color: #000000; font: 400 13px var(--mono); }
+  :root[data-skin="ataritos"] .tb:hover { border-color: #000000; box-shadow: inset 0 0 0 1px #000000; }
+  :root[data-skin="ataritos"] .tb:active, :root[data-skin="ataritos"] .tb.active, :root[data-skin="ataritos"] .tb[aria-pressed="true"] { background: #000000; color: #ffffff; }
+  :root[data-skin="ataritos"] #search:focus { box-shadow: 0 0 0 1px #000000, 0 0 0 3px #ffffff; }
+  :root[data-skin="ataritos"] .year { border-color: #000000; }
+  :root[data-skin="ataritos"] .wing.uncat .wingdesc { color: #300000; }
+  :root[data-skin="ataritos"] .wing-vacant { color: #000000; border: 1px solid #000000; }
+  :root[data-skin="ataritos"] .card h2 a:focus-visible { outline: none; background: #000000; color: #ffffff; }
+
   /* empty search state */
   #empty {
     display: none;
@@ -1228,7 +1288,8 @@ window.OSM = (function () {
     { id: "solaris",  name: "Solaris CDE" },
     { id: "lcars",    name: "LCARS" },
     { id: "android4", name: "Android 4.0 Holo" },
-    { id: "plan9",    name: "Plan 9" }
+    { id: "plan9",    name: "Plan 9" },
+    { id: "ataritos", name: "Atari TOS / GEM" }
   ];
   var THEMES = ["dark", "light", "system", "themed"];
   var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
