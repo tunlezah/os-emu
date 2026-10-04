@@ -455,7 +455,7 @@ body.vgamode{font-size:12px;}
   box-shadow:-2px 2px 6px rgba(0,0,0,.4); font-weight:normal; letter-spacing:.6px; user-select:none;}
 #extab b:hover{background:#244466;}
 #extab b.on{background:#2f5b93; color:#fff;}
-#exmenu{position:fixed; right:30px; top:30%; z-index:99996; background:#13202f; color:#cfe0f8; border-radius:6px; padding:8px; display:none;
+#exmenu{position:fixed; right:30px; top:10px; max-height:calc(100vh - 20px); overflow:auto; z-index:99996; background:#13202f; color:#cfe0f8; border-radius:6px; padding:8px; display:none;
   font:12px/1.4 "Trebuchet MS",Tahoma,sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.5); width:270px;}
 #exmenu h4{font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#7f9dbd; margin:6px 4px 4px;}
 #exmenu .opt{padding:5px 8px; border-radius:4px; cursor:pointer;}
@@ -2093,8 +2093,12 @@ const VFS = {
     return false;
   },
   watch(fn){ this._watchers.push(fn); },
+  /* change notifications are delivered to the shell, so the shell redraws in explorer.exe's context */
   changed(folder){
-    for (const fn of this._watchers) { try { fn(folder); } catch(e){} }
+    const prev = Ps.current;
+    Ps.current = (typeof Shell !== "undefined" && Shell.proc && Shell.proc()) || null;
+    try { for (const fn of this._watchers) { try { fn(folder); } catch(e){ console.warn(e); } } }
+    finally { Ps.current = prev; }
     this.persist();
   },
   /* --- persistence --- */
@@ -2932,6 +2936,8 @@ const Snd = {
     "Tada": s => { s.tone(523.25, .3, {gain:.2, type:"triangle"}); s.tone(783.99, .7, {when:.18, gain:.22, type:"triangle"}); },
     "Maximize": s => s.tone(300, .08, {gain:.1, slide:500, type:"triangle"}),
     "Minimize": s => s.tone(500, .08, {gain:.1, slide:300, type:"triangle"}),
+    "NT Logon": s => { [392, 523.25, 659.25].forEach((f, i) => s.tone(f, .9 - i * .15, {when:i * .12, gain:.12, attack:.05, ch:"midi"})); },
+    "NT Logoff": s => { [659.25, 523.25, 392].forEach((f, i) => s.tone(f, .8, {when:i * .14, gain:.11, attack:.05, ch:"midi"})); },
     "(None)": () => {}
   },
   defaultScheme: {
@@ -2939,7 +2945,8 @@ const Snd = {
     "Default sound": "Ding", "Critical Stop": "Chord", "Asterisk": "Asterisk",
     "Exclamation": "Exclamation", "Question": "Question",
     "Empty Recycle Bin": "Recycle Crunch", "Menu command": "Menu Pop",
-    "Maximize": "Maximize", "Minimize": "Minimize", "Program error": "Chord"
+    "Maximize": "Maximize", "Minimize": "Minimize", "Program error": "Chord",
+    "Windows Logon": "NT Logon", "Windows Logoff": "NT Logoff"
   },
   event(name){
     const recipe = this.scheme[name] !== undefined ? this.scheme[name] : this.defaultScheme[name];
@@ -4120,7 +4127,7 @@ const StartMenu = {
     mkItem("&Run...", "run", {action:()=>Shell.runDialog()});
     const sep = h("div", {class:"smsep"});
     items.appendChild(sep);
-    mkItem("Sh&ut Down...", "shutdown", {action:()=>Shutdown.dialog()});
+    mkItem("Sh&ut Down...", "shutdown", {action:()=>Winlogon.shutdownDialog(false)});
     row.append(banner, items);
     this.el.appendChild(row);
   }
@@ -4176,7 +4183,7 @@ window.addEventListener("keydown", e => {
   if (e.ctrlKey && e.key === "Escape") { e.preventDefault(); StartMenu.toggle(); return; }
   if (e.altKey && e.key === "F4") {
     e.preventDefault();
-    if (WM.active) WM.active.close(); else Shutdown.dialog();
+    if (WM.active) WM.active.close(); else Winlogon.shutdownDialog(false);
     return;
   }
   if (e.key === "Escape") { Popups.closeAll(); StartMenu.close(); }
@@ -4736,7 +4743,7 @@ const Shell = {
   }
 };
 function nodeItem(node){
-  return {id: node.id, name: VFS.displayName(node), icon: VFS.iconFor(node), lnk: VFS.isLnk(node),
+  return {id: node.id, name: VFS.displayName(node), icon: VFS.iconFor(node), lnk: VFS.isLnk(node), shared: Shares.isShared(node),
     node, size: node.type === "f" ? node.size : null, type: VFS.typeName(node), date: node.date};
 }
 function diskTitle(driveNode){
@@ -5064,7 +5071,9 @@ class FolderWin {
   }
   renderIcon(it, large){
     const el = h("div", {class: large ? "fitem" : "fitem-s", "data-iid": String(it.id)});
-    el.appendChild(iconEl(it.icon, large ? 32 : 16, it.lnk));
+    const ic = iconEl(it.icon, large ? 32 : 16, it.lnk);
+    if (it.shared) { const hand = h("div", {class:"share-badge", style:{transform:"scale(" + (large ? 1 : .6) + ")", transformOrigin:"0 100%"}}); hand.innerHTML = '<svg width="16" height="10" viewBox="0 0 16 10"><path d="M1 6 q3 -4 7 -3 l5 0 q2 1 0 2 l-4 0 l4 1 q2 1 0 2 l-8 1 q-3 0 -4 -2 z" fill="#ffd8a8" stroke="#000"/><path d="M0 9 h16" stroke="#000080" stroke-width="2"/></svg>'; ic.appendChild(hand); }
+    el.appendChild(ic);
     const tx = h(large ? "div" : "span", {class:"txt"}, it.name);
     if (it.node && it.node.compressed && State.get("altColor", true)) tx.style.color = "#0000ff";
     el.appendChild(tx);
@@ -6092,8 +6101,8 @@ const V3 = {
   rotX:(a,t)=>[a[0],a[1]*Math.cos(t)-a[2]*Math.sin(t),a[1]*Math.sin(t)+a[2]*Math.cos(t)]
 };
 const LIGHT = V3.norm([-0.5, 0.7, -0.6]);
-function shade(rgb, n, amb){ const d = Math.max(0, V3.dot(n, LIGHT)); const k = (amb || .28) + (1 - (amb || .28)) * d;
-  return "rgb(" + rgb.map(c => Math.min(255, Math.round(c * k + (d > .92 ? (d - .92) * 1800 : 0)))).join(",") + ")"; }
+function shade(rgb, n, amb){ const d = Math.max(0, V3.dot(n, LIGHT)); const k = (amb || .28) + (1 - (amb || .28)) * d * .8;
+  return "rgb(" + rgb.map(c => Math.min(255, Math.round(c * k + (d > .95 ? (d - .95) * 1200 : 0)))).join(",") + ")"; }
 
 const ScreenSaver = {
   timer: null, running: false, cv: null, proc: null,
@@ -6124,7 +6133,7 @@ const ScreenSaver = {
     if (this.running || !this.savers[name]) return;
     this.running = true;
     this.name = name;
-    const cv = this.cv = h("canvas", {width:innerWidth, height:innerHeight, style:{position:"fixed", inset:"0", zIndex:"99500", cursor:"none", background:"#000"}});
+    const cv = this.cv = h("canvas", {width:innerWidth, height:innerHeight, style:{position:"fixed", left:"0", top:"0", width:"100vw", height:"100vh", zIndex:"99500", cursor:"none", background:"#000"}});
     document.body.appendChild(cv);
     const file = this.fileFor(name);
     const heavy = /OpenGL/.test(name);
@@ -6232,7 +6241,7 @@ ScreenSaver.savers["3D Pipes (OpenGL)"] = (g, W, H, t, st, dt) => {
     const nx = -dy / len, ny = dx / len;
     const ra = r * cell * A[3], rb = r * cell * B[3];
     const grd = g.createLinearGradient(A[0] + nx * ra, A[1] + ny * ra, A[0] - nx * ra, A[1] - ny * ra);
-    grd.addColorStop(0, shade(rgb, [0,0,-1], .15)); grd.addColorStop(.3, shade(rgb, LIGHT, .3)); grd.addColorStop(.42, "rgb(255,255,255)");
+    grd.addColorStop(0, shade(rgb, [0,0,-1], .15)); grd.addColorStop(.3, shade(rgb, LIGHT, .3)); grd.addColorStop(.42, "rgba(255,255,255,.85)");
     grd.addColorStop(.55, shade(rgb, LIGHT, .3)); grd.addColorStop(1, shade(rgb, [0,-1,0], .1));
     g.fillStyle = grd;
     g.beginPath(); g.moveTo(A[0] + nx * ra, A[1] + ny * ra); g.lineTo(B[0] + nx * rb, B[1] + ny * rb);
@@ -6308,7 +6317,7 @@ ScreenSaver.savers["3D Flying Objects (OpenGL)"] = (g, W, H, t, st) => {
     quads.push({z:(a[2] + c[2]) / 2, pts:[a, b, c, d].map(prj), col: border ? [30, 30, 30] : rgb, n: n[2] > 0 ? V3.mul(n, -1) : n});
   }
   quads.sort((x, y) => y.z - x.z);
-  for (const q of quads) { g.fillStyle = shade(q.col, V3.mul(q.n, -1), .25); g.beginPath(); q.pts.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); }
+  for (const q of quads) { g.fillStyle = shade(q.col, V3.dot(q.n, LIGHT) < 0 ? V3.mul(q.n, -1) : q.n, .4); g.beginPath(); q.pts.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); }
 };
 /* ---------------- 3D Text: extruded, spinning ---------------- */
 ScreenSaver.savers["3D Text (OpenGL)"] = (g, W, H, t, st) => {
@@ -6379,7 +6388,7 @@ ScreenSaver.savers["3D Maze (OpenGL)"] = (g, W, H, t, st, dt) => {
     if (ry < 0) { sy = -1; sdy = (st.y - my) * ddy; } else { sy = 1; sdy = (my + 1 - st.y) * ddy; }
     for (let k = 0; k < 64; k++) { if (sdx < sdy) { sdx += ddx; mx += sx; side = 0; } else { sdy += ddy; my += sy; side = 1; } if (M[my] && M[my][mx]) break; }
     const pd = (side ? (my - st.y + (1 - sy) / 2) / ry : (mx - st.x + (1 - sx) / 2) / rx) * Math.cos(ra - st.dir);
-    const lh = Math.min(H * 4, H / Math.max(.05, pd));
+    const lh = Math.min(H * 4, H * .62 / Math.max(.05, pd));
     let wx = side ? st.x + pd / Math.cos(ra - st.dir) * rx : st.y + pd / Math.cos(ra - st.dir) * ry; wx -= Math.floor(wx);
     const tx = Math.floor(wx * 64);
     const y0 = Math.max(0, Math.floor(H / 2 - lh / 2)), y1 = Math.min(H, Math.floor(H / 2 + lh / 2));
@@ -6503,7 +6512,8 @@ const Desktop = {
   commonFolder(){ return Profiles.commonDesktop(); },
   init(){
     // ensure My Briefcase exists
-    if (this._inited) return;
+    if (this._initedFor === Shell.proc()) return;
+    this._initedFor = Shell.proc();
     this._inited = true;
     this.el.addEventListener("contextmenu", e => {
       if (e.target !== this.el && !e.target.matches("#marquee")) return;
@@ -6558,7 +6568,7 @@ const Desktop = {
         this.refreshIcons();
       }
     });
-    VFS.watch(folder => { if (folder === this.desktopFolder() || folder === this.commonFolder()) this.refreshIcons(); });
+    if (!this._watching) { this._watching = true; VFS.watch(folder => { if (folder === this.desktopFolder() || folder === this.commonFolder()) this.refreshIcons(); }); }
     this.refreshIcons();
   },
   bgMenu(){
@@ -6838,6 +6848,14 @@ const FileDlg = {
   }
 };
 
+
+/* the shell's redraws always run as explorer.exe, whoever asked for them */
+function inShell(fn){
+  return function(...a){ const prev = Ps.current; Ps.current = Shell.proc() || null; try { return fn.apply(this, a); } finally { Ps.current = prev; } };
+}
+Desktop.refreshIcons = inShell(Desktop.refreshIcons);
+Shell.refreshSpecial = inShell(Shell.refreshSpecial);
+FolderWin.prototype.refresh = inShell(FolderWin.prototype.refresh);
 
 
 /* ##########################################################################
@@ -13056,10 +13074,12 @@ const Setup = {
       const body = h("div", {style:{display:"flex", gap:"12px", padding:"14px", minHeight:"260px"}});
       const art = h("div", {style:{width:"120px", flex:"0 0 120px", background:"#008080", position:"relative"}}); art.appendChild(iconEl("computer", 32)); art.firstChild.style.margin = "20px auto";
       const right = h("div", {style:{flex:"1", lineHeight:"1.5"}}, h("div", {style:{fontWeight:"bold", fontSize:"13px", marginBottom:"8px"}}, title));
+      right._err = h("div", {style:{color:"#c00000", marginTop:"6px"}});
       body.append(art, right); box.appendChild(body);
       const next = Dlg.btn("Next >", () => { if (right._ok && !right._ok()) return; box.remove(); res(); }, {default:true});
       box.appendChild(h("div", {class:"dlgbtns"}, Dlg.btn("< Back", null, {disabled:true}), next));
       build(right, next);
+      right.appendChild(right._err);
       host.appendChild(box);
       setTimeout(() => { const i = box.querySelector("input"); if (i) i.focus(); }, 50);
     });
@@ -13075,7 +13095,7 @@ const Setup = {
       r._ok = () => {
         const m = key.i.value.replace(/\s/g, "").match(/^(\d{3})-?(\d{7})$/);
         const ok = m && !["333","444","555","666","777","888","999"].includes(m[1]) && m[2].split("").reduce((s, d) => s + +d, 0) % 7 === 0 && !/[089]$/.test(m[2]);
-        if (!ok) { Snd.event("Critical Stop"); alert("The CD Key you entered is not valid. Please try again."); return false; }
+        if (!ok) { Snd.event("Critical Stop"); r._err.textContent = "The CD Key you entered is not valid. Please try again."; return false; }
         return true;
       };
     });
@@ -13083,7 +13103,7 @@ const Setup = {
     await step("Computer Name", r => { r.append("Windows NT uses the computer name to identify this computer on the network. It can be up to 15 characters.", cn.el); r._ok = () => { this.opts.name = (cn.i.value || "CURATOR-WS").toUpperCase().slice(0, 15); return true; }; });
     const p1 = field("Password:", "", true), p2 = field("Confirm password:", "", true);
     await step("Administrator Account", r => { r.append("Setup creates a user account called Administrator. Type its password. (The exhibit's guide assumes 'password'; you may choose your own and remember it.)", p1.el, p2.el);
-      r._ok = () => { if (p1.i.value !== p2.i.value) { alert("The passwords do not match."); return false; } this.opts.pw = p1.i.value || "password"; return true; }; });
+      r._ok = () => { if (p1.i.value !== p2.i.value) { r._err.textContent = "The passwords you typed do not match. Please retype them."; return false; } this.opts.pw = p1.i.value || "password"; return true; }; });
     await step("Emergency Repair Disk", r => { const y = h("input", {type:"radio", class:"w95", name:"erd"}), n = h("input", {type:"radio", class:"w95", name:"erd"}); y.checked = true; r.append("An Emergency Repair Disk can repair a damaged system. Do you want to create one?", h("label", {class:"w95l", style:{display:"flex", margin:"6px 0"}}, y, "Yes, create an emergency repair disk (recommended)"), h("label", {class:"w95l", style:{display:"flex"}}, n, "No, do not create an emergency repair disk")); });
     await step("Select Components", r => r.append(...["Accessibility Options", "Accessories", "Communications", "Games", "Multimedia", "Windows Messaging"].map(c => h("label", {class:"w95l", style:{display:"flex", margin:"3px 0"}}, (() => { const x = h("input", {type:"checkbox", class:"w95"}); x.checked = true; return x; })(), c))));
     await step("Windows NT Networking", r => r.append("Setup will now search for your network adapter.", h("br"), h("br"), Dlg.btn("Start Search", function(){ this.textContent = "Found: 3Com Etherlink III Adapter"; this.disabled = true; }), h("br"), h("br"), "Protocols: TCP/IP, NWLink IPX/SPX Compatible Transport, NetBEUI.", h("br"), "Services: Computer Browser, NetBIOS Interface, RPC Configuration, Server, Workstation."));
@@ -13139,7 +13159,7 @@ const Welcome = {
   maybe(isNew){
     if (!State.get("welcome", true)) return;
     let i = State.get("tipIdx", 0) % this.tips.length;
-    const win = Dlg.show({title:"Welcome", icon:"tips", w:500, h:10});
+    const win = WM.create({title:"Welcome", icon:"tips", w:500, h:10, center:true, resizable:false, maximizable:false, minimizable:false});
     const tip = h("div", {style:{lineHeight:"1.5", minHeight:"70px"}}, this.tips[i]);
     const cb = h("input", {type:"checkbox", class:"w95"}); cb.checked = true;
     win.body.append(h("div", {style:{display:"flex", gap:"12px", padding:"14px"}},
@@ -13468,7 +13488,6 @@ const Boot = {
     sys(68, "spoolss.exe", {memK:1300, imageK:44});
     sys(76, "rpcss.exe", {memK:1100, imageK:64});
     if (Edition.isServer()) { sys(84, "llssrv.exe", {memK:900}); sys(88, "inetinfo.exe", {memK:2200}); }
-    sys(92, "nddeagnt.exe", {memK:600, imageK:12});
     Ps.nextPid = 100;
     Services.boot();
     Ke.start();
@@ -13701,7 +13720,7 @@ const Winlogon = {
     this.hideDesk();
     this.state = "desktop";
     this.startShell();
-    Snd.event("Start Windows");
+    Snd.event("Windows Logon");
     if (r.acct.name !== "Administrator" || isNew) setTimeout(() => Welcome.maybe(isNew), 900);
     setTimeout(() => this.runLogonScript(r), 400);
     setTimeout(() => this.runStartup(), 1200);
@@ -13714,13 +13733,15 @@ const Winlogon = {
     const shellName = Reg.getVal("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", "Shell", "Explorer.exe").toLowerCase();
     if (/progman/.test(shellName)) {
       $("#taskbar").style.display = "none";
+      $("#desktop").classList.add("fullbleed");
       Desktop.refreshIcons();
       Guide.note("progman");
       return Exec.start("progman", {asShell:true});
     }
     const p = Ps.create({image:"explorer.exe", title:"Explorer", memK:2380, imageK:236, appId:"explorer", demand:0.003});
     p.persistent = true;
-    p.onKill.push(() => { $("#taskbar").style.display = "none"; StartMenu.close(); Desktop.refreshIcons(); });
+    $("#desktop").classList.toggle("fullbleed", !!Taskbar.autoHide);
+    p.onKill.push(() => { $("#taskbar").style.display = "none"; $("#desktop").classList.add("fullbleed"); StartMenu.close(); Desktop.refreshIcons(); });
     Ps.create({image:"nddeagnt.exe", title:"nddeagnt", memK:600, imageK:12, demand:0}).persistent = true;
     Ps.run(p, () => {
       $("#taskbar").style.display = "";
@@ -13747,12 +13768,12 @@ const Winlogon = {
   securityDialog(){
     if (this._sec) return;
     this.state = "busy";
+    /* Winlogon switches to its own desktop: the user's windows are not on it */
     const desk = this.el();
-    desk.style.display = "block"; desk.innerHTML = ""; desk.style.background = "rgba(0,0,0,0)";
-    desk.classList.add("dimmed");
+    this.showDesk();
     const d = this.dialog({title:"Windows NT Security", w:470, banner:true});
     this._sec = d;
-    const close = () => { this._sec = null; desk.classList.remove("dimmed"); this.hideDesk(); this.state = "desktop"; };
+    const close = () => { this._sec = null; this.hideDesk(); this.state = "desktop"; };
     const lt = new Date(Session.logonTime);
     d.body.append(h("div", {style:{padding:"14px 18px 6px", lineHeight:"1.6"}},
         h("div", {}, "You are logged on as " + Session.qualified() + "."),
@@ -13762,7 +13783,7 @@ const Winlogon = {
         Dlg.btn("Lock Workstation", () => { d.close(); close(); this.lock(); }),
         Dlg.btn("Logoff...", () => { d.close(); close(); this.confirmLogoff(); }),
         Dlg.btn("Shut Down...", () => { d.close(); close(); this.shutdownDialog(false); }),
-        Dlg.btn("Change Password...", () => { d.close(); this._sec = null; desk.classList.remove("dimmed"); this.changePasswordDialog(null, false); }),
+        Dlg.btn("Change Password...", () => { d.close(); this._sec = null; this.changePasswordDialog(null, false); }),
         Dlg.btn("Task Manager...", () => { d.close(); close(); Exec.start("taskmgr"); }),
         Dlg.btn("Cancel", () => { d.close(); close(); }, {default:true})));
     d.place();
@@ -13852,7 +13873,7 @@ const Winlogon = {
   async logoff(forced, then){
     this.state = "busy";
     ScreenSaver.stop();
-    Snd.event("Exit Windows");
+    Snd.event("Windows Logoff");
     for (const w of WM.wins.slice()) { try { w.close(true); } catch(e){} }
     for (const p of Ps.list()) if (!p.system && p.pid !== 0) Ps.terminate(p, 0);
     Popups.closeAll(); StartMenu.close();
