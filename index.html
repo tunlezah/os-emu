@@ -338,6 +338,29 @@
     --h1-fill: none; --h1-color: #ff9966; --h1-shadow: none;
   }
 
+  /* Android 4.0 Holo — Theme.Holo: near-black, Holo-blue hairlines, Roboto */
+  :root[data-skin="android4"] {
+    color-scheme: dark;
+    --sans: "Roboto", "Helvetica Neue", "Segoe UI", Helvetica, Arial, "Liberation Sans", "DejaVu Sans", sans-serif;
+    --mono: "Roboto Mono", "DejaVu Sans Mono", Consolas, monospace;
+    --title-font: "Roboto", "Helvetica Neue", "Segoe UI", Helvetica, Arial, "Liberation Sans", "DejaVu Sans", sans-serif;
+    --bg: #000000; --bg-image: none; --bg-attach: scroll;
+    --bg-soft: #101010;
+    --panel: #101010; --panel-edge: #262626;
+    --text: #ffffff; --text-dim: #b2b2b2; --text-faint: #8c8c8c;
+    --desk-text: #b2b2b2; --hero-color: #b2b2b2; --hero-strong: #ffffff;
+    --accent: #33b5e5; --accent-2: #99cc00; --accent-ink: #00222e;
+    --kicker-color: #33b5e5; --cursor-color: #33b5e5;
+    --glow: rgba(51, 181, 229, 0.5);
+    --rule: rgba(51, 181, 229, 0.5);
+    --field-bg: transparent; --field-text: #ffffff; --field-placeholder: #8c8c8c; --btn-edge: transparent;
+    --pill: 2px; --radius: 2px; --radius-sm: 2px; --radius-xs: 2px;
+    --bevel: 0 0 0 0 transparent; --field-bevel: 0 0 0 0 transparent;
+    --card-shadow-hover: 0 0 0 0 transparent;
+    --ink: #ffffff; --ink-mix: 10%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: none;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -1038,6 +1061,59 @@
   :root[data-skin="lcars"] #empty { text-transform: uppercase; letter-spacing: 0.1em; }
   :root[data-skin="lcars"] .card h2 a:focus-visible { outline: none; background: #ff9966; color: #000000; }
 
+  /* Android 4.0 Holo */
+  :root[data-skin="android4"] h1 { font-weight: 300; letter-spacing: 0; }
+  :root[data-skin="android4"] .kicker { border: 0; background: none; letter-spacing: 0.2em; padding: 0 0 4px; border-bottom: 2px solid #33b5e5; border-radius: 0; }
+  :root[data-skin="android4"] .tb {
+    background: transparent; border: 0; color: #b2b2b2;
+    font: 700 12px var(--sans); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  :root[data-skin="android4"] .tb:hover { color: #ffffff; box-shadow: inset 0 -1px #6e6e6e; }
+  :root[data-skin="android4"] .tb:active { background: rgba(51, 181, 229, 0.28); }
+  :root[data-skin="android4"] .tb.active, :root[data-skin="android4"] .tb[aria-pressed="true"] {
+    background: transparent; color: #ffffff; box-shadow: inset 0 -4px #33b5e5;
+  }
+  :root[data-skin="android4"] .tb.active:active, :root[data-skin="android4"] .tb[aria-pressed="true"]:active { background: rgba(51, 181, 229, 0.28); }
+  :root[data-skin="android4"] .sortbtns, :root[data-skin="android4"] .themectl { gap: 2px; }
+  :root[data-skin="android4"] #search {
+    --hl: #6e6e6e; --hw: 1px;
+    border: 0; border-radius: 0; padding: 10px 8px; font-size: 16px;
+    background:
+      linear-gradient(var(--hl), var(--hl)) left bottom / 100% var(--hw) no-repeat,
+      linear-gradient(var(--hl), var(--hl)) left bottom / var(--hw) 6px no-repeat,
+      linear-gradient(var(--hl), var(--hl)) right bottom / var(--hw) 6px no-repeat;
+  }
+  :root[data-skin="android4"] #search:focus { --hl: #33b5e5; --hw: 2px; box-shadow: none; }
+  :root[data-skin="android4"] .wingbar h2::before { content: none; }
+  :root[data-skin="android4"] .wing .wingbar h2 { font: 700 13px var(--sans); letter-spacing: 0.09em; }
+  :root[data-skin="android4"] .wing:not(.uncat) .wingbar h2 { color: #33b5e5; }
+  :root[data-skin="android4"] .wing.uncat .wingbar h2 { color: #ff4444; }
+  :root[data-skin="android4"] .wing.uncat .wingbar { border-bottom-color: #ff4444; }
+  :root[data-skin="android4"] .card:hover, :root[data-skin="android4"] .card:focus-within { transform: none; border-color: #33b5e5; }
+  :root[data-skin="android4"] .card:focus-within { background: #0e1a1f; }
+  :root[data-skin="android4"] .chrome {
+    height: 36px; padding: 0 0 0 6px; gap: 6px;
+    background: #1a1a1a; color: #ffffff; border-bottom: 1px solid #000000;
+    font: 400 15px/1 var(--title-font);
+  }
+  :root[data-skin="android4"] .chrome .wl { gap: 6px; }
+  :root[data-skin="android4"] .chrome .wl i:nth-child(-n+2), :root[data-skin="android4"] .chrome .wr i:nth-child(3) { display: block; position: relative; }
+  :root[data-skin="android4"] .chrome .wl i:nth-child(1) { width: 8px; height: 12px; }
+  :root[data-skin="android4"] .chrome .wl i:nth-child(1)::before {
+    content: ""; position: absolute; left: 2px; top: 2px; width: 7px; height: 7px;
+    border: solid #ffffff; border-width: 0 0 2px 2px; opacity: 0.85; transform: rotate(45deg);
+  }
+  :root[data-skin="android4"] .chrome .wl i:nth-child(2) { width: 22px; height: 22px; background: #33b5e5; border-radius: 2px; }
+  :root[data-skin="android4"] .chrome .wr i:nth-child(3) { width: 36px; height: 36px; font: 400 20px/36px var(--sans); color: #ffffff; }
+  :root[data-skin="android4"] .chrome .wr i:nth-child(3)::before { content: "⋮"; }
+  :root[data-skin="android4"] .screen { background: var(--card-bg); border-bottom-color: #262626; }
+  :root[data-skin="android4"] .screen::after { display: none; }
+  :root[data-skin="android4"] .glyph { text-shadow: none; }
+  :root[data-skin="android4"] .year { border-color: #3a3a3a; }
+  :root[data-skin="android4"] .wing-vacant { border-style: solid; border-color: #262626; }
+  :root[data-skin="android4"] footer code { background: #1a1a1a; border-color: #3a3a3a; }
+  :root[data-skin="android4"] .card h2 a:focus-visible { outline: none; background: rgba(51, 181, 229, 0.55); color: #ffffff; }
+
   /* empty search state */
   #empty {
     display: none;
@@ -1095,7 +1171,8 @@ window.OSM = (function () {
     { id: "beos",     name: "BeOS" },
     { id: "amiga",    name: "AmigaOS 3.1" },
     { id: "solaris",  name: "Solaris CDE" },
-    { id: "lcars",    name: "LCARS" }
+    { id: "lcars",    name: "LCARS" },
+    { id: "android4", name: "Android 4.0 Holo" }
   ];
   var THEMES = ["dark", "light", "system", "themed"];
   var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
