@@ -19,7 +19,8 @@ You can also open any exhibit's `.html` file directly; each one is fully standal
 
 **The launcher** has a search box, sorting by year or by name, and a theme switch: **Dark**,
 **Light**, **System** (follows your OS setting) or **Themed**, which dresses the whole page as one
-of five exhibits' operating systems — Windows 95, Windows XP, Mac OS 9, Mac OS X Tiger or
+of thirteen exhibits' operating systems — LCARS, Atari TOS / GEM, AmigaOS 3.1, Windows 95,
+NeXTSTEP, Solaris CDE, BeOS, Mac OS 9, Plan 9, Windows XP, Mac OS X Tiger, Android 4.0 Holo or
 Windows 8 — chosen at random on every visit. Click *Themed* again for another one. Your choice is
 remembered in the browser. Every card is the same height and shows the first few lines of its
 blurb; **more…** opens the rest in place.
@@ -186,6 +187,17 @@ that OS's style. To add one:
    the `name` is what the page shows in "now dressed as …".
 3. Keep it self-contained: system font stacks with fallbacks, CSS gradients instead of images,
    nothing downloaded.
+4. **Take the look from the exhibit, not from memory.** The skin's `id` is the exhibit's file
+   stem (`beos` for `beos.html`), and its palette, font stacks and bevel recipes come from that
+   file's own CSS and drawing code.
+5. **Set every token declared on `:root`**, so nothing falls through to the dark theme's
+   starfield, radii or teal accent.
+6. The chrome is yours to shape: a skin may hide it (Plan 9) or reshape it (the BeOS tab, the
+   LCARS elbow) without touching `makeCard()`.
+7. Check WCAG AA contrast for every text surface and the focus ring on every control, at phone
+   and desktop widths; where authenticity and contrast disagree, contrast wins.
+8. Respect `prefers-reduced-motion`: any transform or animation a skin adds must be switched off
+   with a selector specific enough to win.
 
 ## 📄 Notes
 
