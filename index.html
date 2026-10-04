@@ -1259,6 +1259,7 @@
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     .card, .card:hover, .card:focus-within { transition: none; transform: none; }
+    :root[data-skin="win8"] .card:hover, :root[data-skin="win8"] .card:focus-within { transform: none; }
     .cursor::after, .card:hover .glyph { animation: none; }
   }
 </style>
