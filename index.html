@@ -263,6 +263,30 @@
     --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 1px 1px 0 #000000;
   }
 
+  /* AmigaOS 3.1 — the four Workbench pens: grey, black, white, blue */
+  :root[data-skin="amiga"] {
+    color-scheme: light;
+    --sans: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+    --mono: "Topaz", "TopazPlus", "PxPlus IBM VGA8", "Px437 IBM VGA8", "Lucida Console", "Courier New", monospace;
+    --title-font: "Topaz", "TopazPlus", "PxPlus IBM VGA8", "Px437 IBM VGA8", "Lucida Console", "Courier New", monospace;
+    --bg: #aaaaaa; --bg-image: none; --bg-attach: scroll;
+    --bg-soft: #ffffff;
+    --panel: #aaaaaa; --panel-edge: #000000;
+    --text: #000000; --text-dim: #000000; --text-faint: #000000;
+    --desk-text: #000000; --hero-color: #000000; --hero-strong: #000000;
+    --accent: #000000; --accent-2: #6688bb; --accent-ink: #000000;
+    --kicker-color: #000000; --cursor-color: #6688bb;
+    --glow: #000000;
+    --rule: #000000;
+    --field-bg: #aaaaaa; --field-text: #000000; --field-placeholder: #000000; --btn-edge: transparent;
+    --pill: 0; --radius: 0; --radius-sm: 0; --radius-xs: 0;
+    --bevel: inset 2px 2px #ffffff, inset -2px -2px #000000;
+    --field-bevel: inset 2px 2px #000000, inset -2px -2px #ffffff;
+    --card-shadow-hover: 0 0 0 0 transparent;
+    --ink: #000000; --ink-mix: 75%;
+    --h1-fill: none; --h1-color: #000000; --h1-shadow: 2px 2px 0 #ffffff;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -779,6 +803,50 @@
   :root[data-skin="beos"] .wing-vacant { color: #000000; border-color: #666666; }
   :root[data-skin="beos"] .card h2 a:focus-visible { outline: none; background: #336698; color: #ffffff; }
 
+  /* AmigaOS 3.1 */
+  :root[data-skin="amiga"] .kicker {
+    border: 0; border-bottom: 2px solid #000000; box-shadow: none;
+    letter-spacing: 0.08em; padding: 3px 12px 1px;
+  }
+  :root[data-skin="amiga"] h1 { font-weight: 700; letter-spacing: 0; }
+  :root[data-skin="amiga"] .card { border: 2px solid; border-color: #ffffff #000000 #000000 #ffffff; box-shadow: none; }
+  :root[data-skin="amiga"] .card:hover, :root[data-skin="amiga"] .card:focus-within {
+    transform: none; border-color: #000000 #ffffff #ffffff #000000; box-shadow: 0 0 0 2px #000000;
+  }
+  :root[data-skin="amiga"] .chrome {
+    height: 20px; padding: 0; gap: 0; align-items: stretch;
+    background: #6688bb; color: #ffffff; border-bottom: 2px solid #000000;
+    font: 400 13px/18px var(--title-font);
+  }
+  :root[data-skin="amiga"] .chrome .wl, :root[data-skin="amiga"] .chrome .wr { gap: 0; align-items: stretch; }
+  :root[data-skin="amiga"] .chrome .wtitle { padding: 0 6px; }
+  :root[data-skin="amiga"] .chrome .wl i:nth-child(1), :root[data-skin="amiga"] .chrome .wr i:nth-child(n+2) {
+    display: block; position: relative; width: 22px; height: auto;
+  }
+  :root[data-skin="amiga"] .chrome .wl i:nth-child(1) { border-right: 2px solid #000000; }
+  :root[data-skin="amiga"] .chrome .wr i:nth-child(n+2) { border-left: 2px solid #000000; }
+  :root[data-skin="amiga"] .chrome i::before, :root[data-skin="amiga"] .chrome i::after { content: ""; position: absolute; box-sizing: border-box; }
+  :root[data-skin="amiga"] .chrome .wl i:nth-child(1)::before { left: 6px; top: 4px; width: 10px; height: 10px; border: 2px solid #ffffff; }
+  :root[data-skin="amiga"] .chrome .wl i:nth-child(1)::after { left: 10px; top: 8px; width: 2px; height: 2px; background: #ffffff; }
+  :root[data-skin="amiga"] .chrome .wr i:nth-child(2)::before { left: 3px; top: 3px; width: 16px; height: 13px; border: 2px solid #ffffff; }
+  :root[data-skin="amiga"] .chrome .wr i:nth-child(2)::after { left: 3px; top: 3px; width: 9px; height: 7px; background: #ffffff; }
+  :root[data-skin="amiga"] .chrome .wr i:nth-child(3)::before { left: 2px; top: 2px; width: 12px; height: 10px; border: 2px solid #ffffff; background: #aaaaaa; }
+  :root[data-skin="amiga"] .chrome .wr i:nth-child(3)::after { left: 7px; top: 6px; width: 12px; height: 10px; border: 2px solid #ffffff; background: #ffffff; }
+  :root[data-skin="amiga"] .screen { border-bottom: 2px solid #000000; }
+  :root[data-skin="amiga"] .tb { border: 0; color: #000000; font: 13px var(--mono); }
+  :root[data-skin="amiga"] .tb:hover { box-shadow: var(--bevel), inset 0 0 0 3px #000000; }
+  :root[data-skin="amiga"] .tb:focus-visible { outline-color: #000000; }
+  :root[data-skin="amiga"] .tb:active, :root[data-skin="amiga"] .tb.active, :root[data-skin="amiga"] .tb[aria-pressed="true"] {
+    background: #6688bb; color: #000000; box-shadow: var(--field-bevel);
+  }
+  :root[data-skin="amiga"] #search { border: 0; font-family: var(--mono); }
+  :root[data-skin="amiga"] #search:focus { box-shadow: var(--field-bevel), 0 0 0 2px #000000; }
+  :root[data-skin="amiga"] .wingbar { border-bottom-width: 2px; }
+  :root[data-skin="amiga"] .year { border-color: #000000; }
+  :root[data-skin="amiga"] .wing.uncat .wingdesc { color: #000000; }
+  :root[data-skin="amiga"] .wing-vacant { color: #000000; border-color: #000000; }
+  :root[data-skin="amiga"] .card h2 a:focus-visible { outline: none; background: #000000; color: #ffffff; }
+
   /* empty search state */
   #empty {
     display: none;
@@ -833,7 +901,8 @@ window.OSM = (function () {
     { id: "tiger",  name: "Mac OS X Tiger" },
     { id: "win8",   name: "Windows 8" },
     { id: "nextstep", name: "NeXTSTEP" },
-    { id: "beos",     name: "BeOS" }
+    { id: "beos",     name: "BeOS" },
+    { id: "amiga",    name: "AmigaOS 3.1" }
   ];
   var THEMES = ["dark", "light", "system", "themed"];
   var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
