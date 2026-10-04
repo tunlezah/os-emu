@@ -287,6 +287,32 @@
     --h1-fill: none; --h1-color: #000000; --h1-shadow: 2px 2px 0 #ffffff;
   }
 
+  /* Solaris CDE — corrugated backdrop, Motif bevels, the Default palette */
+  :root[data-skin="solaris"] {
+    color-scheme: light;
+    --sans: Helvetica, Arial, "Nimbus Sans", "Liberation Sans", sans-serif;
+    --mono: "Courier New", Courier, "Nimbus Mono PS", "Liberation Mono", monospace;
+    --title-font: Helvetica, Arial, "Nimbus Sans", "Liberation Sans", sans-serif;
+    --bg: #666d84;
+    --bg-image: repeating-linear-gradient(180deg, #7c8399 0 2px, #666d84 2px 4px);
+    --bg-attach: scroll;
+    --bg-soft: #aeb2c3;
+    --panel: #aeb2c3; --panel-edge: #60626b;
+    --text: #000000; --text-dim: #111111; --text-faint: #26282e;
+    --desk-text: #000000; --hero-color: #000000; --hero-strong: #000000;
+    --accent: #3f4a63; --accent-2: #8f9ab8; --accent-ink: #ffffff;
+    --kicker-color: #000000; --cursor-color: #3f4a63;
+    --glow: #000000;
+    --rule: #60626b;
+    --field-bg: #f2f2f2; --field-text: #000000; --field-placeholder: #555555; --btn-edge: transparent;
+    --pill: 0; --radius: 0; --radius-sm: 0; --radius-xs: 0;
+    --bevel: inset 2px 2px #ffffff, inset -2px -2px #60626b;
+    --field-bevel: inset 2px 2px #60626b, inset -2px -2px #ffffff;
+    --card-shadow-hover: 0 0 0 0 transparent;
+    --ink: #000000; --ink-mix: 75%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 2px 2px 0 #3f4a63;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -847,6 +873,72 @@
   :root[data-skin="amiga"] .wing-vacant { color: #000000; border-color: #000000; }
   :root[data-skin="amiga"] .card h2 a:focus-visible { outline: none; background: #000000; color: #ffffff; }
 
+  /* Solaris CDE */
+  :root[data-skin="solaris"] .kicker { border: 0; }
+  :root[data-skin="solaris"] header .sub, :root[data-skin="solaris"] .skinnote:not([hidden]),
+  :root[data-skin="solaris"] .wingbar, :root[data-skin="solaris"] #empty, :root[data-skin="solaris"] footer {
+    background: #aeb2c3; box-shadow: var(--bevel);
+  }
+  :root[data-skin="solaris"] header .sub { padding: 10px 16px; }
+  :root[data-skin="solaris"] .skinnote:not([hidden]) { display: table; margin: 10px auto 0; padding: 3px 12px; }
+  :root[data-skin="solaris"] .wingbar { padding: 10px 14px; border-bottom: 0; }
+  :root[data-skin="solaris"] .wing.uncat .wingbar { box-shadow: var(--bevel), inset 6px 0 #a33a48; padding-left: 20px; }
+  :root[data-skin="solaris"] .wing.uncat .wingdesc { color: #6a1420; }
+  :root[data-skin="solaris"] #empty { margin: 30px auto 0; max-width: 420px; padding: 20px; }
+  :root[data-skin="solaris"] footer { border-top: 0; padding: 20px 24px; margin-bottom: 30px; }
+  :root[data-skin="solaris"] .toolbar .sortbtns, :root[data-skin="solaris"] .toolbar .themectl {
+    gap: 3px; padding: 3px; background: #aeb2c3; box-shadow: var(--bevel);
+  }
+  :root[data-skin="solaris"] .tb { color: #000000; padding: 7px 14px; }
+  :root[data-skin="solaris"] .themectl button { padding: 7px 11px; }
+  :root[data-skin="solaris"] .tb:focus-visible { outline-color: #000000; }
+  :root[data-skin="solaris"] .tb:active, :root[data-skin="solaris"] .tb.active, :root[data-skin="solaris"] .tb[aria-pressed="true"] {
+    background: #9497a6; color: #000000; border-color: transparent; box-shadow: var(--field-bevel);
+  }
+  :root[data-skin="solaris"] #search:focus { border-color: transparent; box-shadow: var(--field-bevel), 0 0 0 2px #000000; }
+  :root[data-skin="solaris"] .card {
+    --fr: #a0a4b3; --fr-ts: #f0f6ff; --fr-bs: #585a62;
+    border: 0; padding: 5px; background: var(--fr);
+    box-shadow: inset 2px 2px var(--fr-ts), inset -2px -2px var(--fr-bs);
+  }
+  :root[data-skin="solaris"] .card:hover, :root[data-skin="solaris"] .card:focus-within {
+    --fr: #8f9ab8; --fr-ts: #d7e7ff; --fr-bs: #4f5565;
+    transform: none; box-shadow: inset 2px 2px var(--fr-ts), inset -2px -2px var(--fr-bs);
+  }
+  :root[data-skin="solaris"] .card::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      linear-gradient(90deg, var(--fr-bs) 1px, var(--fr-ts) 1px) left 22px top 0 / 2px 5px no-repeat,
+      linear-gradient(90deg, var(--fr-bs) 1px, var(--fr-ts) 1px) right 22px top 0 / 2px 5px no-repeat,
+      linear-gradient(90deg, var(--fr-bs) 1px, var(--fr-ts) 1px) left 22px bottom 0 / 2px 5px no-repeat,
+      linear-gradient(90deg, var(--fr-bs) 1px, var(--fr-ts) 1px) right 22px bottom 0 / 2px 5px no-repeat,
+      linear-gradient(var(--fr-bs) 1px, var(--fr-ts) 1px) left 0 top 22px / 5px 2px no-repeat,
+      linear-gradient(var(--fr-bs) 1px, var(--fr-ts) 1px) right 0 top 22px / 5px 2px no-repeat,
+      linear-gradient(var(--fr-bs) 1px, var(--fr-ts) 1px) left 0 bottom 22px / 5px 2px no-repeat,
+      linear-gradient(var(--fr-bs) 1px, var(--fr-ts) 1px) right 0 bottom 22px / 5px 2px no-repeat;
+  }
+  :root[data-skin="solaris"] .chrome { height: 23px; padding: 0; gap: 0; align-items: stretch; color: #000000; }
+  :root[data-skin="solaris"] .chrome .wl, :root[data-skin="solaris"] .chrome .wr { gap: 0; align-items: stretch; }
+  :root[data-skin="solaris"] .chrome .wtitle, :root[data-skin="solaris"] .chrome .wl i:nth-child(1), :root[data-skin="solaris"] .chrome .wr i:nth-child(n+2) {
+    background: var(--fr); border: 2px solid; border-color: var(--fr-ts) var(--fr-bs) var(--fr-bs) var(--fr-ts);
+  }
+  :root[data-skin="solaris"] .chrome .wtitle { text-align: center; padding: 0 6px; line-height: 19px; }
+  :root[data-skin="solaris"] .chrome .wl i:nth-child(1), :root[data-skin="solaris"] .chrome .wr i:nth-child(n+2) {
+    display: flex; align-items: center; justify-content: center; width: 23px; height: auto;
+  }
+  :root[data-skin="solaris"] .chrome i::before { content: ""; display: block; }
+  :root[data-skin="solaris"] .chrome .wl i:nth-child(1)::before { width: 11px; height: 3px; background: #000000; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
+  :root[data-skin="solaris"] .chrome .wr i:nth-child(n+2)::before {
+    width: 7px; height: 7px; background: var(--fr);
+    border: 1px solid; border-color: #ffffff #60626b #60626b #ffffff;
+  }
+  :root[data-skin="solaris"] .chrome .wr i:nth-child(3)::before { width: 12px; height: 11px; }
+  :root[data-skin="solaris"] .screen { border-bottom: 0; }
+  :root[data-skin="solaris"] .body { background: #aeb2c3; }
+  :root[data-skin="solaris"] .year { border-color: #60626b; }
+  :root[data-skin="solaris"] .wing-vacant { color: #000000; border: 0; box-shadow: var(--bevel); background: #aeb2c3; }
+  :root[data-skin="solaris"] .card h2 a:focus-visible { outline: none; background: #3f4a63; color: #ffffff; }
+
   /* empty search state */
   #empty {
     display: none;
@@ -902,7 +994,8 @@ window.OSM = (function () {
     { id: "win8",   name: "Windows 8" },
     { id: "nextstep", name: "NeXTSTEP" },
     { id: "beos",     name: "BeOS" },
-    { id: "amiga",    name: "AmigaOS 3.1" }
+    { id: "amiga",    name: "AmigaOS 3.1" },
+    { id: "solaris",  name: "Solaris CDE" }
   ];
   var THEMES = ["dark", "light", "system", "themed"];
   var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
