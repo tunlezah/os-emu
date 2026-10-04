@@ -239,6 +239,30 @@
     --h1-fill: none; --h1-color: #ffffff; --h1-shadow: none;
   }
 
+  /* BeOS — blue desktop, yellow tabs, grey panels */
+  :root[data-skin="beos"] {
+    color-scheme: light;
+    --sans: Verdana, Geneva, "DejaVu Sans", "Bitstream Vera Sans", sans-serif;
+    --mono: Menlo, "DejaVu Sans Mono", Consolas, "Courier New", monospace;
+    --title-font: Verdana, Geneva, "DejaVu Sans", "Bitstream Vera Sans", sans-serif;
+    --bg: #336698; --bg-image: none; --bg-attach: scroll;
+    --bg-soft: #d8d8d8;
+    --panel: #d8d8d8; --panel-edge: #666666;
+    --text: #000000; --text-dim: #1a1a1a; --text-faint: #3d3d3d;
+    --desk-text: #ffffff; --hero-color: #ffffff; --hero-strong: #ffffff;
+    --accent: #336698; --accent-2: #ffcb00; --accent-ink: #ffffff;
+    --kicker-color: #000000; --cursor-color: #ffcb00;
+    --glow: #ffcb00;
+    --rule: #9fb6cf;
+    --field-bg: #ffffff; --field-text: #000000; --field-placeholder: #5c5c5c; --btn-edge: #666666;
+    --pill: 0; --radius: 0; --radius-sm: 0; --radius-xs: 0;
+    --bevel: inset 1px 1px #ffffff, inset -1px -1px #9a9a9a;
+    --field-bevel: inset 1px 1px #9a9a9a, inset -1px -1px #ffffff;
+    --card-shadow-hover: 0 0 0 0 transparent;
+    --ink: #000000; --ink-mix: 62%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: 1px 1px 0 #000000;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -713,6 +737,48 @@
   :root[data-skin="nextstep"] .wing-vacant { color: #000000; }
   :root[data-skin="nextstep"] .card h2 a:focus-visible { outline: none; background: #000000; color: #ffffff; }
 
+  /* BeOS */
+  :root[data-skin="beos"] .card { background: transparent; border: 0; box-shadow: none; }
+  :root[data-skin="beos"] .card:hover, :root[data-skin="beos"] .card:focus-within { transform: none; box-shadow: none; }
+  :root[data-skin="beos"] .chrome {
+    width: max-content; max-width: calc(100% - 24px);
+    height: 20px; padding: 0 5px 0 4px; gap: 5px;
+    background: #ffcb00; color: #000000;
+    border: 1px solid #000000; border-bottom: 0;
+    box-shadow: inset 1px 1px 0 #ffe680, inset -1px 0 0 #c19a00;
+    font: 700 11px/1 var(--title-font);
+  }
+  :root[data-skin="beos"] .chrome .wtitle { flex: 0 1 auto; padding: 1px 2px 0; }
+  :root[data-skin="beos"] .chrome .wl i:nth-child(1), :root[data-skin="beos"] .chrome .wr i:nth-child(1) {
+    display: block; position: relative; width: 11px; height: 11px;
+    background: #ffcb00; border: 1px solid #000000;
+    box-shadow: inset 1px 1px 0 #ffe680, inset -1px -1px 0 #a37f00;
+  }
+  :root[data-skin="beos"] .chrome .wr i:nth-child(1) { width: 13px; height: 13px; }
+  :root[data-skin="beos"] .chrome .wr i:nth-child(1)::after {
+    content: ""; position: absolute; left: 1px; top: 1px; width: 6px; height: 6px; border: 1px solid #000000;
+  }
+  :root[data-skin="beos"] .screen { border: 1px solid #000000; border-bottom: 0; }
+  :root[data-skin="beos"] .body {
+    background: #d8d8d8; border: 1px solid #000000; border-top: 1px solid #9a9a9a;
+    box-shadow: inset 1px 0 0 #ffffff, inset -1px -1px 0 #9a9a9a;
+  }
+  :root[data-skin="beos"] .card:hover .chrome, :root[data-skin="beos"] .card:focus-within .chrome { box-shadow: inset 1px 1px 0 #000000, inset -1px 0 0 #000000; }
+  :root[data-skin="beos"] .card:hover .screen, :root[data-skin="beos"] .card:focus-within .screen { box-shadow: inset 1px 1px 0 #000000, inset -1px 0 0 #000000; }
+  :root[data-skin="beos"] .card:hover .body, :root[data-skin="beos"] .card:focus-within .body { box-shadow: inset 1px 0 0 #000000, inset -1px -1px 0 #000000; }
+  :root[data-skin="beos"] .kicker { border-color: #666666; }
+  :root[data-skin="beos"] .tb { background: #d8d8d8; color: #000000; border-color: #666666; }
+  :root[data-skin="beos"] .tb:hover { border-color: #000000; }
+  :root[data-skin="beos"] .tb:focus-visible { outline-color: #ffffff; }
+  :root[data-skin="beos"] .tb:active { background: #cfcfcf; box-shadow: inset 1px 1px 0 #9a9a9a, inset -1px -1px 0 #ffffff; }
+  :root[data-skin="beos"] .tb.active, :root[data-skin="beos"] .tb[aria-pressed="true"] {
+    background: #336698; color: #ffffff; border-color: #000000; box-shadow: inset 1px 1px 0 #20344c;
+  }
+  :root[data-skin="beos"] .year { border-color: #9a9a9a; }
+  :root[data-skin="beos"] .wing.uncat .wingdesc { color: #ffe3e7; }
+  :root[data-skin="beos"] .wing-vacant { color: #000000; border-color: #666666; }
+  :root[data-skin="beos"] .card h2 a:focus-visible { outline: none; background: #336698; color: #ffffff; }
+
   /* empty search state */
   #empty {
     display: none;
@@ -766,7 +832,8 @@ window.OSM = (function () {
     { id: "macos9", name: "Mac OS 9" },
     { id: "tiger",  name: "Mac OS X Tiger" },
     { id: "win8",   name: "Windows 8" },
-    { id: "nextstep", name: "NeXTSTEP" }
+    { id: "nextstep", name: "NeXTSTEP" },
+    { id: "beos",     name: "BeOS" }
   ];
   var THEMES = ["dark", "light", "system", "themed"];
   var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
