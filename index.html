@@ -215,6 +215,30 @@
     --h1-fill: none; --h1-color: #ffffff; --h1-shadow: none;
   }
 
+  /* NeXTSTEP — dark grey desktop, chiselled grey panels, black key title bars */
+  :root[data-skin="nextstep"] {
+    color-scheme: light;
+    --sans: Helvetica, "Helvetica Neue", Arial, "Nimbus Sans", "Liberation Sans", sans-serif;
+    --mono: "Ohlfs", "Lucida Console", Monaco, Menlo, Courier, monospace;
+    --title-font: Helvetica, "Helvetica Neue", Arial, "Nimbus Sans", "Liberation Sans", sans-serif;
+    --bg: #575757; --bg-image: none; --bg-attach: scroll;
+    --bg-soft: #a8a8a8;
+    --panel: #a8a8a8; --panel-edge: #000000;
+    --text: #000000; --text-dim: #111111; --text-faint: #2b2b2b;
+    --desk-text: #ffffff; --hero-color: #ffffff; --hero-strong: #ffffff;
+    --accent: #000000; --accent-2: #000000; --accent-ink: #ffffff;
+    --kicker-color: #000000; --cursor-color: #ffffff;
+    --glow: rgba(255, 255, 255, 0.9);
+    --rule: #a8a8a8;
+    --field-bg: #ffffff; --field-text: #000000; --field-placeholder: #555555; --btn-edge: transparent;
+    --pill: 0; --radius: 0; --radius-sm: 0; --radius-xs: 0;
+    --bevel: inset 2px 2px #ffffff, inset -2px -2px #4d4d4d;
+    --field-bevel: inset 2px 2px #4d4d4d, inset -2px -2px #ffffff;
+    --card-shadow-hover: 6px 6px 0 rgba(0, 0, 0, 0.45);
+    --ink: #000000; --ink-mix: 75%;
+    --h1-fill: none; --h1-color: #ffffff; --h1-shadow: none;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
@@ -653,6 +677,42 @@
   :root[data-skin="win8"] #search { border: 2px solid transparent; }
   :root[data-skin="win8"] .wing-vacant { border-color: rgba(255,255,255,0.4); }
 
+  /* NeXTSTEP */
+  :root[data-skin="nextstep"] .chrome {
+    height: 21px; padding: 0 3px; gap: 3px;
+    background: #000000; color: #ffffff;
+    border-top: 1px solid #4a4a4a; border-bottom: 1px solid #000000;
+  }
+  :root[data-skin="nextstep"] .chrome .wtitle { text-align: center; padding: 0 4px; }
+  :root[data-skin="nextstep"] .chrome .wl i:nth-child(1), :root[data-skin="nextstep"] .chrome .wr i:nth-child(3) {
+    display: block; position: relative; width: 15px; height: 15px;
+    border: 1px solid; border-color: #d9d9d9 #3d3d3d #3d3d3d #d9d9d9; background: #a8a8a8;
+  }
+  :root[data-skin="nextstep"] .chrome .wl i:nth-child(1)::after {
+    content: ""; position: absolute; left: 3px; right: 3px; top: 5px; height: 3px;
+    border: 1px solid; border-color: #3d3d3d #d9d9d9 #d9d9d9 #3d3d3d; background: #a8a8a8;
+  }
+  :root[data-skin="nextstep"] .chrome .wr i:nth-child(3)::before, :root[data-skin="nextstep"] .chrome .wr i:nth-child(3)::after {
+    content: ""; position: absolute; left: 2px; top: 6px; width: 9px; height: 1.6px;
+    background: #222222; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); transform: rotate(45deg);
+  }
+  :root[data-skin="nextstep"] .chrome .wr i:nth-child(3)::after { transform: rotate(-45deg); }
+  :root[data-skin="nextstep"] .card { border: 1px solid #000000; }
+  :root[data-skin="nextstep"] .card:hover, :root[data-skin="nextstep"] .card:focus-within { transform: none; border-color: #000000; }
+  :root[data-skin="nextstep"] .screen { margin: 6px 6px 0; border: 2px solid; border-color: #4d4d4d #ffffff #ffffff #4d4d4d; }
+  :root[data-skin="nextstep"] .year { border-color: #4d4d4d; }
+  :root[data-skin="nextstep"] .tb { color: #000000; }
+  :root[data-skin="nextstep"] .tb:focus-visible { outline-color: #ffffff; }
+  :root[data-skin="nextstep"] .tb:active, :root[data-skin="nextstep"] .tb.active, :root[data-skin="nextstep"] .tb[aria-pressed="true"] {
+    background: #909090; color: #000000; border-color: transparent;
+    box-shadow: inset 2px 2px #4d4d4d, inset -2px -2px #ffffff;
+  }
+  :root[data-skin="nextstep"] .tb:hover { border-color: #000000; }
+  :root[data-skin="nextstep"] #search:focus { border-color: #000000; }
+  :root[data-skin="nextstep"] .wing.uncat .wingdesc { color: #ffd0d6; }
+  :root[data-skin="nextstep"] .wing-vacant { color: #000000; }
+  :root[data-skin="nextstep"] .card h2 a:focus-visible { outline: none; background: #000000; color: #ffffff; }
+
   /* empty search state */
   #empty {
     display: none;
@@ -705,7 +765,8 @@ window.OSM = (function () {
     { id: "winxp",  name: "Windows XP" },
     { id: "macos9", name: "Mac OS 9" },
     { id: "tiger",  name: "Mac OS X Tiger" },
-    { id: "win8",   name: "Windows 8" }
+    { id: "win8",   name: "Windows 8" },
+    { id: "nextstep", name: "NeXTSTEP" }
   ];
   var THEMES = ["dark", "light", "system", "themed"];
   var THEME_KEY = "osmuseum-theme", SKIN_KEY = "osmuseum-skin";
